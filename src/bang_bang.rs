@@ -1,5 +1,5 @@
 //! # Example
-//! ```rust,norun
+//! ```rust,no_run
 //! use msr::{Controller,bang_bang::*};
 //!
 //! let mut cfg = BangBangConfig::default();
