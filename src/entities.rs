@@ -112,10 +112,6 @@ mod tests {
             id: "a",
             desc: Some("foo"),
         };
-        let a0 = Input {
-            id: "a",
-            desc: None,
-        };
         assert!(o0.eq(&o1));
     }
 
