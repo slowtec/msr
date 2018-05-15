@@ -10,3 +10,6 @@ homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"
 
 [dependencies]
+
+[badges]
+travis-ci = { repository = "slowtec/msr" }

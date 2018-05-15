@@ -2,6 +2,10 @@
 
 A [Rust](https://www.rust-lang.org) library for industrial automation.
 
+[![Crates.io version](https://img.shields.io/crates/v/msr.svg)](https://crates.io/crates/msr)
+[![Docs](https://docs.rs/msr/badge.svg)](https://docs.rs/msr/)
+[![Build Status](https://travis-ci.org/slowtec/msr.svg?branch=master)](https://travis-ci.org/slowtec/msr)
+
 ## Installation
 
 Add this to your `Cargo.toml`:
