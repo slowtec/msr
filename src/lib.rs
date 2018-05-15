@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 mod value;
 pub use self::value::*;
@@ -27,5 +27,23 @@ where
 {
     fn next(&mut self, input: I, delta_t: &Duration) -> O {
         (self as &mut Controller<(I, &Duration), O>).next((input, delta_t))
+    }
+}
+
+/// The state of all inputs and outputs of a MSR system.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IoState<'a> {
+    /// Input gates (sensors)
+    pub input: HashMap<&'a str, &'a Value>,
+    /// Output gates (actuators)
+    pub output: HashMap<&'a str, &'a Value>,
+}
+
+impl<'a> Default for IoState<'a> {
+    fn default() -> Self {
+        IoState {
+            input: HashMap::new(),
+            output: HashMap::new(),
+        }
     }
 }
