@@ -51,6 +51,13 @@ pub enum ControllerType {
     BangBang(bang_bang::BangBang),
 }
 
+/// A loop contiuously triggers a controller again and again.
+pub struct Loop {
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
+    pub controller: ControllerType,
+}
+
 /// The state of all inputs and outputs of a MSR system.
 /// # Example
 /// ```rust,no_run
