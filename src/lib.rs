@@ -1,4 +1,6 @@
-use std::{collections::HashMap, io::Result, time::Duration};
+use std::{
+    collections::HashMap, io::{Error, ErrorKind, Result}, time::Duration,
+};
 
 mod entities;
 mod value;
@@ -49,36 +51,71 @@ pub trait SyncIoSystem {
 /// use msr::*;
 /// use std::{thread, time::Duration};
 ///
-/// let sensor = Input::new("tcr001");
-/// let actuator = Output::new("h1");
 /// let mut state = IoState::default();
 ///
 /// loop {
-///     // Read some inputs (you'd use s.th. like 'read_sensor(&sensor)')
+///     // Read some inputs (you'd use s.th. like 'read("sensor_id")')
 ///     let sensor_value = Value::Decimal(8.9);
-///     state.input.insert(&sensor, sensor_value);
+///     state.input.insert("tcr001".into(), sensor_value);
 ///
 ///     // Calculate some outputs (you'd use s.th. like 'calc(&state)')
 ///     let actuator_value = Value::Decimal(1.7);
-///     state.output.insert(&actuator, actuator_value);
+///     state.output.insert("h1".into(), actuator_value);
 ///
 ///     // Wait for next cycle
 ///     thread::sleep(Duration::from_secs(2));
 /// }
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct IoState<'a> {
+pub struct IoState {
     /// Input gates (sensors)
-    pub input: HashMap<&'a Input<'a>, Value>,
+    pub input: HashMap<String, Value>,
     /// Output gates (actuators)
-    pub output: HashMap<&'a Output<'a>, Value>,
+    pub output: HashMap<String, Value>,
 }
 
-impl<'a> Default for IoState<'a> {
+impl Default for IoState {
     fn default() -> Self {
         IoState {
             input: HashMap::new(),
             output: HashMap::new(),
         }
+    }
+}
+
+impl SyncIoSystem for IoState {
+    fn read(&mut self, id: &str) -> Result<Value> {
+        Ok(self
+            .input
+            .get(id)
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "no such input"))?
+            .clone())
+    }
+
+    fn read_output(&mut self, id: &str) -> Result<Option<Value>> {
+        Ok(self.output.get(id).cloned())
+    }
+
+    fn write(&mut self, id: &str, v: &Value) -> Result<()> {
+        self.output.insert(id.into(), v.clone());
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn io_state_as_sync_io_system() {
+        let mut io = IoState::default();
+        assert!(io.read("foo").is_err());
+        assert!(io.read_output("foo").unwrap().is_none());
+        assert!(io.write("foo", &Value::Decimal(3.3)).is_ok());
+        assert!(io.read("foo").is_err());
+        assert_eq!(io.read_output("foo").unwrap(), Some(Value::Decimal(3.3)));
+        io.input.insert("foo".into(), Value::Bit(true));
+        assert_eq!(io.read("foo").unwrap(), Value::Bit(true));
     }
 }
