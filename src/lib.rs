@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, io::Result, time::Duration};
 
 mod entities;
 mod value;
@@ -31,6 +31,16 @@ where
     fn next(&mut self, input: I, delta_t: &Duration) -> O {
         (self as &mut Controller<(I, &Duration), O>).next((input, delta_t))
     }
+}
+
+/// An I/O system with synchronous fieldbus access
+pub trait SyncIoSystem {
+    /// Read the current state of an input.
+    fn read(&mut self, id: &str) -> Result<Value>;
+    /// Read the current state of an output if possible.
+    fn read_output(&mut self, id: &str) -> Result<Option<Value>>;
+    /// Write a value to the specified output.
+    fn write(&mut self, id: &str, value: &Value) -> Result<()>;
 }
 
 /// The state of all inputs and outputs of a MSR system.
