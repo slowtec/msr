@@ -45,6 +45,12 @@ pub trait SyncIoSystem {
     fn write(&mut self, id: &str, value: &Value) -> Result<()>;
 }
 
+/// Controller type
+pub enum ControllerType {
+    Pid(pid::Pid),
+    BangBang(bang_bang::BangBang),
+}
+
 /// The state of all inputs and outputs of a MSR system.
 /// # Example
 /// ```rust,no_run
