@@ -31,6 +31,18 @@ impl From<i64> for Value {
     }
 }
 
+impl From<i32> for Value {
+    fn from(v: i32) -> Value {
+        Value::Integer(v as i64)
+    }
+}
+
+impl From<u32> for Value {
+    fn from(v: u32) -> Value {
+        Value::Integer(v as i64)
+    }
+}
+
 impl From<String> for Value {
     fn from(t: String) -> Value {
         Value::Text(t)
@@ -51,8 +63,10 @@ mod tests {
     #[test]
     fn value_casting() {
         assert_eq!(Value::from(true), Value::Bit(true));
-        assert_eq!(Value::from(3.2), Value::Decimal(3.2));
-        assert_eq!(Value::from(3), Value::Integer(3));
+        assert_eq!(Value::from(3.2_f64), Value::Decimal(3.2));
+        assert_eq!(Value::from(3_i64), Value::Integer(3));
+        assert_eq!(Value::from(3_i32), Value::Integer(3));
+        assert_eq!(Value::from(3_u32), Value::Integer(3));
         assert_eq!(
             Value::from("txt".to_string()),
             Value::Text("txt".to_string())
