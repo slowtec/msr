@@ -176,6 +176,24 @@ pub struct Comparison {
     right: Source,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum BooleanExpr<T>
+{
+    /// `true`
+    True,
+    /// `false`
+    False,
+    /// The logical AND of two expressions.
+    And(Box<BooleanExpr<T>>, Box<BooleanExpr<T>>),
+    /// The locigal OR of two expressions.
+    Or(Box<BooleanExpr<T>>, Box<BooleanExpr<T>>),
+    /// The logical complement of the contained expression.
+    Not(Box<BooleanExpr<T>>),
+    /// Evaluate expr of type `T`
+    /// This expression represents a value that is not known until evaluation time.
+    Eval(T),
+}
+
 #[cfg(test)]
 mod tests {
 
