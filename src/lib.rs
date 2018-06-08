@@ -136,9 +136,9 @@ pub enum Comparator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Source {
-    Input(String),
-    Output(String),
-    Constant(Value),
+    In(String),
+    Out(String),
+    Const(Value),
 }
 
 impl Source {
@@ -213,8 +213,8 @@ mod tests {
 
     #[test]
     fn create_comparison_from_value_source() {
-        let input = Source::Input("x".into());
-        let val = Source::Constant(Value::Decimal(90.0));
+        let input = Source::In("x".into());
+        let val = Source::Const(Value::Decimal(90.0));
 
         let eq = input.clone().cmp_eq(val.clone());
         assert_eq!(eq.left, input);
