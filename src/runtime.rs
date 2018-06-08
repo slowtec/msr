@@ -63,7 +63,7 @@ mod tests {
         };
         let mut rt = SyncRuntime { loops: vec![] };
         let mut io = IoState::default();
-        io.input.insert("input".into(), 0.0.into());
+        io.inputs.insert("input".into(), 0.0.into());
 
         assert!(rt.tick(&mut io, &dt).is_ok());
         rt.loops = vec![loop0];
@@ -85,11 +85,11 @@ mod tests {
         }];
         let mut rt = SyncRuntime { loops };
         let mut io = IoState::default();
-        io.input.insert("input".into(), true.into());
+        io.inputs.insert("input".into(), true.into());
         assert!(rt.tick(&mut io, &dt).is_err());
-        io.input.insert("input".into(), Value::Bin(vec![]));
+        io.inputs.insert("input".into(), Value::Bin(vec![]));
         assert!(rt.tick(&mut io, &dt).is_err());
-        io.input.insert("input".into(), 0.0.into());
+        io.inputs.insert("input".into(), 0.0.into());
         assert!(rt.tick(&mut io, &dt).is_ok());
     }
 
@@ -108,9 +108,9 @@ mod tests {
         }];
         let mut rt = SyncRuntime { loops };
         let mut io = IoState::default();
-        io.input.insert("sensor".into(), 0.0.into());
+        io.inputs.insert("sensor".into(), 0.0.into());
         rt.tick(&mut io, &dt).unwrap();
-        assert_eq!(*io.output.get("actuator").unwrap(), Value::Decimal(20.0));
+        assert_eq!(*io.outputs.get("actuator").unwrap(), Value::Decimal(20.0));
     }
 
     #[test]
@@ -129,11 +129,11 @@ mod tests {
         }];
         let mut rt = SyncRuntime { loops };
         let mut io = IoState::default();
-        io.input.insert(sensor.clone(), 0.0.into());
+        io.inputs.insert(sensor.clone(), 0.0.into());
         rt.tick(&mut io, &dt).unwrap();
-        assert_eq!(*io.output.get(&actuator).unwrap(), Value::Bit(false));
-        io.input.insert(sensor, 3.0.into());
+        assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(false));
+        io.inputs.insert(sensor, 3.0.into());
         rt.tick(&mut io, &dt).unwrap();
-        assert_eq!(*io.output.get(&actuator).unwrap(), Value::Bit(true));
+        assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(true));
     }
 }

@@ -71,11 +71,11 @@ pub struct Loop {
 /// loop {
 ///     // Read some inputs (you'd use s.th. like 'read("sensor_id")')
 ///     let sensor_value = Value::Decimal(8.9);
-///     state.input.insert("tcr001".into(), sensor_value);
+///     state.inputs.insert("tcr001".into(), sensor_value);
 ///
 ///     // Calculate some outputs (you'd use s.th. like 'calc(&state)')
 ///     let actuator_value = Value::Decimal(1.7);
-///     state.output.insert("h1".into(), actuator_value);
+///     state.outputs.insert("h1".into(), actuator_value);
 ///
 ///     // Wait for next cycle
 ///     thread::sleep(Duration::from_secs(2));
@@ -84,16 +84,16 @@ pub struct Loop {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IoState {
     /// Input gates (sensors)
-    pub input: HashMap<String, Value>,
+    pub inputs: HashMap<String, Value>,
     /// Output gates (actuators)
-    pub output: HashMap<String, Value>,
+    pub outputs: HashMap<String, Value>,
 }
 
 impl Default for IoState {
     fn default() -> Self {
         IoState {
-            input: HashMap::new(),
-            output: HashMap::new(),
+            inputs: HashMap::new(),
+            outputs: HashMap::new(),
         }
     }
 }
@@ -101,18 +101,18 @@ impl Default for IoState {
 impl SyncIoSystem for IoState {
     fn read(&mut self, id: &str) -> Result<Value> {
         Ok(self
-            .input
+            .inputs
             .get(id)
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "no such input"))?
             .clone())
     }
 
     fn read_output(&mut self, id: &str) -> Result<Option<Value>> {
-        Ok(self.output.get(id).cloned())
+        Ok(self.outputs.get(id).cloned())
     }
 
     fn write(&mut self, id: &str, v: &Value) -> Result<()> {
-        self.output.insert(id.into(), v.clone());
+        self.outputs.insert(id.into(), v.clone());
         Ok(())
     }
 }
@@ -207,7 +207,7 @@ mod tests {
         assert!(io.write("foo", &Value::Decimal(3.3)).is_ok());
         assert!(io.read("foo").is_err());
         assert_eq!(io.read_output("foo").unwrap(), Some(Value::Decimal(3.3)));
-        io.input.insert("foo".into(), Value::Bit(true));
+        io.inputs.insert("foo".into(), Value::Bit(true));
         assert_eq!(io.read("foo").unwrap(), Value::Bit(true));
     }
 
