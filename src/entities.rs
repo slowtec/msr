@@ -13,7 +13,7 @@
 /// let mut tcr003 = Input::new("tcr003");
 /// tcr003.desc = Some("This sensor measures the environment temperature");
 /// ```
-#[derive(Debug, Eq)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub struct Input<'a> {
     /// The unique ID of the input
     pub id: &'a str,
@@ -49,7 +49,7 @@ impl<'a> Hash for Input<'a> {
 }
 
 /// Output gate (actuator)
-#[derive(Debug, Eq)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub struct Output<'a> {
     /// The unique ID of the output
     pub id: &'a str,
