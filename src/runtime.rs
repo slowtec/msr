@@ -4,6 +4,7 @@ use std::{
 };
 
 /// A simple synchronous closed-loop runtime.
+#[derive(Debug)]
 pub struct SyncRuntime {
     pub loops: Vec<Loop>,
 }

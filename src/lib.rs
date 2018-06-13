@@ -48,12 +48,14 @@ pub trait SyncIoSystem {
 }
 
 /// Controller type
+#[derive(Debug)]
 pub enum ControllerType {
     Pid(pid::Pid),
     BangBang(bang_bang::BangBang),
 }
 
 /// A loop contiuously triggers a controller again and again.
+#[derive(Debug)]
 pub struct Loop {
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
