@@ -7,11 +7,15 @@ use std::{
 #[derive(Debug)]
 pub struct SyncRuntime {
     pub loops: Vec<Loop>,
+    pub rules: Vec<Rule>,
 }
 
 impl Default for SyncRuntime {
     fn default() -> Self {
-        SyncRuntime { loops: vec![] }
+        SyncRuntime {
+            loops: vec![],
+            rules: vec![],
+        }
     }
 }
 
@@ -46,6 +50,16 @@ impl SyncRuntime {
         }
         Ok(())
     }
+    /// Check for active [Rule]s.
+    pub fn active_rules(&mut self, io: &mut SyncIoSystem) -> Result<Vec<String>> {
+        let mut active_rules = vec![];
+        for r in self.rules.iter() {
+            if r.condition.eval(io)? {
+                active_rules.push(r.id.clone());
+            }
+        }
+        Ok(active_rules)
+    }
 }
 
 #[cfg(test)]
@@ -62,7 +76,7 @@ mod tests {
             outputs: vec![],
             controller,
         };
-        let mut rt = SyncRuntime { loops: vec![] };
+        let mut rt = SyncRuntime::default();
         let mut io = IoState::default();
         io.inputs.insert("input".into(), 0.0.into());
 
@@ -84,7 +98,8 @@ mod tests {
             outputs: vec!["output".into()],
             controller,
         }];
-        let mut rt = SyncRuntime { loops };
+        let mut rt = SyncRuntime::default();
+        rt.loops = loops;
         let mut io = IoState::default();
         io.inputs.insert("input".into(), true.into());
         assert!(rt.tick(&mut io, &dt).is_err());
@@ -107,7 +122,8 @@ mod tests {
             outputs: vec!["actuator".into()],
             controller,
         }];
-        let mut rt = SyncRuntime { loops };
+        let mut rt = SyncRuntime::default();
+        rt.loops = loops;
         let mut io = IoState::default();
         io.inputs.insert("sensor".into(), 0.0.into());
         rt.tick(&mut io, &dt).unwrap();
@@ -128,7 +144,8 @@ mod tests {
             outputs: vec![actuator.clone()],
             controller,
         }];
-        let mut rt = SyncRuntime { loops };
+        let mut rt = SyncRuntime::default();
+        rt.loops = loops;
         let mut io = IoState::default();
         io.inputs.insert(sensor.clone(), 0.0.into());
         rt.tick(&mut io, &dt).unwrap();
@@ -136,5 +153,22 @@ mod tests {
         io.inputs.insert(sensor, 3.0.into());
         rt.tick(&mut io, &dt).unwrap();
         assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(true));
+    }
+
+    #[test]
+    fn check_active_rules() {
+        let mut io = IoState::default();
+        let mut rt = SyncRuntime::default();
+        assert_eq!(rt.active_rules(&mut io).unwrap().len(), 0);
+        rt.rules = vec![Rule {
+            id: "foo".into(),
+            desc: None,
+            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
+            actions: vec!["a".into()],
+        }];
+        assert!(rt.active_rules(&mut io).is_err());
+        io.inputs.insert("x".into(), 33.3.into());
+        io.outputs.insert("y".into(), 33.3.into());
+        assert_eq!(rt.active_rules(&mut io).unwrap()[0], "foo");
     }
 }

@@ -1,3 +1,5 @@
+use super::*;
+
 /// Input gate (sensor)
 ///
 /// # Example
@@ -80,6 +82,19 @@ impl<'a> Hash for Output<'a> {
         self.id.hash(state);
         "out".hash(state);
     }
+}
+
+/// A Rule connects a condition with a list of actions
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rule {
+    /// The unique ID of the rule
+    pub id: String,
+    /// A more detailed description
+    pub desc: Option<String>,
+    /// The condition
+    pub condition: BooleanExpr<Comparison>,
+    /// Actions that should be triggerd
+    pub actions: Vec<String>,
 }
 
 #[cfg(test)]

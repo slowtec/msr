@@ -174,14 +174,14 @@ pub enum BooleanExpr<T> {
 
 /// A condition that can be evaulated with a given [IoState]
 pub trait IoCondition {
-    fn eval(&self, io: &IoState) -> Result<bool>;
+    fn eval(&self, io: &mut SyncIoSystem) -> Result<bool>;
 }
 
 impl<T> IoCondition for BooleanExpr<T>
 where
     T: IoCondition,
 {
-    fn eval(&self, io: &IoState) -> Result<bool> {
+    fn eval(&self, io: &mut SyncIoSystem) -> Result<bool> {
         match self {
             BooleanExpr::True => Ok(true),
             BooleanExpr::False => Ok(false),
@@ -230,7 +230,7 @@ mod tests {
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
         let expr = Eval(x_gt_5.clone());
         io.inputs.insert("x".into(), 5.0.into());
-        assert_eq!(expr.eval(&io).unwrap(), false);
+        assert_eq!(expr.eval(&mut io).unwrap(), false);
 
         // y == true
         let y_eq_true = In("y".into()).cmp_eq(true.into());
@@ -242,9 +242,9 @@ mod tests {
         );
         io.inputs.insert("x".into(), 5.1.into());
         io.inputs.insert("y".into(), true.into());
-        assert_eq!(expr.eval(&io).unwrap(), true);
+        assert_eq!(expr.eval(&mut io).unwrap(), true);
         io.inputs.insert("y".into(), false.into());
-        assert_eq!(expr.eval(&io).unwrap(), false);
+        assert_eq!(expr.eval(&mut io).unwrap(), false);
 
         // x > 5.0 || y == true
         let expr = Or(
@@ -253,17 +253,17 @@ mod tests {
         );
         io.inputs.insert("x".into(), 3.0.into());
         io.inputs.insert("y".into(), true.into());
-        assert_eq!(expr.eval(&io).unwrap(), true);
+        assert_eq!(expr.eval(&mut io).unwrap(), true);
         io.inputs.insert("y".into(), false.into());
-        assert_eq!(expr.eval(&io).unwrap(), false);
+        assert_eq!(expr.eval(&mut io).unwrap(), false);
 
         // !(x > 5.0)
         let expr = Not(Box::new(Eval(x_gt_5)));
         io.inputs.insert("x".into(), 6.0.into());
-        assert_eq!(expr.eval(&io).unwrap(), false);
+        assert_eq!(expr.eval(&mut io).unwrap(), false);
 
         // just true
         let expr: BooleanExpr<Comparison> = True;
-        assert_eq!(expr.eval(&io).unwrap(), true);
+        assert_eq!(expr.eval(&mut io).unwrap(), true);
     }
 }
