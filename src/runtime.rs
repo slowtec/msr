@@ -1,6 +1,6 @@
 use super::*;
 use std::{
-    io::{Error, ErrorKind, Result}, time::Duration,
+    collections::HashMap, io::{Error, ErrorKind, Result}, time::Duration,
 };
 
 /// A simple synchronous closed-loop runtime.
@@ -8,6 +8,7 @@ use std::{
 pub struct SyncRuntime {
     pub loops: Vec<Loop>,
     pub rules: Vec<Rule>,
+    controllers: HashMap<String, ControllerType>,
 }
 
 impl Default for SyncRuntime {
@@ -15,6 +16,7 @@ impl Default for SyncRuntime {
         SyncRuntime {
             loops: vec![],
             rules: vec![],
+            controllers: HashMap::new(),
         }
     }
 }
@@ -31,15 +33,37 @@ impl SyncRuntime {
             }
             let input = io.read(&l.inputs[0])?;
             if let Value::Decimal(v) = input {
-                match l.controller {
-                    ControllerType::Pid(ref mut pid) => {
-                        let out = (pid as &mut TimeStepController<f64, f64>).next(v, &delta_t);
-                        io.write(&l.outputs[0], &Value::Decimal(out))?;
+                //NOTE: this will be more elegant as soon the compiler feature "nll" is stable
+                if self.controllers.get(&l.id).is_none() {
+                    match l.controller {
+                        ControllerConfig::Pid(ref cfg) => {
+                            self.controllers.insert(
+                                l.id.clone(),
+                                ControllerType::Pid(pid::Pid::new(cfg.clone())),
+                            );
+                        }
+                        ControllerConfig::BangBang(ref cfg) => {
+                            self.controllers.insert(
+                                l.id.clone(),
+                                ControllerType::BangBang(bang_bang::BangBang::new(cfg.clone())),
+                            );
+                        }
                     }
-                    ControllerType::BangBang(ref mut bb) => {
-                        let out = (bb as &mut Controller<f64, bool>).next(v);
-                        io.write(&l.outputs[0], &Value::Bit(out))?;
+                }
+                if let Some(ref mut c) = self.controllers.get_mut(&l.id) {
+                    match c {
+                        ControllerType::Pid(ref mut pid) => {
+                            let out = (pid as &mut TimeStepController<f64, f64>).next(v, &delta_t);
+                            io.write(&l.outputs[0], &Value::Decimal(out))?;
+                        }
+                        ControllerType::BangBang(ref mut bb) => {
+                            let out = (bb as &mut Controller<f64, bool>).next(v);
+                            io.write(&l.outputs[0], &Value::Bit(out))?;
+                        }
                     }
+                } else {
+                    //NOTE: this will be removed as soon the compiler feature "nll" is stable
+                    panic!("The controller of loop '{}' was not initialized", l.id);
                 }
             } else {
                 return Err(Error::new(
@@ -69,9 +93,11 @@ mod tests {
 
     #[test]
     fn check_loops_inputs_and_outputs_len() {
-        let controller = ControllerType::BangBang(BangBang::new(BangBangConfig::default()));
+        let controller = ControllerConfig::BangBang(BangBangConfig::default());
         let dt = Duration::from_millis(5);
         let loop0 = Loop {
+            id: "foo".into(),
+            desc: None,
             inputs: vec![],
             outputs: vec![],
             controller,
@@ -91,9 +117,11 @@ mod tests {
 
     #[test]
     fn check_input_value_type() {
-        let controller = ControllerType::Pid(Pid::new(PidConfig::default()));
+        let controller = ControllerConfig::Pid(PidConfig::default());
         let dt = Duration::from_millis(5);
         let loops = vec![Loop {
+            id: "foo".into(),
+            desc: None,
             inputs: vec!["input".into()],
             outputs: vec!["output".into()],
             controller,
@@ -113,11 +141,12 @@ mod tests {
     fn run_pid_controllers() {
         let mut pid_cfg = PidConfig::default();
         pid_cfg.k_p = 2.0;
-        let mut pid = Pid::new(pid_cfg);
-        pid.set_target(10.0);
-        let controller = ControllerType::Pid(pid);
+        pid_cfg.default_target = 10.0;
+        let controller = ControllerConfig::Pid(pid_cfg);
         let dt = Duration::from_secs(1);
         let loops = vec![Loop {
+            id: "foo".into(),
+            desc: None,
             inputs: vec!["sensor".into()],
             outputs: vec!["actuator".into()],
             controller,
@@ -134,12 +163,13 @@ mod tests {
     fn run_bang_bang_controllers() {
         let mut bb_cfg = BangBangConfig::default();
         bb_cfg.threshold = 2.0;
-        let bb = BangBang::new(bb_cfg);
-        let controller = ControllerType::BangBang(bb);
+        let controller = ControllerConfig::BangBang(bb_cfg);
         let dt = Duration::from_secs(1);
         let sensor = "sensor".to_string();
         let actuator = "actuator".to_string();
         let loops = vec![Loop {
+            id: "foo".into(),
+            desc: None,
             inputs: vec![sensor.clone()],
             outputs: vec![actuator.clone()],
             controller,

@@ -53,12 +53,11 @@ pub enum ControllerType {
     BangBang(bang_bang::BangBang),
 }
 
-/// A loop contiuously triggers a controller again and again.
-#[derive(Debug)]
-pub struct Loop {
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
-    pub controller: ControllerType,
+/// Controller configuration
+#[derive(Debug, Clone)]
+pub enum ControllerConfig {
+    Pid(pid::PidConfig),
+    BangBang(bang_bang::BangBangConfig),
 }
 
 /// The state of all inputs and outputs of a MSR system.

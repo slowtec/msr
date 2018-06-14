@@ -97,7 +97,7 @@ impl Pid {
 }
 
 /// PID Configuration
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PidConfig {
     /// Proportional coefficient
     pub k_p: f64,

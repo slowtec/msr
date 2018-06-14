@@ -56,6 +56,21 @@ impl<'a> From<&'a str> for Output {
     }
 }
 
+/// A loop contiuously triggers a controller again and again.
+#[derive(Debug)]
+pub struct Loop {
+    /// The unique ID of the rule
+    pub id: String,
+    /// A more detailed description
+    pub desc: Option<String>,
+    /// Used inputs
+    pub inputs: Vec<String>,
+    /// Used outputs
+    pub outputs: Vec<String>,
+    /// The controller configuration
+    pub controller: ControllerConfig,
+}
+
 /// A Rule connects a condition with a list of actions
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rule {
