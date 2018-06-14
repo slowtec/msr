@@ -2,13 +2,12 @@ use std::{
     collections::HashMap, io::{Error, ErrorKind, Result}, time::Duration,
 };
 
+mod comparison;
 mod entities;
 mod runtime;
 mod value;
 
-pub use self::entities::*;
-pub use self::runtime::*;
-pub use self::value::*;
+pub use self::{comparison::*, entities::*, runtime::*, value::*};
 
 /// PID controller
 pub mod pid;
@@ -119,23 +118,6 @@ impl SyncIoSystem for IoState {
     }
 }
 
-/// Comperators
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Comparator {
-    /// `<` or `LT` (Less Than)
-    Less,
-    /// `<=` or `LE` (Less Than or Equal)
-    LessOrEqual,
-    /// `>` or `GT` (Greater Than)
-    Greater,
-    /// `>=` or `GE` (Greater Than or Equal)
-    GreaterOrEqual,
-    /// `==` or `EQ` (Equal)
-    Equal,
-    /// `!=` or `NE` (Not Equal)
-    NotEqual,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Source {
     In(String),
@@ -172,15 +154,7 @@ impl Source {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Comparison {
-    left: Source,
-    cmp: Comparator,
-    right: Source,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum BooleanExpr<T>
-{
+pub enum BooleanExpr<T> {
     /// `true`
     True,
     /// `false`
@@ -211,41 +185,5 @@ mod tests {
         assert_eq!(io.read_output("foo").unwrap(), Some(Value::Decimal(3.3)));
         io.inputs.insert("foo".into(), Value::Bit(true));
         assert_eq!(io.read("foo").unwrap(), Value::Bit(true));
-    }
-
-    #[test]
-    fn create_comparison_from_value_source() {
-        let input = Source::In("x".into());
-        let val = Source::Const(Value::Decimal(90.0));
-
-        let eq = input.clone().cmp_eq(val.clone());
-        assert_eq!(eq.left, input);
-        assert_eq!(eq.right, val);
-        assert_eq!(eq.cmp, Comparator::Equal);
-
-        let le = input.clone().cmp_le(val.clone());
-        assert_eq!(le.left, input);
-        assert_eq!(le.right, val);
-        assert_eq!(le.cmp, Comparator::LessOrEqual);
-
-        let ge = input.clone().cmp_ge(val.clone());
-        assert_eq!(ge.left, input);
-        assert_eq!(ge.right, val);
-        assert_eq!(ge.cmp, Comparator::GreaterOrEqual);
-
-        let ne = input.clone().cmp_ne(val.clone());
-        assert_eq!(ne.left, input);
-        assert_eq!(ne.right, val);
-        assert_eq!(ne.cmp, Comparator::NotEqual);
-
-        let lt = input.clone().cmp_lt(val.clone());
-        assert_eq!(lt.left, input);
-        assert_eq!(lt.right, val);
-        assert_eq!(lt.cmp, Comparator::Less);
-
-        let gt = input.clone().cmp_gt(val.clone());
-        assert_eq!(gt.left, input);
-        assert_eq!(gt.right, val);
-        assert_eq!(gt.cmp, Comparator::Greater);
     }
 }
