@@ -2,7 +2,7 @@ use super::*;
 use std::io::{Error, Result};
 
 /// Comperators
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Comparator {
     /// `<` or `LT` (Less Than)
     Less,
@@ -18,6 +18,7 @@ pub enum Comparator {
     NotEqual,
 }
 
+/// A comparison between two data sources
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comparison {
     pub(crate) left: Source,
@@ -25,8 +26,8 @@ pub struct Comparison {
     pub(crate) right: Source,
 }
 
-impl Comparison {
-    pub fn eval(&self, io: &IoState) -> Result<bool> {
+impl IoCondition for Comparison {
+    fn eval(&self, io: &IoState) -> Result<bool> {
         use Comparator::*;
         use ErrorKind::*;
         use Value::*;

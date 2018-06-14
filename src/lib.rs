@@ -118,6 +118,7 @@ impl SyncIoSystem for IoState {
     }
 }
 
+/// A data source
 #[derive(Debug, Clone, PartialEq)]
 pub enum Source {
     In(String),
@@ -153,6 +154,7 @@ impl Source {
     }
 }
 
+/// A boolean expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum BooleanExpr<T> {
     /// `true`
@@ -170,6 +172,36 @@ pub enum BooleanExpr<T> {
     Eval(T),
 }
 
+/// A condition that can be evaulated with a given [IoState]
+pub trait IoCondition {
+    fn eval(&self, io: &IoState) -> Result<bool>;
+}
+
+impl<T> IoCondition for BooleanExpr<T>
+where
+    T: IoCondition,
+{
+    fn eval(&self, io: &IoState) -> Result<bool> {
+        match self {
+            BooleanExpr::True => Ok(true),
+            BooleanExpr::False => Ok(false),
+            BooleanExpr::And(ref a, ref b) => Ok(a.eval(io)? && b.eval(io)?),
+            BooleanExpr::Or(ref a, ref b) => Ok(a.eval(io)? || b.eval(io)?),
+            BooleanExpr::Not(ref x) => Ok(!x.eval(io)?),
+            BooleanExpr::Eval(ref x) => x.eval(io),
+        }
+    }
+}
+
+impl<T> From<T> for Source
+where
+    T: Into<Value>,
+{
+    fn from(x: T) -> Source {
+        Source::Const(x.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -185,5 +217,53 @@ mod tests {
         assert_eq!(io.read_output("foo").unwrap(), Some(Value::Decimal(3.3)));
         io.inputs.insert("foo".into(), Value::Bit(true));
         assert_eq!(io.read("foo").unwrap(), Value::Bit(true));
+    }
+
+    #[test]
+    fn bool_expr_eval() {
+        use BooleanExpr::*;
+        use Source::*;
+
+        let mut io = IoState::default();
+
+        // x > 5.0
+        let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
+        let expr = Eval(x_gt_5.clone());
+        io.inputs.insert("x".into(), 5.0.into());
+        assert_eq!(expr.eval(&io).unwrap(), false);
+
+        // y == true
+        let y_eq_true = In("y".into()).cmp_eq(true.into());
+
+        // x > 5.0 && y == true
+        let expr = And(
+            Box::new(Eval(x_gt_5.clone())),
+            Box::new(Eval(y_eq_true.clone())),
+        );
+        io.inputs.insert("x".into(), 5.1.into());
+        io.inputs.insert("y".into(), true.into());
+        assert_eq!(expr.eval(&io).unwrap(), true);
+        io.inputs.insert("y".into(), false.into());
+        assert_eq!(expr.eval(&io).unwrap(), false);
+
+        // x > 5.0 || y == true
+        let expr = Or(
+            Box::new(Eval(x_gt_5.clone())),
+            Box::new(Eval(y_eq_true.clone())),
+        );
+        io.inputs.insert("x".into(), 3.0.into());
+        io.inputs.insert("y".into(), true.into());
+        assert_eq!(expr.eval(&io).unwrap(), true);
+        io.inputs.insert("y".into(), false.into());
+        assert_eq!(expr.eval(&io).unwrap(), false);
+
+        // !(x > 5.0)
+        let expr = Not(Box::new(Eval(x_gt_5)));
+        io.inputs.insert("x".into(), 6.0.into());
+        assert_eq!(expr.eval(&io).unwrap(), false);
+
+        // just true
+        let expr: BooleanExpr<Comparison> = True;
+        assert_eq!(expr.eval(&io).unwrap(), true);
     }
 }
