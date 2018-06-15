@@ -21,9 +21,27 @@ impl Default for SyncRuntime {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SyncRuntimeState {
+    pub io: IoState,
+    pub controllers: HashMap<String, ControllerState>,
+    pub rules: HashMap<String, bool>,
+}
+
+impl Default for SyncRuntimeState {
+    fn default() -> Self {
+        SyncRuntimeState {
+            io: IoState::default(),
+            controllers: HashMap::new(),
+            rules: HashMap::new(),
+        }
+    }
+}
+
 impl SyncRuntime {
     /// Trigger the calculation for the next step.
-    pub fn tick(&mut self, io: &mut SyncIoSystem, delta_t: &Duration) -> Result<()> {
+    pub fn tick(&mut self, io: &mut SyncIoSystem, delta_t: &Duration) -> Result<SyncRuntimeState> {
+        let mut state = SyncRuntimeState::default();
         for l in self.loops.iter_mut() {
             if l.inputs.len() != 1 || l.outputs.len() != 1 {
                 return Err(Error::new(
@@ -31,8 +49,13 @@ impl SyncRuntime {
                     "Loop has invalid length of inputs/outputs",
                 ));
             }
-            let input = io.read(&l.inputs[0])?;
-            if let Value::Decimal(v) = input {
+
+            if state.io.inputs.get(&l.inputs[0]).is_none() {
+                let input = io.read(&l.inputs[0])?;
+                state.io.inputs.insert(l.inputs[0].clone(), input.clone());
+            }
+
+            if let Some(Value::Decimal(v)) = state.io.inputs.get(&l.inputs[0]) {
                 //NOTE: this will be more elegant as soon the compiler feature "nll" is stable
                 if self.controllers.get(&l.id).is_none() {
                     match l.controller {
@@ -51,16 +74,28 @@ impl SyncRuntime {
                     }
                 }
                 if let Some(ref mut c) = self.controllers.get_mut(&l.id) {
-                    match c {
+                    let out = match c {
                         ControllerType::Pid(ref mut pid) => {
-                            let out = (pid as &mut TimeStepController<f64, f64>).next(v, &delta_t);
-                            io.write(&l.outputs[0], &Value::Decimal(out))?;
+                            let next = (pid as &mut TimeStepController<f64, f64>)
+                                .next(*v, &delta_t)
+                                .into();
+                            state
+                                .controllers
+                                .insert(l.id.clone(), ControllerState::Pid(pid.state.clone()));
+                            next
                         }
                         ControllerType::BangBang(ref mut bb) => {
-                            let out = (bb as &mut Controller<f64, bool>).next(v);
-                            io.write(&l.outputs[0], &Value::Bit(out))?;
+                            let next = (bb as &mut Controller<f64, bool>).next(*v).into();
+                            state
+                                .controllers
+                                .insert(l.id.clone(), ControllerState::BangBang(bb.state.clone()));
+                            next
                         }
+                    };
+                    if state.io.outputs.get(&l.outputs[0]).is_some() {
+                        // warn!("You should not write multiple times to an output");
                     }
+                    state.io.outputs.insert(l.outputs[0].clone(), out);
                 } else {
                     //NOTE: this will be removed as soon the compiler feature "nll" is stable
                     panic!("The controller of loop '{}' was not initialized", l.id);
@@ -72,17 +107,54 @@ impl SyncRuntime {
                 ));
             }
         }
-        Ok(())
-    }
-    /// Check for active [Rule]s.
-    pub fn active_rules(&mut self, io: &mut SyncIoSystem) -> Result<Vec<String>> {
-        let mut active_rules = vec![];
-        for r in self.rules.iter() {
-            if r.condition.eval(io)? {
-                active_rules.push(r.id.clone());
+        for (id, v) in state.io.outputs.iter() {
+            io.write(&id, &v)?;
+        }
+        let (inputs, outputs) = self.get_rule_sources();
+        for x in inputs {
+            if state.io.inputs.get(&x).is_none() {
+                let i = io.read(&x)?;
+                state.io.inputs.insert(x.clone(), i);
             }
         }
-        Ok(active_rules)
+        for x in outputs {
+            if state.io.outputs.get(&x).is_none() {
+                if let Some(o) = io.read_output(&x)? {
+                    state.io.outputs.insert(x.clone(), o);
+                }
+            }
+        }
+        state.rules = self.rules_state(&mut state.io)?;
+        Ok(state)
+    }
+
+    fn get_rule_sources(&self) -> (Vec<String>, Vec<String>) {
+        let (inputs, outputs): (Vec<_>, Vec<_>) = self
+            .rules
+            .iter()
+            .flat_map(|r| r.condition.sources())
+            .filter_map(|s| match s {
+                Source::In(id) => Some((Some(id), None)),
+                Source::Out(id) => Some((None, Some(id))),
+                Source::Const(_) => None,
+            })
+            .unzip();
+        let mut inputs: Vec<_> = inputs.into_iter().filter_map(|x| x).collect();
+        let mut outputs: Vec<_> = outputs.into_iter().filter_map(|x| x).collect();
+        inputs.sort();
+        inputs.dedup();
+        outputs.sort();
+        outputs.dedup();
+        (inputs, outputs)
+    }
+    /// Check for active [Rule]s.
+    fn rules_state(&self, io: &mut SyncIoSystem) -> Result<HashMap<String, bool>> {
+        let mut rules_state = HashMap::new();
+        for r in self.rules.iter() {
+            let state = r.condition.eval(io)?;
+            rules_state.insert(r.id.clone(), state);
+        }
+        Ok(rules_state)
     }
 }
 
@@ -189,16 +261,165 @@ mod tests {
     fn check_active_rules() {
         let mut io = IoState::default();
         let mut rt = SyncRuntime::default();
-        assert_eq!(rt.active_rules(&mut io).unwrap().len(), 0);
+        assert_eq!(rt.rules_state(&mut io).unwrap().len(), 0);
         rt.rules = vec![Rule {
             id: "foo".into(),
             desc: None,
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
-        assert!(rt.active_rules(&mut io).is_err());
+        assert!(rt.rules_state(&mut io).is_err());
         io.inputs.insert("x".into(), 33.3.into());
         io.outputs.insert("y".into(), 33.3.into());
-        assert_eq!(rt.active_rules(&mut io).unwrap()[0], "foo");
+        assert_eq!(*rt.rules_state(&mut io).unwrap().get("foo").unwrap(), true);
+    }
+
+    #[test]
+    fn runtime_state() {
+        let mut io = IoState::default();
+        let mut rt = SyncRuntime::default();
+        let dt = Duration::from_secs(1);
+        io.inputs.insert("a".into(), 8.0.into());
+        io.inputs.insert("b".into(), false.into());
+        io.inputs.insert("j".into(), 0.0.into());
+        io.inputs.insert("k".into(), 0.0.into());
+        io.inputs.insert("x".into(), 1.0.into());
+        io.inputs.insert("z".into(), 3.0.into());
+        io.outputs.insert("y".into(), 2.0.into());
+
+        assert_eq!(rt.tick(&mut io, &dt).unwrap(), SyncRuntimeState::default());
+
+        rt.rules = vec![Rule {
+            id: "foo".into(),
+            desc: None,
+            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
+            actions: vec!["a".into()],
+        }];
+        let state = rt.tick(&mut io, &dt).unwrap();
+        assert_eq!(state.rules.len(), 1);
+        assert_eq!(*state.rules.get("foo").unwrap(), false);
+        assert_eq!(state.io.inputs.len(), 1);
+        assert_eq!(state.io.inputs.get("x").unwrap(), &Value::from(1.0));
+        assert_eq!(state.io.outputs.len(), 1);
+        assert_eq!(state.io.outputs.get("y").unwrap(), &Value::from(2.0));
+
+        let mut bb_cfg = BangBangConfig::default();
+        bb_cfg.threshold = 2.0;
+        let bb = ControllerConfig::BangBang(bb_cfg);
+
+        let mut pid_cfg = PidConfig::default();
+        pid_cfg.k_p = 2.0;
+        pid_cfg.default_target = 10.0;
+        let pid = ControllerConfig::Pid(pid_cfg);
+
+        let loops = vec![
+            Loop {
+                id: "bb".into(),
+                desc: None,
+                inputs: vec!["a".into()],
+                outputs: vec!["b".into()],
+                controller: bb,
+            },
+            Loop {
+                id: "pid".into(),
+                desc: None,
+                inputs: vec!["j".into()],
+                outputs: vec!["k".into()],
+                controller: pid,
+            },
+        ];
+        rt.loops = loops;
+        let state = rt.tick(&mut io, &dt).unwrap();
+        assert_eq!(state.io.inputs.len(), 3);
+        assert_eq!(state.io.outputs.len(), 3);
+        assert_eq!(state.io.outputs.get("b").unwrap(), &Value::from(true));
+        assert_eq!(state.io.outputs.get("k").unwrap(), &Value::from(20.0));
+        assert_eq!(state.controllers.len(), 2);
+        assert_eq!(
+            state.controllers.get("bb").unwrap(),
+            &ControllerState::BangBang(true)
+        );
+        assert_eq!(
+            state.controllers.get("pid").unwrap(),
+            &ControllerState::Pid(PidState {
+                p: 20.0,
+                i: 0.0,
+                d: 0.0,
+                err_sum: 0.0,
+                prev_value: Some(0.0),
+                target: 10.0,
+            })
+        );
+    }
+
+    #[test]
+    fn only_read_or_write_if_required() {
+        struct DummyIo {
+            io: IoState,
+            reads: HashMap<String, usize>,
+            writes: HashMap<String, usize>,
+        }
+
+        impl SyncIoSystem for DummyIo {
+            fn read(&mut self, id: &str) -> Result<Value> {
+                let cnt = *self.reads.get(id).unwrap_or(&0) + 1;
+                self.reads.insert(id.into(), cnt);
+                self.io.read(id)
+            }
+            fn read_output(&mut self, id: &str) -> Result<Option<Value>> {
+                let cnt = *self.reads.get(id).unwrap_or(&0) + 1;
+                self.reads.insert(id.into(), cnt);
+                self.io.read_output(id)
+            }
+            fn write(&mut self, id: &str, value: &Value) -> Result<()> {
+                let cnt = *self.writes.get(id).unwrap_or(&0) + 1;
+                self.writes.insert(id.into(), cnt);
+                self.io.write(id, value)
+            }
+        }
+        let mut io = DummyIo {
+            io: IoState::default(),
+            reads: HashMap::new(),
+            writes: HashMap::new(),
+        };
+        let mut rt = SyncRuntime::default();
+        let dt = Duration::from_secs(1);
+        io.io.inputs.insert("x".into(), 1.0.into());
+        io.io.outputs.insert("y".into(), 2.0.into());
+
+        rt.tick(&mut io, &dt).unwrap();
+        assert_eq!(io.reads.len(), 0);
+        assert_eq!(io.writes.len(), 0);
+        let rule = Rule {
+            id: "foo".into(),
+            desc: None,
+            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
+            actions: vec!["a".into()],
+        };
+
+        rt.rules = vec![rule.clone(), rule.clone()];
+        rt.tick(&mut io, &dt).unwrap();
+        assert_eq!(io.reads.len(), 2);
+        assert_eq!(io.writes.len(), 0);
+        assert_eq!(*io.reads.get("x").unwrap(), 1);
+        assert_eq!(*io.reads.get("y").unwrap(), 1);
+
+        let mut pid_cfg = PidConfig::default();
+        pid_cfg.k_p = 2.0;
+        pid_cfg.default_target = 10.0;
+        let pid = ControllerConfig::Pid(pid_cfg);
+        let l = Loop {
+            id: "pid".into(),
+            desc: None,
+            inputs: vec!["x".into()],
+            outputs: vec!["y".into()],
+            controller: pid,
+        };
+        rt.loops = vec![l.clone(), l.clone()];
+        rt.tick(&mut io, &dt).unwrap();
+        assert_eq!(io.reads.len(), 2);
+        assert_eq!(io.writes.len(), 1);
+        assert_eq!(*io.reads.get("x").unwrap(), 2);
+        assert_eq!(*io.writes.get("y").unwrap(), 1);
     }
 }

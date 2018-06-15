@@ -20,7 +20,7 @@ use super::Controller;
 #[derive(Debug, Clone)]
 pub struct BangBang {
     cfg: BangBangConfig,
-    state: BangBangState,
+    pub(crate) state: BangBangState,
 }
 
 /// Bang-bang controller configuration

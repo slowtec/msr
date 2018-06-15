@@ -57,7 +57,7 @@ impl<'a> From<&'a str> for Output {
 }
 
 /// A loop contiuously triggers a controller again and again.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Loop {
     /// The unique ID of the rule
     pub id: String,

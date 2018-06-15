@@ -61,7 +61,7 @@ pub enum ControllerConfig {
 }
 
 /// Controller state
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ControllerState {
     Pid(pid::PidState),
     BangBang(bang_bang::BangBangState),

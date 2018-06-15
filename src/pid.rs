@@ -49,7 +49,7 @@ pub struct Pid {
 }
 
 /// Internal PID controller state
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PidState {
     /// Current target
     pub target: f64,
