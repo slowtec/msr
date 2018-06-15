@@ -183,18 +183,39 @@ pub trait IoCondition {
     fn eval(&self, io: &mut SyncIoSystem) -> Result<bool>;
 }
 
+trait IoSources {
+    fn sources(&self) -> Vec<Source>;
+}
+
+impl IoSources for BooleanExpr<Comparison> {
+    fn sources(&self) -> Vec<Source> {
+        use BooleanExpr::*;
+        match self {
+            And(ref a, ref b) | Or(ref a, ref b) => {
+                let mut srcs = a.sources();
+                srcs.append(&mut b.sources());
+                srcs
+            }
+            Not(ref x) => x.sources(),
+            Eval(ref x) => vec![x.left.clone(), x.right.clone()],
+            True | False => vec![],
+        }
+    }
+}
+
 impl<T> IoCondition for BooleanExpr<T>
 where
     T: IoCondition,
 {
     fn eval(&self, io: &mut SyncIoSystem) -> Result<bool> {
+        use BooleanExpr::*;
         match self {
-            BooleanExpr::True => Ok(true),
-            BooleanExpr::False => Ok(false),
-            BooleanExpr::And(ref a, ref b) => Ok(a.eval(io)? && b.eval(io)?),
-            BooleanExpr::Or(ref a, ref b) => Ok(a.eval(io)? || b.eval(io)?),
-            BooleanExpr::Not(ref x) => Ok(!x.eval(io)?),
-            BooleanExpr::Eval(ref x) => x.eval(io),
+            True => Ok(true),
+            False => Ok(false),
+            And(ref a, ref b) => Ok(a.eval(io)? && b.eval(io)?),
+            Or(ref a, ref b) => Ok(a.eval(io)? || b.eval(io)?),
+            Not(ref x) => Ok(!x.eval(io)?),
+            Eval(ref x) => x.eval(io),
         }
     }
 }
@@ -271,5 +292,27 @@ mod tests {
         // just true
         let expr: BooleanExpr<Comparison> = True;
         assert_eq!(expr.eval(&mut io).unwrap(), true);
+    }
+
+    #[test]
+    fn bool_expr_sources() {
+        use BooleanExpr::*;
+        use Source::*;
+
+        let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
+        let expr = Eval(x_gt_5.clone());
+        assert_eq!(expr.sources(), vec![In("x".into()), Const(5.0.into())]);
+
+        let y_eq_z = Out("y".into()).cmp_eq(In("z".into()));
+        let expr = And(Box::new(Eval(x_gt_5)), Box::new(Eval(y_eq_z)));
+        assert_eq!(
+            expr.sources(),
+            vec![
+                In("x".into()),
+                Const(5.0.into()),
+                Out("y".into()),
+                In("z".into()),
+            ]
+        );
     }
 }
