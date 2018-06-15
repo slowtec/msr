@@ -8,7 +8,7 @@ use std::{
 pub struct SyncRuntime {
     pub loops: Vec<Loop>,
     pub rules: Vec<Rule>,
-    controllers: HashMap<String, ControllerType>,
+    pub controllers: HashMap<String, ControllerType>,
 }
 
 impl Default for SyncRuntime {
