@@ -41,7 +41,7 @@ use super::Controller;
 use std::time::Duration;
 
 /// PID controller implementation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pid {
     cfg: PidConfig,
     /// Current PID state
@@ -49,7 +49,7 @@ pub struct Pid {
 }
 
 /// Internal PID controller state
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PidState {
     /// Current target
     pub target: f64,

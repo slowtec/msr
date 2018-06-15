@@ -47,7 +47,7 @@ pub trait SyncIoSystem {
 }
 
 /// Controller type
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ControllerType {
     Pid(pid::Pid),
     BangBang(bang_bang::BangBang),

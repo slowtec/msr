@@ -17,7 +17,7 @@
 use super::Controller;
 
 /// A Bang-bang controller implementation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BangBang {
     current: bool,
     cfg: BangBangConfig,
