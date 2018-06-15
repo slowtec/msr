@@ -125,7 +125,7 @@ impl SyncIoSystem for IoState {
 }
 
 /// A data source
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Source {
     In(String),
     Out(String),

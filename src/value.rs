@@ -1,5 +1,5 @@
 /// A value representation within a MSR system.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     /// State of e.g. a digital input/output.
     Bit(bool),
