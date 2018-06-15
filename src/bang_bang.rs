@@ -19,8 +19,8 @@ use super::Controller;
 /// A Bang-bang controller implementation
 #[derive(Debug, Clone)]
 pub struct BangBang {
-    current: bool,
     cfg: BangBangConfig,
+    state: BangBangState,
 }
 
 /// Bang-bang controller configuration
@@ -29,6 +29,8 @@ pub struct BangBangConfig {
     pub threshold: f64,
     pub hysteresis: f64,
 }
+
+pub(crate) type BangBangState = bool;
 
 impl Default for BangBangConfig {
     fn default() -> Self {
@@ -42,21 +44,18 @@ impl Default for BangBangConfig {
 impl BangBang {
     /// Create a new controller instance with the given configuration.
     pub fn new(cfg: BangBangConfig) -> Self {
-        BangBang {
-            cfg,
-            current: false,
-        }
+        BangBang { cfg, state: false }
     }
 }
 
 impl Controller<f64, bool> for BangBang {
     fn next(&mut self, actual: f64) -> bool {
         if actual > self.cfg.threshold + self.cfg.hysteresis {
-            self.current = true;
+            self.state = true;
         } else if actual < self.cfg.threshold - self.cfg.hysteresis {
-            self.current = false;
+            self.state = false;
         }
-        self.current
+        self.state
     }
 }
 

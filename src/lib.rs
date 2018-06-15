@@ -60,6 +60,13 @@ pub enum ControllerConfig {
     BangBang(bang_bang::BangBangConfig),
 }
 
+/// Controller state
+#[derive(Debug, Clone)]
+pub enum ControllerState {
+    Pid(pid::PidState),
+    BangBang(bang_bang::BangBangState),
+}
+
 /// The state of all inputs and outputs of a MSR system.
 /// # Example
 /// ```rust,no_run
