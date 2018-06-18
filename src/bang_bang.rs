@@ -14,7 +14,7 @@
 //! assert_eq!(c.next(5.69),  false);
 //! ```
 
-use super::Controller;
+use super::{Controller, PureController};
 
 /// A Bang-bang controller implementation
 #[derive(Debug, Clone)]
@@ -50,12 +50,20 @@ impl BangBang {
 
 impl Controller<f64, bool> for BangBang {
     fn next(&mut self, actual: f64) -> bool {
-        if actual > self.cfg.threshold + self.cfg.hysteresis {
-            self.state = true;
-        } else if actual < self.cfg.threshold - self.cfg.hysteresis {
-            self.state = false;
-        }
+        self.state = self.cfg.next_pure((self.state, actual));
         self.state
+    }
+}
+
+impl PureController<(bool, f64), bool> for BangBangConfig {
+    fn next_pure(&self, input: (bool, f64)) -> bool {
+        let (mut state, actual) = input;
+        if actual > self.threshold + self.hysteresis {
+            state = true;
+        } else if actual < self.threshold - self.hysteresis {
+            state = false;
+        }
+        state
     }
 }
 

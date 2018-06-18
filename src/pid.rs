@@ -37,7 +37,7 @@
 //! }
 //! ```
 
-use super::Controller;
+use super::{Controller, PureController};
 use std::time::Duration;
 
 /// PID controller implementation
@@ -49,7 +49,7 @@ pub struct Pid {
 }
 
 /// Internal PID controller state
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PidState {
     /// Current target
     pub target: f64,
@@ -132,25 +132,35 @@ impl Default for PidConfig {
 impl<'a> Controller<(f64, &'a Duration), f64> for Pid {
     fn next(&mut self, input: (f64, &Duration)) -> f64 {
         let (actual, duration) = input;
+        let (state, result) = self.cfg.next_pure((self.state, actual, duration));
+        self.state = state;
+        result
+    }
+}
+
+impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidConfig {
+    fn next_pure(&self, input: (PidState, f64, &Duration)) -> (PidState, f64) {
+        let (state, actual, duration) = input;
         let delta_t = duration_as_f64(duration);
 
-        let err = self.state.target - actual;
+        let err = state.target - actual;
 
-        self.state.p = self.cfg.k_p * err;
-        self.state.i = self.state.i + self.cfg.k_i * err * delta_t;
-        self.state.d = if delta_t == 0.0 {
+        let mut state = state;
+        state.p = self.k_p * err;
+        state.i = state.i + self.k_i * err * delta_t;
+        state.d = if delta_t == 0.0 {
             0.0
         } else {
-            self.cfg.k_d * (self.state.prev_value.unwrap_or_else(|| actual) - actual) / delta_t
+            self.k_d * (state.prev_value.unwrap_or_else(|| actual) - actual) / delta_t
         };
 
-        self.state.prev_value = Some(actual);
+        state.prev_value = Some(actual);
 
-        let result = self.state.p + self.state.i + self.state.d;
+        let result = state.p + state.i + state.d;
 
-        let result = limit(self.cfg.min, self.cfg.max, result);
+        let result = limit(self.min, self.max, result);
 
-        result
+        (state, result)
     }
 }
 

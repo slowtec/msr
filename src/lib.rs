@@ -22,6 +22,12 @@ pub trait Controller<Input, Output> {
     fn next(&mut self, input: Input) -> Output;
 }
 
+/// A generic stateless controller
+trait PureController<Input, Output> {
+    /// Calculate the next state.
+    fn next_pure(&self, input: Input) -> Output;
+}
+
 /// A generic statefull controller with time steps
 pub trait TimeStepController<Input, Output> {
     /// Calculate the next state.
