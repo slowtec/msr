@@ -21,11 +21,45 @@ pub struct Input {
     pub id: String,
     /// A more detailed description
     pub desc: Option<String>,
+    /// Value mapping
+    pub mapping: Option<ValueMapping>,
+}
+
+/// Map a number **from** one range **to** another.
+///
+/// That is, a value of `from.low` would get mapped to `to.low`,
+/// a value of `from.high` to `to.high`,
+/// values in-between to values in-between, etc.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ValueMapping {
+    /// The bounds of the value’s current range
+    pub from: ValueBounds,
+    /// The bounds of the value’s target range
+    pub to: ValueBounds,
+}
+
+impl ValueMapping {
+    pub fn map(&self, x: f64) -> f64 {
+        util::map_value(x, self.from.low, self.from.high, self.to.low, self.to.high)
+    }
+}
+
+/// Bounds of a value’s range.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ValueBounds {
+    /// the lower bound of the value’s range
+    pub low: f64,
+    /// the upper bound of the value’s range
+    pub high: f64,
 }
 
 impl Input {
     pub fn new(id: String) -> Self {
-        Input { id, desc: None }
+        Input {
+            id,
+            desc: None,
+            mapping: None,
+        }
     }
 }
 
@@ -42,11 +76,17 @@ pub struct Output {
     pub id: String,
     /// A more detailed description
     pub desc: Option<String>,
+    /// Value mapping
+    pub mapping: Option<ValueMapping>,
 }
 
 impl Output {
     pub fn new(id: String) -> Self {
-        Output { id, desc: None }
+        Output {
+            id,
+            desc: None,
+            mapping: None,
+        }
     }
 }
 
@@ -82,4 +122,27 @@ pub struct Rule {
     pub condition: BooleanExpr<Comparison>,
     /// Actions that should be triggerd
     pub actions: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn map_input() {
+        let map = ValueMapping {
+            from: ValueBounds {
+                low: 4.0,
+                high: 20.0,
+            },
+            to: ValueBounds {
+                low: 0.0,
+                high: 100.0,
+            },
+        };
+        assert_eq!(map.map(4.0), 0.0);
+        assert_eq!(map.map(12.0), 50.0);
+        assert_eq!(map.map(20.0), 100.0);
+    }
 }

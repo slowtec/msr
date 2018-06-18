@@ -1,3 +1,5 @@
+//! Little helpers
+
 /// Re-maps a number from one range to another.
 pub fn map_value(x: f64, x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> f64 {
     let s = (y_max - y_min) / (x_max - x_min);
