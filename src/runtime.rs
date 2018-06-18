@@ -345,7 +345,6 @@ mod tests {
                 p: 20.0,
                 i: 0.0,
                 d: 0.0,
-                err_sum: 0.0,
                 prev_value: Some(0.0),
                 target: 10.0,
             })

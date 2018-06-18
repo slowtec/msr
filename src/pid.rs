@@ -53,13 +53,11 @@ pub struct Pid {
 pub struct PidState {
     /// Current target
     pub target: f64,
-    /// Current error sum
-    pub err_sum: f64,
     /// Value of the previous step
     pub prev_value: Option<f64>,
     /// Proportional portion
     pub p: f64,
-    /// Integral portion
+    /// Integral portion (error sum)
     pub i: f64,
     /// Derative portion
     pub d: f64,
@@ -69,7 +67,6 @@ impl Default for PidState {
     fn default() -> Self {
         PidState {
             target: 0.0,
-            err_sum: 0.0,
             prev_value: None,
             p: 0.0,
             i: 0.0,
@@ -139,10 +136,8 @@ impl<'a> Controller<(f64, &'a Duration), f64> for Pid {
 
         let err = self.state.target - actual;
 
-        self.state.err_sum = self.state.err_sum + self.cfg.k_i * err * delta_t;
-
         self.state.p = self.cfg.k_p * err;
-        self.state.i = self.state.err_sum;
+        self.state.i = self.state.i + self.cfg.k_i * err * delta_t;
         self.state.d = if delta_t == 0.0 {
             0.0
         } else {
@@ -301,11 +296,11 @@ mod tests {
         pid.set_target(50.0);
         let dt = Duration::from_secs(1);
         pid.next((3.0, &dt));
-        assert!(pid.state.err_sum != 0.0);
+        assert!(pid.state.i != 0.0);
         assert!(pid.state.target != 0.0);
         assert!(pid.state.prev_value.is_some());
         pid.reset();
-        assert_eq!(pid.state.err_sum, 0.0);
+        assert_eq!(pid.state.i, 0.0);
         assert_eq!(pid.state.target, 9.9);
         assert_eq!(pid.state.prev_value, None);
     }
