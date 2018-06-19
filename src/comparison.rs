@@ -27,7 +27,7 @@ pub struct Comparison {
 }
 
 impl IoCondition for Comparison {
-    fn eval(&self, io: &mut SyncIoSystem) -> Result<bool> {
+    fn eval(&self, io: &IoState) -> Result<bool> {
         use Comparator::*;
         use ErrorKind::*;
         use Value::*;
@@ -141,18 +141,23 @@ impl IoCondition for Comparison {
     }
 }
 
-fn get_val(src: &Source, io: &mut SyncIoSystem) -> Result<Value> {
+fn get_val<'a>(src: &'a Source, io: &'a IoState) -> Result<&'a Value> {
     use ErrorKind::*;
     use Source::*;
     match src {
-        In(ref id) => io.read(id),
-        Out(ref id) => io.read_output(id)?.ok_or_else(|| {
+        In(ref id) => io.inputs.get(id).ok_or_else(|| {
+            Error::new(
+                NotFound,
+                format!("The state of input '{}' does not exist", id),
+            )
+        }),
+        Out(ref id) => io.outputs.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
                 format!("The state of output '{}' does not exist", id),
             )
         }),
-        Const(ref v) => Ok(v.clone()),
+        Const(ref v) => Ok(v),
     }
 }
 

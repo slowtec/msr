@@ -23,7 +23,7 @@ pub trait Controller<Input, Output> {
 }
 
 /// A generic stateless controller
-trait PureController<Input, Output> {
+pub trait PureController<Input, Output> {
     /// Calculate the next state.
     fn next_pure(&self, input: Input) -> Output;
 }
@@ -68,10 +68,69 @@ pub enum ControllerConfig {
 }
 
 /// Controller state
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ControllerState {
     Pid(pid::PidState),
     BangBang(bang_bang::BangBangState),
+}
+
+impl<'a>
+    PureController<
+        (&'a ControllerState, &'a IoState, &'a Duration),
+        Result<(ControllerState, IoState)>,
+    > for Loop
+{
+    fn next_pure(
+        &self,
+        input: (&ControllerState, &IoState, &Duration),
+    ) -> Result<(ControllerState, IoState)> {
+        let (controller, io, dt) = input;
+        if self.inputs.len() != 1 || self.outputs.len() != 1 {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Loop has invalid length of inputs/outputs",
+            ));
+        }
+
+        let input_id = &self.inputs[0];
+
+        if let Some(Value::Decimal(v)) = io.inputs.get(input_id) {
+            let mut io = io.clone();
+            let output_id = self.outputs[0].clone();
+
+            match self.controller {
+                ControllerConfig::Pid(ref cfg) => match controller {
+                    ControllerState::Pid(s) => {
+                        let (pid_state, y) = cfg.next_pure((*s, *v, dt));
+                        io.outputs.insert(output_id, y.into());
+                        let controller = ControllerState::Pid(pid_state);
+                        Ok((controller, io))
+                    }
+                    _ => Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Invalid controller state: a PID state is is required",
+                    )),
+                },
+                ControllerConfig::BangBang(ref cfg) => match controller {
+                    ControllerState::BangBang(s) => {
+                        let bb_state = cfg.next_pure((*s, *v));
+                        io.outputs.insert(output_id, bb_state.into());
+                        let controller = ControllerState::BangBang(bb_state);
+                        Ok((controller, io))
+                    }
+                    _ => Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Invalid controller state: a BangBang state is is required",
+                    )),
+                },
+            }
+        } else {
+            Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid input data type: a decimal value is required",
+            ))
+        }
+    }
 }
 
 /// The state of all inputs and outputs of a MSR system.
@@ -187,7 +246,7 @@ pub enum BooleanExpr<T> {
 
 /// A condition that can be evaulated with a given [IoState]
 pub trait IoCondition {
-    fn eval(&self, io: &mut SyncIoSystem) -> Result<bool>;
+    fn eval(&self, io: &IoState) -> Result<bool>;
 }
 
 trait IoSources {
@@ -214,7 +273,7 @@ impl<T> IoCondition for BooleanExpr<T>
 where
     T: IoCondition,
 {
-    fn eval(&self, io: &mut SyncIoSystem) -> Result<bool> {
+    fn eval(&self, io: &IoState) -> Result<bool> {
         use BooleanExpr::*;
         match self {
             True => Ok(true),
@@ -321,5 +380,74 @@ mod tests {
                 In("z".into()),
             ]
         );
+    }
+
+    #[test]
+    fn pure_pid_loop() {
+        let mut pid_cfg = pid::PidConfig::default();
+        pid_cfg.k_p = 2.0;
+        let l = Loop {
+            id: "pid".into(),
+            desc: None,
+            inputs: vec!["x".into()],
+            outputs: vec!["y".into()],
+            controller: ControllerConfig::Pid(pid_cfg),
+        };
+        let mut io = IoState::default();
+        io.inputs.insert("x".into(), 140.0.into());
+        let mut pid_state = pid::PidState::default();
+        pid_state.target = 150.0;
+        let controller = ControllerState::Pid(pid_state);
+        let dt = Duration::from_secs(1);
+        let (c, io) = l.next_pure((&controller, &io, &dt)).unwrap();
+        assert_eq!(*io.outputs.get("y").unwrap(), Value::Decimal(20.0));
+        match c {
+            ControllerState::Pid(pid) => {
+                assert_eq!(pid.prev_value, Some(140.0));
+            }
+            _ => {
+                panic!("invalid controller state");
+            }
+        }
+    }
+
+    #[test]
+    fn pure_bb_loop() {
+        let mut bb_cfg = bang_bang::BangBangConfig::default();
+        bb_cfg.threshold = 5.0;
+        let l = Loop {
+            id: "bb".into(),
+            desc: None,
+            inputs: vec!["x".into()],
+            outputs: vec!["y".into()],
+            controller: ControllerConfig::BangBang(bb_cfg),
+        };
+        let mut io = IoState::default();
+        io.inputs.insert("x".into(), 5.1.into());
+        let controller = ControllerState::BangBang(false);
+        let dt = Duration::from_secs(1);
+        let (_, io) = l.next_pure((&controller, &io, &dt)).unwrap();
+        assert_eq!(*io.outputs.get("y").unwrap(), Value::Bit(true));
+    }
+
+    #[test]
+    fn check_loops_inputs_and_outputs_len() {
+        let controller = ControllerConfig::BangBang(bang_bang::BangBangConfig::default());
+        let dt = Duration::from_millis(5);
+        let mut loop0 = Loop {
+            id: "foo".into(),
+            desc: None,
+            inputs: vec![],
+            outputs: vec![],
+            controller,
+        };
+        let mut io = IoState::default();
+        io.inputs.insert("input".into(), 0.0.into());
+        let controller = ControllerState::BangBang(bang_bang::BangBangState::default());
+        assert!(loop0.next_pure((&controller, &io, &dt)).is_err());
+        loop0.inputs = vec!["input".into()];
+        assert!(loop0.next_pure((&controller, &io, &dt)).is_err());
+        loop0.outputs = vec!["output".into()];
+        assert!(loop0.next_pure((&controller, &io, &dt)).is_ok());
     }
 }
