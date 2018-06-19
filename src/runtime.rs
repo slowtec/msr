@@ -40,7 +40,7 @@ impl<'a>
         Result<(SyncRuntimeState, IoState)>,
     > for SyncRuntime
 {
-    fn next_pure(
+    fn next(
         &self,
         input: (&SyncRuntimeState, &IoState, &Duration),
     ) -> Result<(SyncRuntimeState, IoState)> {
@@ -67,7 +67,7 @@ impl<'a>
                     }
                 }
             }
-            let (new_controller, new_io) = l.next_pure((
+            let (new_controller, new_io) = l.next((
                 state
                     .controllers
                     .get(&l.id)
@@ -115,13 +115,13 @@ mod tests {
         let mut io = IoState::default();
         io.inputs.insert("input".into(), 0.0.into());
         let s = SyncRuntimeState::default();
-        assert!(rt.next_pure((&s, &io, &dt)).is_ok());
+        assert!(rt.next((&s, &io, &dt)).is_ok());
         rt.loops = vec![loop0];
-        assert!(rt.next_pure((&s, &io, &dt)).is_err());
+        assert!(rt.next((&s, &io, &dt)).is_err());
         rt.loops[0].inputs = vec!["input".into()];
-        assert!(rt.next_pure((&s, &io, &dt)).is_err());
+        assert!(rt.next((&s, &io, &dt)).is_err());
         rt.loops[0].outputs = vec!["output".into()];
-        assert!(rt.next_pure((&s, &io, &dt)).is_ok());
+        assert!(rt.next((&s, &io, &dt)).is_ok());
     }
 
     #[test]
@@ -140,11 +140,11 @@ mod tests {
         let s = SyncRuntimeState::default();
         let mut io = IoState::default();
         io.inputs.insert("input".into(), true.into());
-        assert!(rt.next_pure((&s, &io, &dt)).is_err());
+        assert!(rt.next((&s, &io, &dt)).is_err());
         io.inputs.insert("input".into(), Value::Bin(vec![]));
-        assert!(rt.next_pure((&s, &io, &dt)).is_err());
+        assert!(rt.next((&s, &io, &dt)).is_err());
         io.inputs.insert("input".into(), 0.0.into());
-        assert!(rt.next_pure((&s, &io, &dt)).is_ok());
+        assert!(rt.next((&s, &io, &dt)).is_ok());
     }
 
     #[test]
@@ -166,7 +166,7 @@ mod tests {
         let s = SyncRuntimeState::default();
         let mut io = IoState::default();
         io.inputs.insert("sensor".into(), 0.0.into());
-        let (_, io) = rt.next_pure((&s, &io, &dt)).unwrap();
+        let (_, io) = rt.next((&s, &io, &dt)).unwrap();
         assert_eq!(*io.outputs.get("actuator").unwrap(), Value::Decimal(20.0));
     }
 
@@ -190,10 +190,10 @@ mod tests {
         let mut io = IoState::default();
         io.inputs.insert(sensor.clone(), 0.0.into());
         let s = SyncRuntimeState::default();
-        let (_, mut io) = rt.next_pure((&s, &io, &dt)).unwrap();
+        let (_, mut io) = rt.next((&s, &io, &dt)).unwrap();
         assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(false));
         io.inputs.insert(sensor, 3.0.into());
-        let (_, io) = rt.next_pure((&s, &io, &dt)).unwrap();
+        let (_, io) = rt.next((&s, &io, &dt)).unwrap();
         assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(true));
     }
 
@@ -229,7 +229,7 @@ mod tests {
 
         let s = SyncRuntimeState::default();
         assert_eq!(
-            rt.next_pure((&s, &io, &dt)).unwrap().0,
+            rt.next((&s, &io, &dt)).unwrap().0,
             SyncRuntimeState::default()
         );
 
@@ -239,7 +239,7 @@ mod tests {
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
-        let (state, io) = rt.next_pure((&s, &io, &dt)).unwrap();
+        let (state, io) = rt.next((&s, &io, &dt)).unwrap();
         assert_eq!(state.rules.len(), 1);
         assert_eq!(*state.rules.get("foo").unwrap(), false);
         assert_eq!(io.inputs.get("x").unwrap(), &Value::from(1.0));
@@ -271,7 +271,7 @@ mod tests {
             },
         ];
         rt.loops = loops;
-        let (state, io) = rt.next_pure((&s, &io, &dt)).unwrap();
+        let (state, io) = rt.next((&s, &io, &dt)).unwrap();
         assert_eq!(io.outputs.get("b").unwrap(), &Value::from(true));
         assert_eq!(io.outputs.get("k").unwrap(), &Value::from(20.0));
         assert_eq!(

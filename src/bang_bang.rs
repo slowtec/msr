@@ -50,13 +50,13 @@ impl BangBang {
 
 impl Controller<f64, bool> for BangBang {
     fn next(&mut self, actual: f64) -> bool {
-        self.state = self.cfg.next_pure((self.state, actual));
+        self.state = self.cfg.next((self.state, actual));
         self.state
     }
 }
 
 impl PureController<(bool, f64), bool> for BangBangConfig {
-    fn next_pure(&self, input: (bool, f64)) -> bool {
+    fn next(&self, input: (bool, f64)) -> bool {
         let (mut state, actual) = input;
         if actual > self.threshold + self.hysteresis {
             state = true;

@@ -25,7 +25,7 @@ pub trait Controller<Input, Output> {
 /// A generic stateless controller
 pub trait PureController<Input, Output> {
     /// Calculate the next state.
-    fn next_pure(&self, input: Input) -> Output;
+    fn next(&self, input: Input) -> Output;
 }
 
 /// A generic statefull controller with time steps
@@ -80,7 +80,7 @@ impl<'a>
         Result<(ControllerState, IoState)>,
     > for Loop
 {
-    fn next_pure(
+    fn next(
         &self,
         input: (&ControllerState, &IoState, &Duration),
     ) -> Result<(ControllerState, IoState)> {
@@ -101,7 +101,7 @@ impl<'a>
             match self.controller {
                 ControllerConfig::Pid(ref cfg) => match controller {
                     ControllerState::Pid(s) => {
-                        let (pid_state, y) = cfg.next_pure((*s, *v, dt));
+                        let (pid_state, y) = cfg.next((*s, *v, dt));
                         io.outputs.insert(output_id, y.into());
                         let controller = ControllerState::Pid(pid_state);
                         Ok((controller, io))
@@ -113,7 +113,7 @@ impl<'a>
                 },
                 ControllerConfig::BangBang(ref cfg) => match controller {
                     ControllerState::BangBang(s) => {
-                        let bb_state = cfg.next_pure((*s, *v));
+                        let bb_state = cfg.next((*s, *v));
                         io.outputs.insert(output_id, bb_state.into());
                         let controller = ControllerState::BangBang(bb_state);
                         Ok((controller, io))
@@ -399,7 +399,7 @@ mod tests {
         pid_state.target = 150.0;
         let controller = ControllerState::Pid(pid_state);
         let dt = Duration::from_secs(1);
-        let (c, io) = l.next_pure((&controller, &io, &dt)).unwrap();
+        let (c, io) = l.next((&controller, &io, &dt)).unwrap();
         assert_eq!(*io.outputs.get("y").unwrap(), Value::Decimal(20.0));
         match c {
             ControllerState::Pid(pid) => {
@@ -426,7 +426,7 @@ mod tests {
         io.inputs.insert("x".into(), 5.1.into());
         let controller = ControllerState::BangBang(false);
         let dt = Duration::from_secs(1);
-        let (_, io) = l.next_pure((&controller, &io, &dt)).unwrap();
+        let (_, io) = l.next((&controller, &io, &dt)).unwrap();
         assert_eq!(*io.outputs.get("y").unwrap(), Value::Bit(true));
     }
 
@@ -444,10 +444,10 @@ mod tests {
         let mut io = IoState::default();
         io.inputs.insert("input".into(), 0.0.into());
         let controller = ControllerState::BangBang(bang_bang::BangBangState::default());
-        assert!(loop0.next_pure((&controller, &io, &dt)).is_err());
+        assert!(loop0.next((&controller, &io, &dt)).is_err());
         loop0.inputs = vec!["input".into()];
-        assert!(loop0.next_pure((&controller, &io, &dt)).is_err());
+        assert!(loop0.next((&controller, &io, &dt)).is_err());
         loop0.outputs = vec!["output".into()];
-        assert!(loop0.next_pure((&controller, &io, &dt)).is_ok());
+        assert!(loop0.next((&controller, &io, &dt)).is_ok());
     }
 }

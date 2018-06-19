@@ -132,14 +132,14 @@ impl Default for PidConfig {
 impl<'a> Controller<(f64, &'a Duration), f64> for Pid {
     fn next(&mut self, input: (f64, &Duration)) -> f64 {
         let (actual, duration) = input;
-        let (state, result) = self.cfg.next_pure((self.state, actual, duration));
+        let (state, result) = self.cfg.next((self.state, actual, duration));
         self.state = state;
         result
     }
 }
 
 impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidConfig {
-    fn next_pure(&self, input: (PidState, f64, &Duration)) -> (PidState, f64) {
+    fn next(&self, input: (PidState, f64, &Duration)) -> (PidState, f64) {
         let (state, actual, duration) = input;
         let delta_t = duration_as_f64(duration);
 
