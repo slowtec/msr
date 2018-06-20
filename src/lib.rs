@@ -298,6 +298,12 @@ where
     }
 }
 
+impl From<Comparison> for BooleanExpr<Comparison> {
+    fn from(c: Comparison) -> Self {
+        BooleanExpr::Eval(c)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -383,6 +389,14 @@ mod tests {
                 In("z".into()),
             ]
         );
+    }
+
+    #[test]
+    fn bool_expr_from_comparison() {
+        use Source::*;
+        let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
+        let expr = BooleanExpr::from(x_gt_5.clone());
+        assert_eq!(expr, BooleanExpr::Eval(x_gt_5));
     }
 
     #[test]
