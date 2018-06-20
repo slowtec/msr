@@ -4,6 +4,7 @@ use std::{
 
 mod comparison;
 mod entities;
+mod parser;
 mod runtime;
 pub mod util;
 mod value;
