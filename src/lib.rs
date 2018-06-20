@@ -1,5 +1,7 @@
 use std::{
-    collections::HashMap, io::{Error, ErrorKind, Result}, time::Duration,
+    collections::HashMap,
+    io::{Error, ErrorKind, Result},
+    time::Duration,
 };
 
 mod comparison;
@@ -389,7 +391,6 @@ mod tests {
         pid_cfg.k_p = 2.0;
         let l = Loop {
             id: "pid".into(),
-            desc: None,
             inputs: vec!["x".into()],
             outputs: vec!["y".into()],
             controller: ControllerConfig::Pid(pid_cfg),
@@ -418,7 +419,6 @@ mod tests {
         bb_cfg.threshold = 5.0;
         let l = Loop {
             id: "bb".into(),
-            desc: None,
             inputs: vec!["x".into()],
             outputs: vec!["y".into()],
             controller: ControllerConfig::BangBang(bb_cfg),
@@ -437,7 +437,6 @@ mod tests {
         let dt = Duration::from_millis(5);
         let mut loop0 = Loop {
             id: "foo".into(),
-            desc: None,
             inputs: vec![],
             outputs: vec![],
             controller,

@@ -107,7 +107,6 @@ mod tests {
         let dt = Duration::from_millis(5);
         let loop0 = Loop {
             id: "foo".into(),
-            desc: None,
             inputs: vec![],
             outputs: vec![],
             controller,
@@ -131,7 +130,6 @@ mod tests {
         let dt = Duration::from_millis(5);
         let loops = vec![Loop {
             id: "foo".into(),
-            desc: None,
             inputs: vec!["input".into()],
             outputs: vec!["output".into()],
             controller,
@@ -157,7 +155,6 @@ mod tests {
         let dt = Duration::from_secs(1);
         let loops = vec![Loop {
             id: "foo".into(),
-            desc: None,
             inputs: vec!["sensor".into()],
             outputs: vec!["actuator".into()],
             controller,
@@ -181,7 +178,6 @@ mod tests {
         let actuator = "actuator".to_string();
         let loops = vec![Loop {
             id: "foo".into(),
-            desc: None,
             inputs: vec![sensor.clone()],
             outputs: vec![actuator.clone()],
             controller,
@@ -205,7 +201,6 @@ mod tests {
         assert_eq!(rt.rules_state(&mut io).unwrap().len(), 0);
         rt.rules = vec![Rule {
             id: "foo".into(),
-            desc: None,
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
@@ -236,7 +231,6 @@ mod tests {
 
         rt.rules = vec![Rule {
             id: "foo".into(),
-            desc: None,
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
@@ -258,14 +252,12 @@ mod tests {
         let loops = vec![
             Loop {
                 id: "bb".into(),
-                desc: None,
                 inputs: vec!["a".into()],
                 outputs: vec!["b".into()],
                 controller: bb,
             },
             Loop {
                 id: "pid".into(),
-                desc: None,
                 inputs: vec!["j".into()],
                 outputs: vec!["k".into()],
                 controller: pid,

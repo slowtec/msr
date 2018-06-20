@@ -13,14 +13,11 @@ use super::*;
 ///
 /// // You can also add some description to it
 /// let mut tcr003 = Input::new("tcr003".into());
-/// tcr003.desc = Some("This sensor measures the environment temperature".into());
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Input {
     /// The unique ID of the input
     pub id: String,
-    /// A more detailed description
-    pub desc: Option<String>,
     /// Value mapping
     pub mapping: Option<ValueMapping>,
 }
@@ -55,11 +52,7 @@ pub struct ValueBounds {
 
 impl Input {
     pub fn new(id: String) -> Self {
-        Input {
-            id,
-            desc: None,
-            mapping: None,
-        }
+        Input { id, mapping: None }
     }
 }
 
@@ -74,19 +67,13 @@ impl<'a> From<&'a str> for Input {
 pub struct Output {
     /// The unique ID of the output
     pub id: String,
-    /// A more detailed description
-    pub desc: Option<String>,
     /// Value mapping
     pub mapping: Option<ValueMapping>,
 }
 
 impl Output {
     pub fn new(id: String) -> Self {
-        Output {
-            id,
-            desc: None,
-            mapping: None,
-        }
+        Output { id, mapping: None }
     }
 }
 
@@ -101,8 +88,6 @@ impl<'a> From<&'a str> for Output {
 pub struct Loop {
     /// The unique ID of the rule
     pub id: String,
-    /// A more detailed description
-    pub desc: Option<String>,
     /// Used inputs
     pub inputs: Vec<String>,
     /// Used outputs
@@ -116,8 +101,6 @@ pub struct Loop {
 pub struct Rule {
     /// The unique ID of the rule
     pub id: String,
-    /// A more detailed description
-    pub desc: Option<String>,
     /// The condition
     pub condition: BooleanExpr<Comparison>,
     /// Actions that should be triggerd
