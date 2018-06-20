@@ -19,6 +19,7 @@ impl Default for SyncRuntime {
     }
 }
 
+/// The state structure of [SyncRuntime].
 #[derive(Debug, Clone, PartialEq)]
 pub struct SyncRuntimeState {
     pub controllers: HashMap<String, ControllerState>,
