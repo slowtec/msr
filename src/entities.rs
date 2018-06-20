@@ -96,6 +96,15 @@ pub struct Loop {
     pub controller: ControllerConfig,
 }
 
+/// A fixed interval
+#[derive(Debug, Clone)]
+pub struct Interval {
+    /// The unique ID of the interval
+    pub id: String,
+    /// The duration between two events
+    pub duration: Duration,
+}
+
 /// A Rule connects a condition with a list of actions
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rule {

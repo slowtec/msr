@@ -4,17 +4,17 @@ use std::{collections::HashMap, io::Result, time::Duration};
 /// A simple synchronous closed-loop runtime.
 #[derive(Debug)]
 pub struct SyncRuntime {
-    pub loops: Vec<Loop>,
+    /// Loops grouped by interval IDs
+    pub loops: HashMap<String, Vec<Loop>>,
+    /// Rules that will be evaluated on each step.
     pub rules: Vec<Rule>,
-    state: SyncRuntimeState,
 }
 
 impl Default for SyncRuntime {
     fn default() -> Self {
         SyncRuntime {
-            loops: vec![],
+            loops: HashMap::new(),
             rules: vec![],
-            state: SyncRuntimeState::default(),
         }
     }
 }
@@ -37,47 +37,49 @@ impl Default for SyncRuntimeState {
 
 impl<'a>
     PureController<
-        (&'a SyncRuntimeState, &'a IoState, &'a Duration),
+        (&'a SyncRuntimeState, &'a IoState, &'a str, &'a Duration),
         Result<(SyncRuntimeState, IoState)>,
     > for SyncRuntime
 {
     fn next(
         &self,
-        input: (&SyncRuntimeState, &IoState, &Duration),
+        input: (&SyncRuntimeState, &IoState, &str, &Duration),
     ) -> Result<(SyncRuntimeState, IoState)> {
-        let (state, io, delta_t) = input;
+        let (state, io, interval, delta_t) = input;
 
         let mut io = io.clone();
         let mut state = state.clone();
 
-        for l in self.loops.iter() {
-            if state.controllers.get(&l.id).is_none() {
-                match l.controller {
-                    ControllerConfig::Pid(ref cfg) => {
-                        let mut s = pid::PidState::default();
-                        s.target = cfg.default_target;
-                        state
-                            .controllers
-                            .insert(l.id.clone(), ControllerState::Pid(s));
-                    }
-                    ControllerConfig::BangBang(_) => {
-                        state.controllers.insert(
-                            l.id.clone(),
-                            ControllerState::BangBang(bang_bang::BangBangState::default()),
-                        );
+        if let Some(loops) = self.loops.get(interval) {
+            for l in loops.iter() {
+                if state.controllers.get(&l.id).is_none() {
+                    match l.controller {
+                        ControllerConfig::Pid(ref cfg) => {
+                            let mut s = pid::PidState::default();
+                            s.target = cfg.default_target;
+                            state
+                                .controllers
+                                .insert(l.id.clone(), ControllerState::Pid(s));
+                        }
+                        ControllerConfig::BangBang(_) => {
+                            state.controllers.insert(
+                                l.id.clone(),
+                                ControllerState::BangBang(bang_bang::BangBangState::default()),
+                            );
+                        }
                     }
                 }
+                let (new_controller, new_io) = l.next((
+                    state
+                        .controllers
+                        .get(&l.id)
+                        .expect("The controller state was not initialized"),
+                    &io,
+                    delta_t,
+                ))?;
+                io = new_io;
+                state.controllers.insert(l.id.clone(), new_controller);
             }
-            let (new_controller, new_io) = l.next((
-                state
-                    .controllers
-                    .get(&l.id)
-                    .expect("The controller state was not initialized"),
-                &io,
-                delta_t,
-            ))?;
-            io = new_io;
-            state.controllers.insert(l.id.clone(), new_controller);
         }
         state.rules = self.rules_state(&io)?;
         Ok((state, io))
@@ -115,13 +117,13 @@ mod tests {
         let mut io = IoState::default();
         io.inputs.insert("input".into(), 0.0.into());
         let s = SyncRuntimeState::default();
-        assert!(rt.next((&s, &io, &dt)).is_ok());
-        rt.loops = vec![loop0];
-        assert!(rt.next((&s, &io, &dt)).is_err());
-        rt.loops[0].inputs = vec!["input".into()];
-        assert!(rt.next((&s, &io, &dt)).is_err());
-        rt.loops[0].outputs = vec!["output".into()];
-        assert!(rt.next((&s, &io, &dt)).is_ok());
+        assert!(rt.next((&s, &io, "i", &dt)).is_ok());
+        rt.loops.insert("i".into(), vec![loop0]);
+        assert!(rt.next((&s, &io, "i", &dt)).is_err());
+        rt.loops.get_mut("i").unwrap()[0].inputs = vec!["input".into()];
+        assert!(rt.next((&s, &io, "i", &dt)).is_err());
+        rt.loops.get_mut("i").unwrap()[0].outputs = vec!["output".into()];
+        assert!(rt.next((&s, &io, "i", &dt)).is_ok());
     }
 
     #[test]
@@ -135,15 +137,15 @@ mod tests {
             controller,
         }];
         let mut rt = SyncRuntime::default();
-        rt.loops = loops;
+        rt.loops.insert("i".into(), loops);
         let s = SyncRuntimeState::default();
         let mut io = IoState::default();
         io.inputs.insert("input".into(), true.into());
-        assert!(rt.next((&s, &io, &dt)).is_err());
+        assert!(rt.next((&s, &io, "i", &dt)).is_err());
         io.inputs.insert("input".into(), Value::Bin(vec![]));
-        assert!(rt.next((&s, &io, &dt)).is_err());
+        assert!(rt.next((&s, &io, "i", &dt)).is_err());
         io.inputs.insert("input".into(), 0.0.into());
-        assert!(rt.next((&s, &io, &dt)).is_ok());
+        assert!(rt.next((&s, &io, "i", &dt)).is_ok());
     }
 
     #[test]
@@ -160,11 +162,11 @@ mod tests {
             controller,
         }];
         let mut rt = SyncRuntime::default();
-        rt.loops = loops;
+        rt.loops.insert("i".into(), loops);
         let s = SyncRuntimeState::default();
         let mut io = IoState::default();
         io.inputs.insert("sensor".into(), 0.0.into());
-        let (_, io) = rt.next((&s, &io, &dt)).unwrap();
+        let (_, io) = rt.next((&s, &io, "i", &dt)).unwrap();
         assert_eq!(*io.outputs.get("actuator").unwrap(), Value::Decimal(20.0));
     }
 
@@ -183,14 +185,14 @@ mod tests {
             controller,
         }];
         let mut rt = SyncRuntime::default();
-        rt.loops = loops;
+        rt.loops.insert("i".into(), loops);
         let mut io = IoState::default();
         io.inputs.insert(sensor.clone(), 0.0.into());
         let s = SyncRuntimeState::default();
-        let (_, mut io) = rt.next((&s, &io, &dt)).unwrap();
+        let (_, mut io) = rt.next((&s, &io, "i", &dt)).unwrap();
         assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(false));
         io.inputs.insert(sensor, 3.0.into());
-        let (_, io) = rt.next((&s, &io, &dt)).unwrap();
+        let (_, io) = rt.next((&s, &io, "i", &dt)).unwrap();
         assert_eq!(*io.outputs.get(&actuator).unwrap(), Value::Bit(true));
     }
 
@@ -225,7 +227,7 @@ mod tests {
 
         let s = SyncRuntimeState::default();
         assert_eq!(
-            rt.next((&s, &io, &dt)).unwrap().0,
+            rt.next((&s, &io, "i", &dt)).unwrap().0,
             SyncRuntimeState::default()
         );
 
@@ -234,7 +236,7 @@ mod tests {
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
-        let (state, io) = rt.next((&s, &io, &dt)).unwrap();
+        let (state, io) = rt.next((&s, &io, "default", &dt)).unwrap();
         assert_eq!(state.rules.len(), 1);
         assert_eq!(*state.rules.get("foo").unwrap(), false);
         assert_eq!(io.inputs.get("x").unwrap(), &Value::from(1.0));
@@ -263,8 +265,8 @@ mod tests {
                 controller: pid,
             },
         ];
-        rt.loops = loops;
-        let (state, io) = rt.next((&s, &io, &dt)).unwrap();
+        rt.loops.insert("default".into(), loops);
+        let (state, io) = rt.next((&s, &io, "default", &dt)).unwrap();
         assert_eq!(io.outputs.get("b").unwrap(), &Value::from(true));
         assert_eq!(io.outputs.get("k").unwrap(), &Value::from(20.0));
         assert_eq!(
@@ -281,5 +283,58 @@ mod tests {
                 target: 10.0,
             })
         );
+    }
+
+    #[test]
+    fn only_run_loops_of_corresponding_interval_id() {
+        let mut io = IoState::default();
+        let mut rt = SyncRuntime::default();
+        let dt = Duration::from_secs(1);
+        let s = SyncRuntimeState::default();
+
+        io.inputs.insert("a".into(), 3.0.into());
+        io.inputs.insert("x".into(), 1.0.into());
+
+        let mut bb_cfg = BangBangConfig::default();
+        bb_cfg.threshold = 2.0;
+        let bb = ControllerConfig::BangBang(bb_cfg);
+
+        let mut pid_cfg = PidConfig::default();
+        pid_cfg.k_p = 2.0;
+        pid_cfg.default_target = 10.0;
+        let pid = ControllerConfig::Pid(pid_cfg);
+
+        rt.loops.insert(
+            "bb".into(),
+            vec![Loop {
+                id: "bb".into(),
+                inputs: vec!["a".into()],
+                outputs: vec!["b".into()],
+                controller: bb,
+            }],
+        );
+
+        rt.loops.insert(
+            "pid".into(),
+            vec![Loop {
+                id: "pid".into(),
+                inputs: vec!["x".into()],
+                outputs: vec!["y".into()],
+                controller: pid,
+            }],
+        );
+
+        let (s, mut io) = rt.next((&s, &io, "bb", &dt)).unwrap();
+        assert_eq!(*io.outputs.get("b").unwrap(), Value::from(true));
+        assert!(io.outputs.get("y").is_none());
+
+        io.inputs.insert("a".into(), 0.0.into());
+        let (s, io) = rt.next((&s, &io, "pid", &dt)).unwrap();
+        assert_eq!(*io.outputs.get("b").unwrap(), Value::from(true));
+        assert_eq!(*io.outputs.get("y").unwrap(), Value::from(18.0));
+
+        let (_, io) = rt.next((&s, &io, "bb", &dt)).unwrap();
+        assert_eq!(*io.outputs.get("b").unwrap(), Value::from(false));
+        assert_eq!(*io.outputs.get("y").unwrap(), Value::from(18.0));
     }
 }
