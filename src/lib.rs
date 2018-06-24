@@ -165,6 +165,17 @@ pub struct IoState {
     pub outputs: HashMap<String, Value>,
 }
 
+/// The state of a synchronous controlling system.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SyncSystemState {
+    /// I/O states
+    pub io: IoState,
+    /// Runtime state
+    pub runtime: SyncRuntimeState,
+    /// Controller setpoints
+    pub setpoints: HashMap<String, Value>,
+}
+
 impl Default for IoState {
     fn default() -> Self {
         IoState {
