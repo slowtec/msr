@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn pure_bb_loop() {
         let mut bb_cfg = bang_bang::BangBangConfig::default();
-        bb_cfg.threshold = 5.0;
+        bb_cfg.default_threshold = 5.0;
         let l = Loop {
             id: "bb".into(),
             inputs: vec!["x".into()],

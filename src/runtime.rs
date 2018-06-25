@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn run_bang_bang_controllers() {
         let mut bb_cfg = BangBangConfig::default();
-        bb_cfg.threshold = 2.0;
+        bb_cfg.default_threshold = 2.0;
         let controller = ControllerConfig::BangBang(bb_cfg);
         let dt = Duration::from_secs(1);
         let sensor = "sensor".to_string();
@@ -282,7 +282,7 @@ mod tests {
         assert_eq!(io.outputs.get("y").unwrap(), &Value::from(2.0));
 
         let mut bb_cfg = BangBangConfig::default();
-        bb_cfg.threshold = 2.0;
+        bb_cfg.default_threshold = 2.0;
         let bb = ControllerConfig::BangBang(bb_cfg);
 
         let mut pid_cfg = PidConfig::default();
@@ -335,7 +335,7 @@ mod tests {
         io.inputs.insert("x".into(), 1.0.into());
 
         let mut bb_cfg = BangBangConfig::default();
-        bb_cfg.threshold = 2.0;
+        bb_cfg.default_threshold = 2.0;
         let bb = ControllerConfig::BangBang(bb_cfg);
 
         let mut pid_cfg = PidConfig::default();
