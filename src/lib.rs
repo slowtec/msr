@@ -115,7 +115,7 @@ impl<'a>
                 ControllerConfig::BangBang(ref cfg) => match controller {
                     ControllerState::BangBang(s) => {
                         let bb_state = cfg.next((*s, *v));
-                        io.outputs.insert(output_id, bb_state.into());
+                        io.outputs.insert(output_id, bb_state.current.into());
                         let controller = ControllerState::BangBang(bb_state);
                         Ok((controller, io))
                     }
@@ -457,7 +457,7 @@ mod tests {
         };
         let mut io = IoState::default();
         io.inputs.insert("x".into(), 5.1.into());
-        let controller = ControllerState::BangBang(false);
+        let controller = ControllerState::BangBang(bang_bang::BangBangState::default());
         let dt = Duration::from_secs(1);
         let (_, io) = l.next((&controller, &io, &dt)).unwrap();
         assert_eq!(*io.outputs.get("y").unwrap(), Value::Bit(true));

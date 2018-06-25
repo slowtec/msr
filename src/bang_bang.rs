@@ -20,7 +20,7 @@ use super::{Controller, PureController};
 #[derive(Debug, Clone)]
 pub struct BangBang {
     cfg: BangBangConfig,
-    pub(crate) state: BangBangState,
+    state: BangBangState,
 }
 
 /// Bang-bang controller configuration
@@ -30,7 +30,20 @@ pub struct BangBangConfig {
     pub hysteresis: f64,
 }
 
-pub(crate) type BangBangState = bool;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BangBangState {
+    pub current: bool,
+    pub threshold: f64,
+}
+
+impl Default for BangBangState {
+    fn default() -> Self {
+        BangBangState {
+            current: false,
+            threshold: 0.0,
+        }
+    }
+}
 
 impl Default for BangBangConfig {
     fn default() -> Self {
@@ -44,24 +57,26 @@ impl Default for BangBangConfig {
 impl BangBang {
     /// Create a new controller instance with the given configuration.
     pub fn new(cfg: BangBangConfig) -> Self {
-        BangBang { cfg, state: false }
+        let mut state = BangBangState::default();
+        state.threshold = cfg.default_threshold;
+        BangBang { cfg, state }
     }
 }
 
 impl Controller<f64, bool> for BangBang {
     fn next(&mut self, actual: f64) -> bool {
         self.state = self.cfg.next((self.state, actual));
-        self.state
+        self.state.current
     }
 }
 
-impl PureController<(bool, f64), bool> for BangBangConfig {
-    fn next(&self, input: (bool, f64)) -> bool {
+impl PureController<(BangBangState, f64), BangBangState> for BangBangConfig {
+    fn next(&self, input: (BangBangState, f64)) -> BangBangState {
         let (mut state, actual) = input;
-        if actual > self.default_threshold + self.hysteresis {
-            state = true;
-        } else if actual < self.default_threshold - self.hysteresis {
-            state = false;
+        if actual > state.threshold + self.hysteresis {
+            state.current = true;
+        } else if actual < state.threshold - self.hysteresis {
+            state.current = false;
         }
         state
     }

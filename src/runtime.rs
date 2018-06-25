@@ -61,11 +61,12 @@ impl<'a>
                                 .controllers
                                 .insert(l.id.clone(), ControllerState::Pid(s));
                         }
-                        ControllerConfig::BangBang(_) => {
-                            state.controllers.insert(
-                                l.id.clone(),
-                                ControllerState::BangBang(bang_bang::BangBangState::default()),
-                            );
+                        ControllerConfig::BangBang(ref cfg) => {
+                            let mut s = bang_bang::BangBangState::default();
+                            s.threshold = cfg.default_threshold;
+                            state
+                                .controllers
+                                .insert(l.id.clone(), ControllerState::BangBang(s));
                         }
                     }
                 }
@@ -97,9 +98,9 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
             for (id, s) in input.0.setpoints.iter() {
                 if loops.iter().any(|l| l.id == *id) {
                     if let Some(c) = input.0.runtime.controllers.get(id) {
-                        match c {
-                            ControllerState::Pid(pid) => {
-                                if let Value::Decimal(v) = s {
+                        if let Value::Decimal(v) = s {
+                            match c {
+                                ControllerState::Pid(pid) => {
                                     let mut pid = pid.clone();
                                     pid.target = *v;
                                     state
@@ -107,8 +108,15 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
                                         .controllers
                                         .insert(id.clone(), ControllerState::Pid(pid));
                                 }
+                                ControllerState::BangBang(bb) => {
+                                    let mut bb = bb.clone();
+                                    bb.threshold = *v;
+                                    state
+                                        .runtime
+                                        .controllers
+                                        .insert(id.clone(), ControllerState::BangBang(bb));
+                                }
                             }
-                            _ => {}
                         }
                     }
                 }
@@ -310,7 +318,10 @@ mod tests {
         assert_eq!(io.outputs.get("k").unwrap(), &Value::from(20.0));
         assert_eq!(
             state.controllers.get("bb").unwrap(),
-            &ControllerState::BangBang(true)
+            &ControllerState::BangBang(BangBangState {
+                current: true,
+                threshold: 2.0
+            })
         );
         assert_eq!(
             state.controllers.get("pid").unwrap(),
@@ -381,18 +392,30 @@ mod tests {
     fn apply_setpoints_to_controllers() {
         let mut pid_cfg = PidConfig::default();
         pid_cfg.k_p = 2.0;
-        let controller = ControllerConfig::Pid(pid_cfg);
+        let pid_controller = ControllerConfig::Pid(pid_cfg);
+        let mut bb_cfg = BangBangConfig::default();
+        bb_cfg.default_threshold = 2.0;
+        let bb = ControllerConfig::BangBang(bb_cfg);
         let dt = Duration::from_secs(1);
-        let loops = vec![Loop {
-            id: "pid".into(),
-            inputs: vec!["sensor".into()],
-            outputs: vec!["actuator".into()],
-            controller,
-        }];
+        let loops = vec![
+            Loop {
+                id: "pid".into(),
+                inputs: vec!["sensor".into()],
+                outputs: vec!["actuator".into()],
+                controller: pid_controller,
+            },
+            Loop {
+                id: "bb".into(),
+                inputs: vec!["a".into()],
+                outputs: vec!["b".into()],
+                controller: bb,
+            },
+        ];
         let mut state = SyncSystemState::default();
         let mut runtime = SyncRuntime::default();
         runtime.loops.insert("interval".into(), loops);
         state.io.inputs.insert("sensor".into(), 0.0.into());
+        state.io.inputs.insert("a".into(), 0.0.into());
         let mut state = runtime.next((&state, "interval", &dt)).unwrap();
         let mut expected_pid_state = PidState::default();
         expected_pid_state.prev_value = Some(0.0.into());
@@ -414,11 +437,14 @@ mod tests {
             *state.runtime.controllers.get("pid").unwrap(),
             ControllerState::Pid(expected_pid_state)
         );
-        let state = runtime.next((&state, "interval", &dt)).unwrap();
+        let mut state = runtime.next((&state, "interval", &dt)).unwrap();
         expected_pid_state.target = 100.0;
         assert_eq!(
             *state.io.outputs.get("actuator").unwrap(),
             Value::Decimal(200.0)
         );
+        state.setpoints.insert("bb".into(), Value::Decimal(-30.0));
+        let state = runtime.next((&state, "interval", &dt)).unwrap();
+        assert_eq!(*state.io.outputs.get("b").unwrap(), Value::Bit(true));
     }
 }
