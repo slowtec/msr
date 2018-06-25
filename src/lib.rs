@@ -1,7 +1,5 @@
 use std::{
-    collections::HashMap,
-    io::{Error, ErrorKind, Result},
-    time::Duration,
+    collections::HashMap, io::{Error, ErrorKind, Result}, time::Duration,
 };
 
 mod comparison;
@@ -176,6 +174,16 @@ pub struct SyncSystemState {
     pub setpoints: HashMap<String, Value>,
 }
 
+impl Default for SyncSystemState {
+    fn default() -> Self {
+        SyncSystemState {
+            io: IoState::default(),
+            runtime: SyncRuntimeState::default(),
+            setpoints: HashMap::new(),
+        }
+    }
+}
+
 impl Default for IoState {
     fn default() -> Self {
         IoState {
@@ -187,8 +195,7 @@ impl Default for IoState {
 
 impl SyncIoSystem for IoState {
     fn read(&mut self, id: &str) -> Result<Value> {
-        Ok(self
-            .inputs
+        Ok(self.inputs
             .get(id)
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "no such input"))?
             .clone())
