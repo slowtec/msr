@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, io::{Error, ErrorKind, Result}, time::Duration,
+    collections::HashMap, io::{Error, ErrorKind, Result}, ops::Not, time::Duration,
 };
 
 mod comparison;
@@ -307,6 +307,13 @@ where
     }
 }
 
+impl<T> Not for BooleanExpr<T> {
+    type Output = Self;
+    fn not(self) -> Self {
+        BooleanExpr::Not(Box::new(self))
+    }
+}
+
 impl<T> From<T> for Source
 where
     T: Into<Value>,
@@ -415,6 +422,18 @@ mod tests {
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
         let expr = BooleanExpr::from(x_gt_5.clone());
         assert_eq!(expr, BooleanExpr::Eval(x_gt_5));
+    }
+
+    #[test]
+    fn bool_expr_not_operation() {
+        use Source::*;
+        let x_eq_1 = In("x".into()).cmp_eq(1.0.into());
+        let expr = BooleanExpr::from(x_eq_1.clone());
+        let not_expr = !expr;
+        assert_eq!(
+            not_expr,
+            BooleanExpr::Not(Box::new(BooleanExpr::Eval(x_eq_1)))
+        );
     }
 
     #[test]
