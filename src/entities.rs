@@ -105,7 +105,7 @@ pub struct Interval {
     pub duration: Duration,
 }
 
-/// A Rule connects a condition with a list of actions
+/// A Rule connects a condition with a list of actions.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rule {
     /// The unique ID of the rule
@@ -114,6 +114,15 @@ pub struct Rule {
     pub condition: BooleanExpr<Comparison>,
     /// Actions that should be triggerd
     pub actions: Vec<String>,
+}
+
+/// An action can modify outputs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Action {
+    /// The unique ID of the action
+    pub id: String,
+    /// Define output values
+    pub outputs: HashMap<String, Value>,
 }
 
 #[cfg(test)]

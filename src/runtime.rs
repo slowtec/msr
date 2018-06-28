@@ -8,6 +8,8 @@ pub struct SyncRuntime {
     pub loops: HashMap<String, Vec<Loop>>,
     /// Rules that will be evaluated on each step.
     pub rules: Vec<Rule>,
+    /// Actions that can modify the state
+    pub actions: Vec<Action>,
 }
 
 impl Default for SyncRuntime {
@@ -15,6 +17,7 @@ impl Default for SyncRuntime {
         SyncRuntime {
             loops: HashMap::new(),
             rules: vec![],
+            actions: vec![],
         }
     }
 }
@@ -83,6 +86,17 @@ impl<'a>
             }
         }
         state.rules = self.rules_state(&io)?;
+        for (r_id, _) in state.rules.iter().filter(|(_, active)| **active) {
+            if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
+                for a_id in r.actions.iter() {
+                    if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
+                        for (k, v) in a.outputs.iter() {
+                            io.outputs.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+            }
+        }
         Ok((state, io))
     }
 }
@@ -257,6 +271,32 @@ mod tests {
         io.inputs.insert("x".into(), 33.3.into());
         io.outputs.insert("y".into(), 33.3.into());
         assert_eq!(*rt.rules_state(&mut io).unwrap().get("foo").unwrap(), true);
+    }
+
+    #[test]
+    fn apply_actions() {
+        let mut io = IoState::default();
+        let mut rt = SyncRuntime::default();
+        let s = SyncRuntimeState::default();
+        let dt = Duration::from_secs(1);
+        rt.rules = vec![Rule {
+            id: "foo".into(),
+            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
+            actions: vec!["a".into()],
+        }];
+        let mut output_states = HashMap::new();
+        output_states.insert("z".into(), 6.into());
+
+        rt.actions = vec![Action {
+            id: "a".into(),
+            outputs: output_states,
+        }];
+        io.inputs.insert("x".into(), 0.0.into());
+        let (_, mut io) = rt.next((&s, &io, "i", &dt)).unwrap();
+        assert!(io.outputs.get("z").is_none());
+        io.inputs.insert("x".into(), 10.0.into());
+        let (_, io) = rt.next((&s, &io, "i", &dt)).unwrap();
+        assert_eq!(*io.outputs.get("z").unwrap(), Value::Integer(6));
     }
 
     #[test]
