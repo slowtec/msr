@@ -116,13 +116,15 @@ pub struct Rule {
     pub actions: Vec<String>,
 }
 
-/// An action can modify outputs.
+/// An action can modify outputs and setpoints.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Action {
     /// The unique ID of the action
     pub id: String,
     /// Define output values
     pub outputs: HashMap<String, Value>,
+    /// Define setpoint values
+    pub setpoints: HashMap<String, Value>,
 }
 
 #[cfg(test)]

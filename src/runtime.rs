@@ -143,6 +143,17 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
         >).next((&state.runtime, &state.io, &interval, &dt))?;
         state.runtime = runtime;
         state.io = io;
+        for (r_id, _) in state.runtime.rules.iter().filter(|(_, active)| **active) {
+            if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
+                for a_id in r.actions.iter() {
+                    if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
+                        for (k, v) in a.setpoints.iter() {
+                            state.setpoints.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+            }
+        }
         Ok(state)
     }
 }
@@ -275,28 +286,31 @@ mod tests {
 
     #[test]
     fn apply_actions() {
-        let mut io = IoState::default();
         let mut rt = SyncRuntime::default();
-        let s = SyncRuntimeState::default();
+        let mut state = SyncSystemState::default();
         let dt = Duration::from_secs(1);
         rt.rules = vec![Rule {
             id: "foo".into(),
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
             actions: vec!["a".into()],
         }];
-        let mut output_states = HashMap::new();
-        output_states.insert("z".into(), 6.into());
-
+        let mut outputs = HashMap::new();
+        let mut setpoints = HashMap::new();
+        outputs.insert("z".into(), 6.into());
+        setpoints.insert("foo".into(), 99.7.into());
         rt.actions = vec![Action {
             id: "a".into(),
-            outputs: output_states,
+            outputs,
+            setpoints,
         }];
-        io.inputs.insert("x".into(), 0.0.into());
-        let (_, mut io) = rt.next((&s, &io, "i", &dt)).unwrap();
-        assert!(io.outputs.get("z").is_none());
-        io.inputs.insert("x".into(), 10.0.into());
-        let (_, io) = rt.next((&s, &io, "i", &dt)).unwrap();
-        assert_eq!(*io.outputs.get("z").unwrap(), Value::Integer(6));
+        state.io.inputs.insert("x".into(), 0.0.into());
+        let mut state = rt.next((&state, "i", &dt)).unwrap();
+        assert!(state.io.outputs.get("z").is_none());
+        assert!(state.setpoints.get("foo").is_none());
+        state.io.inputs.insert("x".into(), 10.0.into());
+        let state = rt.next((&state, "i", &dt)).unwrap();
+        assert_eq!(*state.io.outputs.get("z").unwrap(), Value::Integer(6));
+        assert_eq!(*state.setpoints.get("foo").unwrap(), Value::Decimal(99.7));
     }
 
     #[test]
