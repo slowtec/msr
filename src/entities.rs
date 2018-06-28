@@ -122,9 +122,9 @@ pub struct Action {
     /// The unique ID of the action
     pub id: String,
     /// Define output values
-    pub outputs: HashMap<String, Value>,
+    pub outputs: HashMap<String, Source>,
     /// Define setpoint values
-    pub setpoints: HashMap<String, Value>,
+    pub setpoints: HashMap<String, Source>,
 }
 
 #[cfg(test)]

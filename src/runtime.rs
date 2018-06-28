@@ -48,10 +48,10 @@ impl<'a>
         &self,
         input: (&SyncRuntimeState, &IoState, &str, &Duration),
     ) -> Result<(SyncRuntimeState, IoState)> {
-        let (state, io, interval, delta_t) = input;
+        let (orig_state, orig_io, interval, delta_t) = input;
 
-        let mut io = io.clone();
-        let mut state = state.clone();
+        let mut io = orig_io.clone();
+        let mut state = orig_state.clone();
 
         if let Some(loops) = self.loops.get(interval) {
             for l in loops.iter() {
@@ -90,8 +90,22 @@ impl<'a>
             if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
                 for a_id in r.actions.iter() {
                     if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
-                        for (k, v) in a.outputs.iter() {
-                            io.outputs.insert(k.clone(), v.clone());
+                        for (k, src) in a.outputs.iter() {
+                            match src {
+                                Source::In(id) => {
+                                    if let Some(v) = orig_io.inputs.get(id) {
+                                        io.outputs.insert(k.clone(), v.clone());
+                                    }
+                                }
+                                Source::Out(id) => {
+                                    if let Some(v) = orig_io.outputs.get(id) {
+                                        io.outputs.insert(k.clone(), v.clone());
+                                    }
+                                }
+                                Source::Const(v) => {
+                                    io.outputs.insert(k.clone(), v.clone());
+                                }
+                            }
                         }
                     }
                 }
@@ -105,8 +119,8 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
     for SyncRuntime
 {
     fn next(&self, input: (&SyncSystemState, &str, &Duration)) -> Result<SyncSystemState> {
-        let (state, interval, dt) = input;
-        let mut state = state.clone();
+        let (orig_state, interval, dt) = input;
+        let mut state = orig_state.clone();
 
         if let Some(loops) = self.loops.get(input.1) {
             for (id, s) in input.0.setpoints.iter() {
@@ -147,8 +161,22 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
             if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
                 for a_id in r.actions.iter() {
                     if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
-                        for (k, v) in a.setpoints.iter() {
-                            state.setpoints.insert(k.clone(), v.clone());
+                        for (k, src) in a.setpoints.iter() {
+                            match src {
+                                Source::In(id) => {
+                                    if let Some(v) = orig_state.io.inputs.get(id) {
+                                        state.setpoints.insert(k.clone(), v.clone());
+                                    }
+                                }
+                                Source::Out(id) => {
+                                    if let Some(v) = orig_state.io.outputs.get(id) {
+                                        state.setpoints.insert(k.clone(), v.clone());
+                                    }
+                                }
+                                Source::Const(v) => {
+                                    state.setpoints.insert(k.clone(), v.clone());
+                                }
+                            }
                         }
                     }
                 }
@@ -296,8 +324,15 @@ mod tests {
         }];
         let mut outputs = HashMap::new();
         let mut setpoints = HashMap::new();
-        outputs.insert("z".into(), 6.into());
-        setpoints.insert("foo".into(), 99.7.into());
+
+        outputs.insert("z".into(), Source::Const(6.into()));
+        outputs.insert("j".into(), Source::In("ref-in".into()));
+        outputs.insert("k".into(), Source::Out("ref-out".into()));
+
+        setpoints.insert("foo".into(), Source::Const(99.7.into()));
+        setpoints.insert("bar".into(), Source::In("a".into()));
+        setpoints.insert("baz".into(), Source::Out("b".into()));
+
         rt.actions = vec![Action {
             id: "a".into(),
             outputs,
@@ -306,11 +341,32 @@ mod tests {
         state.io.inputs.insert("x".into(), 0.0.into());
         let mut state = rt.next((&state, "i", &dt)).unwrap();
         assert!(state.io.outputs.get("z").is_none());
+        assert!(state.io.outputs.get("j").is_none());
+        assert!(state.io.outputs.get("k").is_none());
         assert!(state.setpoints.get("foo").is_none());
+        assert!(state.setpoints.get("bar").is_none());
+        assert!(state.setpoints.get("baz").is_none());
         state.io.inputs.insert("x".into(), 10.0.into());
+        state.io.inputs.insert("ref-in".into(), 33.0.into());
+        state.io.inputs.insert("a".into(), true.into());
+        state
+            .io
+            .outputs
+            .insert("ref-out".into(), "bla".to_string().into());
+        state.io.outputs.insert("b".into(), false.into());
         let state = rt.next((&state, "i", &dt)).unwrap();
         assert_eq!(*state.io.outputs.get("z").unwrap(), Value::Integer(6));
-        assert_eq!(*state.setpoints.get("foo").unwrap(), Value::Decimal(99.7));
+        assert_eq!(*state.io.outputs.get("j").unwrap(), Value::Decimal(33.0));
+        assert_eq!(
+            *state.io.outputs.get("k").unwrap(),
+            Value::Text("bla".into())
+        );
+        assert_eq!(
+            *state.setpoints.get("foo").unwrap(),
+            Value::Decimal(99.7.into())
+        );
+        assert_eq!(*state.setpoints.get("bar").unwrap(), Value::Bit(true));
+        assert_eq!(*state.setpoints.get("baz").unwrap(), Value::Bit(false));
     }
 
     #[test]
