@@ -59,7 +59,7 @@ pub struct PidState {
     pub p: f64,
     /// Integral portion (error sum)
     pub i: f64,
-    /// Derative portion
+    /// Derivative portion
     pub d: f64,
 }
 
@@ -100,7 +100,7 @@ pub struct PidConfig {
     pub k_p: f64,
     /// Integral coefficient
     pub k_i: f64, // Ki = Kp / Ti
-    /// Derivativ coefficient
+    /// Derivative coefficient
     pub k_d: f64, // Kd = Kp * Td
     /// The default setpoint
     pub default_target: f64,
