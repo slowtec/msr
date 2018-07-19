@@ -129,7 +129,7 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
                         if let Value::Decimal(v) = s {
                             match c {
                                 ControllerState::Pid(pid) => {
-                                    let mut pid = pid.clone();
+                                    let mut pid = *pid;
                                     pid.target = *v;
                                     state
                                         .runtime
@@ -137,7 +137,7 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
                                         .insert(id.clone(), ControllerState::Pid(pid));
                                 }
                                 ControllerState::BangBang(bb) => {
-                                    let mut bb = bb.clone();
+                                    let mut bb = *bb;
                                     bb.threshold = *v;
                                     state
                                         .runtime
