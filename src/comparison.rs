@@ -52,7 +52,7 @@ impl IoCondition for Comparison {
                 } else {
                     return Err(Error::new(
                         InvalidInput,
-                        format!("Bits can only compared with other bits"),
+                        "Bits can only compared with other bits",
                     ));
                 }
             }
@@ -69,7 +69,7 @@ impl IoCondition for Comparison {
                 } else {
                     return Err(Error::new(
                         InvalidInput,
-                        format!("Decimal values can only compared with other decimals"),
+                        "Decimal values can only compared with other decimals",
                     ));
                 }
             }
@@ -86,7 +86,7 @@ impl IoCondition for Comparison {
                 } else {
                     return Err(Error::new(
                         InvalidInput,
-                        format!("Integer values can only compared with other integers"),
+                        "Integer values can only compared with other integers",
                     ));
                 }
             }
@@ -109,7 +109,7 @@ impl IoCondition for Comparison {
                 } else {
                     return Err(Error::new(
                         InvalidInput,
-                        format!("Text values can only compared with other text"),
+                        "Text values can only compared with other text",
                     ));
                 }
             }
@@ -132,7 +132,7 @@ impl IoCondition for Comparison {
                 } else {
                     return Err(Error::new(
                         InvalidInput,
-                        format!("Binary data can only compared with other binary data"),
+                        "Binary data can only compared with other binary data",
                     ));
                 }
             }
