@@ -38,6 +38,7 @@
 //! ```
 
 use super::{Controller, PureController};
+use std::f64;
 use std::time::Duration;
 
 /// PID controller implementation
@@ -79,7 +80,7 @@ impl Pid {
     /// Create a new PID controller instance.
     pub fn new(cfg: PidConfig) -> Self {
         let mut state = PidState::default();
-        state.target = cfg.default_target.clone();
+        state.target = cfg.default_target;
         Pid { state, cfg }
     }
     /// Set target value.
@@ -141,17 +142,21 @@ impl<'a> Controller<(f64, &'a Duration), f64> for Pid {
 impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidConfig {
     fn next(&self, input: (PidState, f64, &Duration)) -> (PidState, f64) {
         let (state, actual, duration) = input;
-        let delta_t = duration_as_f64(duration);
+
+        let delta_t = DurationInSeconds::from(*duration);
+        debug_assert!(delta_t.is_valid());
 
         let err = state.target - actual;
 
         let mut state = state;
         state.p = self.k_p * err;
-        state.i = state.i + self.k_i * err * delta_t;
-        state.d = if delta_t == 0.0 {
+        state.i += self.k_i * err * f64::from(delta_t);
+        state.d = if delta_t.is_empty() {
             0.0
+        } else if let Some(prev_value) = state.prev_value {
+            self.k_d * (prev_value - actual) / f64::from(delta_t)
         } else {
-            self.k_d * (state.prev_value.unwrap_or_else(|| actual) - actual) / delta_t
+            0.0
         };
 
         state.prev_value = Some(actual);
@@ -164,11 +169,38 @@ impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidC
     }
 }
 
-// Number of nanoseconds in a second.
-const NANOS_PER_SEC: f64 = 1.0e9;
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+struct DurationInSeconds(f64);
 
-fn duration_as_f64(d: &Duration) -> f64 {
-    d.as_secs() as f64 + (d.subsec_nanos() as f64 / NANOS_PER_SEC)
+impl DurationInSeconds {
+    // Number of nanoseconds in a second.
+    const NANOS_PER_SEC: f64 = 1e9;
+
+    pub fn is_empty(self) -> bool {
+        self.0 == 0.0
+    }
+
+    pub fn is_valid(self) -> bool {
+        self.0 >= 0.0
+    }
+
+    pub fn seconds(self) -> f64 {
+        self.0
+    }
+}
+
+impl From<Duration> for DurationInSeconds {
+    fn from(from: Duration) -> Self {
+        DurationInSeconds(
+            from.as_secs() as f64 + f64::from(from.subsec_nanos()) / Self::NANOS_PER_SEC,
+        )
+    }
+}
+
+impl From<DurationInSeconds> for f64 {
+    fn from(from: DurationInSeconds) -> Self {
+        from.seconds()
+    }
 }
 
 fn limit(min: Option<f64>, max: Option<f64>, mut value: f64) -> f64 {
