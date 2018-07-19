@@ -146,15 +146,23 @@ impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidC
         let delta_t = DurationInSeconds::from(*duration);
         debug_assert!(delta_t.is_valid());
 
-        let err = state.target - actual;
-
         let mut state = state;
-        state.p = self.k_p * err;
-        state.i += self.k_i * err * f64::from(delta_t);
+
+        let err_p = state.target - actual;
+        state.p = self.k_p * err_p;
+
+        let err_i = err_p * f64::from(delta_t);
+        state.i += self.k_i * err_i;
+
         state.d = if delta_t.is_empty() {
             0.0
         } else if let Some(prev_value) = state.prev_value {
-            self.k_d * (prev_value - actual) / f64::from(delta_t)
+            let delta_v = prev_value - actual;
+            // Both delta_v and delta_t are correlated somehow. Calculating
+            // their ratio before multiplying with k_d should improve the
+            // numeric robustness of the algorithm.
+            let err_d = delta_v / f64::from(delta_t);
+            self.k_d * err_d
         } else {
             0.0
         };
