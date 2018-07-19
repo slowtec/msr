@@ -10,7 +10,7 @@ impl FromStr for Comparison {
             return Err(Error::new(ErrorKind::InvalidInput, "empty str"));
         }
         for cmp in &[GreaterOrEqual, Greater, Equal, LessOrEqual, Less, NotEqual] {
-            if let Some(cmp) = check(s, *cmp)? {
+            if let Some(cmp) = parse_comparison(s, *cmp)? {
                 return Ok(cmp);
             }
         }
@@ -18,7 +18,7 @@ impl FromStr for Comparison {
     }
 }
 
-fn cmp_str<'a>(cmp: &Comparator) -> &'a str {
+fn comparator_as_str(cmp: Comparator) -> &'static str {
     use Comparator::*;
     match cmp {
         Less => "<",
@@ -30,16 +30,29 @@ fn cmp_str<'a>(cmp: &Comparator) -> &'a str {
     }
 }
 
-fn check(s: &str, cmp: Comparator) -> Result<Option<Comparison>> {
-    if s.contains(cmp_str(&cmp)) {
-        let vals = s.split(cmp_str(&cmp)).collect::<Vec<&str>>();
-        return Ok(Some(Comparison {
-            left: Source::from_str(vals[0])?,
-            cmp,
-            right: Source::from_str(vals[1])?,
-        }));
+fn parse_comparison(s: &str, cmp: Comparator) -> Result<Option<Comparison>> {
+    let cmp_str = comparator_as_str(cmp);
+    if s.contains(cmp_str) {
+        let mut vals = s.split(cmp_str);
+        if let Some(lhs) = vals.next() {
+            if let Some(rhs) = vals.next() {
+                if None == vals.next() {
+                    return Ok(Some(Comparison {
+                        left: Source::from_str(lhs)?,
+                        cmp,
+                        right: Source::from_str(rhs)?,
+                    }));
+                }
+            }
+        }
+        Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("invalid number of arguments for comparator {}", cmp_str),
+        ))
+    } else {
+        // Ignore input strings without a comparator
+        Ok(None)
     }
-    Ok(None)
 }
 
 impl FromStr for Source {

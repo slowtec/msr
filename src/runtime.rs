@@ -88,9 +88,9 @@ impl<'a>
         state.rules = self.rules_state(&io)?;
         for (r_id, _) in state.rules.iter().filter(|(_, active)| **active) {
             if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
-                for a_id in r.actions.iter() {
+                for a_id in &r.actions {
                     if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
-                        for (k, src) in a.outputs.iter() {
+                        for (k, src) in &a.outputs {
                             match src {
                                 Source::In(id) => {
                                     if let Some(v) = orig_io.inputs.get(id) {
@@ -123,13 +123,13 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
         let mut state = orig_state.clone();
 
         if let Some(loops) = self.loops.get(input.1) {
-            for (id, s) in input.0.setpoints.iter() {
+            for (id, s) in &input.0.setpoints {
                 if loops.iter().any(|l| l.id == *id) {
                     if let Some(c) = input.0.runtime.controllers.get(id) {
                         if let Value::Decimal(v) = s {
                             match c {
                                 ControllerState::Pid(pid) => {
-                                    let mut pid = pid.clone();
+                                    let mut pid = *pid;
                                     pid.target = *v;
                                     state
                                         .runtime
@@ -137,7 +137,7 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
                                         .insert(id.clone(), ControllerState::Pid(pid));
                                 }
                                 ControllerState::BangBang(bb) => {
-                                    let mut bb = bb.clone();
+                                    let mut bb = *bb;
                                     bb.threshold = *v;
                                     state
                                         .runtime
@@ -159,9 +159,9 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
         state.io = io;
         for (r_id, _) in state.runtime.rules.iter().filter(|(_, active)| **active) {
             if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
-                for a_id in r.actions.iter() {
+                for a_id in &r.actions {
                     if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
-                        for (k, src) in a.setpoints.iter() {
+                        for (k, src) in &a.setpoints {
                             match src {
                                 Source::In(id) => {
                                     if let Some(v) = orig_state.io.inputs.get(id) {
@@ -190,7 +190,7 @@ impl SyncRuntime {
     /// Check for active [Rule]s.
     fn rules_state(&self, io: &IoState) -> Result<HashMap<String, bool>> {
         let mut rules_state = HashMap::new();
-        for r in self.rules.iter() {
+        for r in &self.rules {
             let state = r.condition.eval(io)?;
             rules_state.insert(r.id.clone(), state);
         }

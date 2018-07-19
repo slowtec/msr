@@ -17,7 +17,7 @@ pub mod pid;
 /// Bang-bang controller
 pub mod bang_bang;
 
-/// A generic statefull controller
+/// A generic stateful controller
 pub trait Controller<Input, Output> {
     /// Calculate the next state.
     fn next(&mut self, input: Input) -> Output;
@@ -29,7 +29,7 @@ pub trait PureController<Input, Output> {
     fn next(&self, input: Input) -> Output;
 }
 
-/// A generic statefull controller with time steps
+/// A generic stateful controller with time steps
 pub trait TimeStepController<Input, Output> {
     /// Calculate the next state.
     fn next(&mut self, input: Input, delta_t: &Duration) -> Output;

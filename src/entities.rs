@@ -83,7 +83,7 @@ impl<'a> From<&'a str> for Output {
     }
 }
 
-/// A loop contiuously triggers a controller again and again.
+/// A loop continuously triggers a controller again and again.
 #[derive(Debug, Clone)]
 pub struct Loop {
     /// The unique ID of the rule
@@ -96,7 +96,7 @@ pub struct Loop {
     pub controller: ControllerConfig,
 }
 
-/// A fixed interval
+/// A periodic interval with a fixed duration
 #[derive(Debug, Clone)]
 pub struct Interval {
     /// The unique ID of the interval
