@@ -265,9 +265,11 @@ pub enum BooleanExpr<T> {
     Eval(T),
 }
 
-/// A condition that can be evaulated with a given [IoState]
-pub trait IoCondition {
-    fn eval(&self, io: &IoState) -> Result<bool>;
+/// An operation that can be evaulated with a given [IoState]
+pub trait IoEvaluation {
+    /// Evaluation result type.
+    type Output;
+    fn eval(&self, io: &IoState) -> Result<Self::Output>;
 }
 
 trait IoSources {
@@ -290,11 +292,12 @@ impl IoSources for BooleanExpr<Comparison> {
     }
 }
 
-impl<T> IoCondition for BooleanExpr<T>
+impl<T> IoEvaluation for BooleanExpr<T>
 where
-    T: IoCondition,
+    T: IoEvaluation<Output = bool>,
 {
-    fn eval(&self, io: &IoState) -> Result<bool> {
+    type Output = bool;
+    fn eval(&self, io: &IoState) -> Result<Self::Output> {
         use BooleanExpr::*;
         match self {
             True => Ok(true),

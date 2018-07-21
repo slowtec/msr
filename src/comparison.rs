@@ -26,7 +26,8 @@ pub struct Comparison {
     pub(crate) right: Source,
 }
 
-impl IoCondition for Comparison {
+impl IoEvaluation for Comparison {
+    type Output = bool;
     fn eval(&self, io: &IoState) -> Result<bool> {
         use Comparator::*;
         use ErrorKind::*;
