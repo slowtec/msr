@@ -172,6 +172,8 @@ pub struct SyncSystemState {
     pub runtime: SyncRuntimeState,
     /// Controller setpoints
     pub setpoints: HashMap<String, Value>,
+    /// Timeout states
+    pub timeouts: HashMap<String, Duration>,
 }
 
 impl Default for SyncSystemState {
@@ -180,6 +182,7 @@ impl Default for SyncSystemState {
             io: IoState::default(),
             runtime: SyncRuntimeState::default(),
             setpoints: HashMap::new(),
+            timeouts: HashMap::new(),
         }
     }
 }

@@ -157,6 +157,16 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
         >).next((&state.runtime, &state.io, &interval, &dt))?;
         state.runtime = runtime;
         state.io = io;
+
+        state.timeouts = state
+            .timeouts
+            .into_iter()
+            .map(|(id, dur)| match dur.checked_sub(*dt) {
+                Some(d) => (id, d),
+                None => (id, Duration::from_secs(0)),
+            })
+            .collect();
+
         for (r_id, _) in state.runtime.rules.iter().filter(|(_, active)| **active) {
             if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
                 for a_id in &r.actions {
@@ -175,6 +185,16 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
                                 }
                                 Source::Const(v) => {
                                     state.setpoints.insert(k.clone(), v.clone());
+                                }
+                            }
+                        }
+                        for (k, t_action) in &a.timeouts {
+                            match t_action {
+                                TimeoutAction::Set(duration) => {
+                                    state.timeouts.insert(k.clone(), *duration);
+                                }
+                                TimeoutAction::Clear => {
+                                    state.timeouts.remove(k);
                                 }
                             }
                         }
@@ -316,14 +336,16 @@ mod tests {
     fn apply_actions() {
         let mut rt = SyncRuntime::default();
         let mut state = SyncSystemState::default();
-        let dt = Duration::from_secs(1);
+        let dt = Duration::from_millis(1);
         rt.rules = vec![Rule {
             id: "foo".into(),
+            // x == 10.0
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
             actions: vec!["a".into()],
         }];
         let mut outputs = HashMap::new();
         let mut setpoints = HashMap::new();
+        let mut timeouts = HashMap::new();
 
         outputs.insert("z".into(), Source::Const(6.into()));
         outputs.insert("j".into(), Source::In("ref-in".into()));
@@ -333,11 +355,22 @@ mod tests {
         setpoints.insert("bar".into(), Source::In("a".into()));
         setpoints.insert("baz".into(), Source::Out("b".into()));
 
+        timeouts.insert(
+            "timeout_10".into(),
+            TimeoutAction::Set(Duration::from_millis(10)),
+        );
+        timeouts.insert(
+            "timeout_50".into(),
+            TimeoutAction::Set(Duration::from_millis(50)),
+        );
+
         rt.actions = vec![Action {
             id: "a".into(),
             outputs,
             setpoints,
+            timeouts,
         }];
+
         state.io.inputs.insert("x".into(), 0.0.into());
         let mut state = rt.next((&state, "i", &dt)).unwrap();
         assert!(state.io.outputs.get("z").is_none());
@@ -346,7 +379,9 @@ mod tests {
         assert!(state.setpoints.get("foo").is_none());
         assert!(state.setpoints.get("bar").is_none());
         assert!(state.setpoints.get("baz").is_none());
-        state.io.inputs.insert("x".into(), 10.0.into());
+        assert!(state.timeouts.get("timeout_10").is_none());
+        assert!(state.timeouts.get("timeout_50").is_none());
+
         state.io.inputs.insert("ref-in".into(), 33.0.into());
         state.io.inputs.insert("a".into(), true.into());
         state
@@ -354,7 +389,11 @@ mod tests {
             .outputs
             .insert("ref-out".into(), "bla".to_string().into());
         state.io.outputs.insert("b".into(), false.into());
-        let state = rt.next((&state, "i", &dt)).unwrap();
+
+        // trigger action by setting "x" to 10.0
+        state.io.inputs.insert("x".into(), 10.0.into());
+
+        let mut state = rt.next((&state, "i", &dt)).unwrap();
         assert_eq!(*state.io.outputs.get("z").unwrap(), Value::Integer(6));
         assert_eq!(*state.io.outputs.get("j").unwrap(), Value::Decimal(33.0));
         assert_eq!(
@@ -367,6 +406,42 @@ mod tests {
         );
         assert_eq!(*state.setpoints.get("bar").unwrap(), Value::Bit(true));
         assert_eq!(*state.setpoints.get("baz").unwrap(), Value::Bit(false));
+        assert_eq!(
+            *state.timeouts.get("timeout_10").unwrap(),
+            Duration::from_millis(10)
+        );
+        assert_eq!(
+            *state.timeouts.get("timeout_50").unwrap(),
+            Duration::from_millis(50)
+        );
+
+        // do NOT trigger action by setting "x" != 10.0
+        state.io.inputs.insert("x".into(), 0.0.into());
+
+        let state = rt.next((&state, "i", &Duration::from_millis(5))).unwrap();
+        assert_eq!(
+            *state.timeouts.get("timeout_10").unwrap(),
+            Duration::from_millis(5)
+        );
+        assert_eq!(
+            *state.timeouts.get("timeout_50").unwrap(),
+            Duration::from_millis(45)
+        );
+        let mut state = rt.next((&state, "i", &Duration::from_millis(15))).unwrap();
+        assert_eq!(
+            *state.timeouts.get("timeout_10").unwrap(),
+            Duration::from_millis(0)
+        );
+        assert_eq!(
+            *state.timeouts.get("timeout_50").unwrap(),
+            Duration::from_millis(30)
+        );
+        rt.actions[0]
+            .timeouts
+            .insert("timeout_50".into(), TimeoutAction::Clear);
+        state.io.inputs.insert("x".into(), 10.0.into());
+        let state = rt.next((&state, "i", &Duration::from_millis(1))).unwrap();
+        assert!(state.timeouts.get("timeout_50").is_none());
     }
 
     #[test]

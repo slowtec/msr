@@ -125,6 +125,17 @@ pub struct Action {
     pub outputs: HashMap<String, Source>,
     /// Define setpoint values
     pub setpoints: HashMap<String, Source>,
+    /// Define timeout actions
+    pub timeouts: HashMap<String, TimeoutAction>,
+}
+
+/// Timeout action
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TimeoutAction {
+    /// Set a timeout with a specific duration
+    Set(Duration),
+    /// Clear a timeout
+    Clear,
 }
 
 #[cfg(test)]
