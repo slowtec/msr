@@ -1,4 +1,5 @@
 use super::*;
+use fsm::*;
 use std::{collections::HashMap, io::Result, time::Duration};
 
 /// A simple synchronous closed-loop runtime.
@@ -10,6 +11,8 @@ pub struct SyncRuntime {
     pub rules: Vec<Rule>,
     /// Actions that can modify the state
     pub actions: Vec<Action>,
+    /// Finite State Machines
+    pub state_machines: HashMap<String, StateMachine>,
 }
 
 impl Default for SyncRuntime {
@@ -18,6 +21,7 @@ impl Default for SyncRuntime {
             loops: HashMap::new(),
             rules: vec![],
             actions: vec![],
+            state_machines: HashMap::new(),
         }
     }
 }
@@ -27,6 +31,7 @@ impl Default for SyncRuntime {
 pub struct SyncRuntimeState {
     pub controllers: HashMap<String, ControllerState>,
     pub rules: HashMap<String, bool>,
+    pub state_machines: HashMap<String, String>,
 }
 
 impl Default for SyncRuntimeState {
@@ -34,6 +39,7 @@ impl Default for SyncRuntimeState {
         SyncRuntimeState {
             controllers: HashMap::new(),
             rules: HashMap::new(),
+            state_machines: HashMap::new(),
         }
     }
 }
@@ -111,6 +117,19 @@ impl<'a>
                 }
             }
         }
+        state.state_machines = state
+            .state_machines
+            .into_iter()
+            .map(|(id, state)| {
+                if let Some(machine) = self.state_machines.get(&id) {
+                    if let Some(new_fsm_state) = machine.next((&state, &io)) {
+                        return (id, new_fsm_state);
+                    }
+                }
+                (id, state)
+            })
+            .collect();
+
         Ok((state, io))
     }
 }
@@ -557,4 +576,42 @@ mod tests {
         let state = runtime.next((&state, "interval", &dt)).unwrap();
         assert_eq!(*state.io.outputs.get("b").unwrap(), Value::Bit(true));
     }
+
+    #[test]
+    fn check_fsm_states() {
+        let dt = Duration::from_secs(1);
+        let sm = StateMachine {
+            transitions: vec![
+                Transition {
+                    condition: BooleanExpr::Eval(
+                        Source::In("x".into()).cmp_gt(Source::Const(1.0.into())),
+                    ),
+                    from: "start".into(),
+                    to: "step-one".into(),
+                },
+                Transition {
+                    condition: BooleanExpr::Eval(
+                        Source::In("y".into()).cmp_gt(Source::Const(2.0.into())),
+                    ),
+                    from: "step-one".into(),
+                    to: "step-two".into(),
+                },
+            ],
+        };
+        let mut rt = SyncRuntime::default();
+        rt.state_machines.insert("fsm".into(), sm);
+        let state = SyncRuntimeState::default();
+        let mut io = IoState::default();
+        io.inputs.insert("x".into(), 0.0.into());
+        let (mut state, _) = rt.next((&state, &io, "i", &dt)).unwrap();
+        assert!(state.state_machines.get("fsm").is_none());
+        state.state_machines.insert("fsm".into(), "start".into());
+        io.inputs.insert("x".into(), 1.5.into());
+        let (state, _) = rt.next((&state, &io, "i", &dt)).unwrap();
+        assert_eq!(
+            *state.state_machines.get("fsm").unwrap(),
+            "step-one".to_string()
+        );
+    }
+
 }
