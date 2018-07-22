@@ -14,17 +14,18 @@ pub struct Transition {
     pub condition: BooleanExpr<Comparison>,
     pub from: String,
     pub to: String,
+    pub actions: Vec<String>,
 }
 
-impl<'a> PureController<(&'a str, &'a IoState), Option<String>> for StateMachine {
-    fn next(&self, input: (&str, &IoState)) -> Option<String> {
+impl<'a> PureController<(&'a str, &'a IoState), Option<(String, Vec<String>)>> for StateMachine {
+    fn next(&self, input: (&str, &IoState)) -> Option<(String, Vec<String>)> {
         let (state, io) = input;
 
         for t in &self.transitions {
             if t.from == state {
                 if let Ok(active) = t.condition.eval(io) {
                     if active {
-                        return Some(t.to.clone());
+                        return Some((t.to.clone(), t.actions.clone()));
                     }
                 }
             }
@@ -49,6 +50,7 @@ mod tests {
                     ),
                     from: "start".into(),
                     to: "step-one".into(),
+                    actions: vec![],
                 },
                 Transition {
                     condition: BooleanExpr::Eval(
@@ -56,14 +58,21 @@ mod tests {
                     ),
                     from: "step-one".into(),
                     to: "step-two".into(),
+                    actions: vec![],
                 },
             ],
         };
         assert_eq!(machine.next(("start", &io)), None);
         io.inputs.insert("x".into(), Value::Decimal(5.1));
-        assert_eq!(machine.next(("start", &io)), Some("step-one".into()));
+        assert_eq!(
+            machine.next(("start", &io)),
+            Some(("step-one".into(), vec![]))
+        );
         assert_eq!(machine.next(("step-one", &io)), None);
         io.inputs.insert("y".into(), Value::Decimal(7.1));
-        assert_eq!(machine.next(("step-one", &io)), Some("step-two".into()));
+        assert_eq!(
+            machine.next(("step-one", &io)),
+            Some(("step-two".into(), vec![]))
+        );
     }
 }

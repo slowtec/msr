@@ -26,6 +26,7 @@ impl Default for SyncRuntime {
     }
 }
 
+//TODO: tidy up!
 impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<SyncSystemState>>
     for SyncRuntime
 {
@@ -34,9 +35,9 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
         let mut state = orig_state.clone();
 
         if let Some(loops) = self.loops.get(interval) {
-            for (id, s) in &input.0.setpoints {
+            for (id, s) in &orig_state.setpoints {
                 if loops.iter().any(|l| l.id == *id) {
-                    if let Some(c) = input.0.controllers.get(id) {
+                    if let Some(c) = orig_state.controllers.get(id) {
                         if let Value::Decimal(v) = s {
                             match c {
                                 ControllerState::Pid(pid) => {
@@ -58,9 +59,6 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
                     }
                 }
             }
-        }
-
-        if let Some(loops) = self.loops.get(interval) {
             for l in loops.iter() {
                 if state.controllers.get(&l.id).is_none() {
                     match l.controller {
@@ -95,41 +93,39 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
 
         state.rules = self.rules_state(&state.io)?;
 
-        for (r_id, _) in state.rules.iter().filter(|(_, active)| **active) {
-            if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
-                for a_id in &r.actions {
-                    if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
-                        for (k, src) in &a.outputs {
-                            match src {
-                                Source::In(id) => {
-                                    if let Some(v) = orig_state.io.inputs.get(id) {
-                                        state.io.outputs.insert(k.clone(), v.clone());
-                                    }
-                                }
-                                Source::Out(id) => {
-                                    if let Some(v) = orig_state.io.outputs.get(id) {
-                                        state.io.outputs.insert(k.clone(), v.clone());
-                                    }
-                                }
-                                Source::Const(v) => {
-                                    state.io.outputs.insert(k.clone(), v.clone());
-                                }
-                            }
-                        }
-                    }
+        let rule_actions = state
+            .rules
+            .iter()
+            .filter(|(_, active)| **active)
+            .filter_map(|(r_id, _)| {
+                if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
+                    Some(&r.actions)
+                } else {
+                    None
                 }
-            }
+            })
+            .collect::<Vec<_>>();
+
+        for x in rule_actions {
+            self.apply_actions(&x, orig_state, &mut state);
         }
 
         //TODO: avoid clone
         let io = state.io.clone();
 
-        state.state_machines = state
+        let mut actions = vec![];
+
+        let new_state_machines = state
             .state_machines
             .into_iter()
             .map(|(id, machine_state)| {
                 if let Some(machine) = self.state_machines.get(&id) {
-                    if let Some(new_fsm_state) = machine.next((&machine_state, &io)) {
+                    if let Some((new_fsm_state, fsm_actions)) = machine.next((&machine_state, &io))
+                    {
+                        if !fsm_actions.is_empty() {
+                            //TODO: avoid clone
+                            actions.push(fsm_actions.clone());
+                        }
                         return (id, new_fsm_state);
                     }
                 }
@@ -137,31 +133,12 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
             })
             .collect();
 
-        for (r_id, _) in state.rules.iter().filter(|(_, active)| **active) {
-            if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
-                for a_id in &r.actions {
-                    if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
-                        for (k, src) in &a.setpoints {
-                            match src {
-                                Source::In(id) => {
-                                    if let Some(v) = orig_state.io.inputs.get(id) {
-                                        state.setpoints.insert(k.clone(), v.clone());
-                                    }
-                                }
-                                Source::Out(id) => {
-                                    if let Some(v) = orig_state.io.outputs.get(id) {
-                                        state.setpoints.insert(k.clone(), v.clone());
-                                    }
-                                }
-                                Source::Const(v) => {
-                                    state.setpoints.insert(k.clone(), v.clone());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        state.state_machines = new_state_machines;
+
+        for x in actions {
+            self.apply_actions(&x, orig_state, &mut state);
         }
+
         Ok(state)
     }
 }
@@ -175,6 +152,54 @@ impl SyncRuntime {
             rules_state.insert(r.id.clone(), state);
         }
         Ok(rules_state)
+    }
+
+    fn apply_actions(
+        &self,
+        actions: &[String],
+        orig_state: &SyncSystemState,
+        state: &mut SyncSystemState,
+    ) {
+        use Source::*;
+
+        for a_id in actions {
+            if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
+                for (k, src) in &a.outputs {
+                    match src {
+                        In(id) => {
+                            if let Some(v) = orig_state.io.inputs.get(id) {
+                                state.io.outputs.insert(k.clone(), v.clone());
+                            }
+                        }
+                        Out(id) => {
+                            if let Some(v) = orig_state.io.outputs.get(id) {
+                                state.io.outputs.insert(k.clone(), v.clone());
+                            }
+                        }
+                        Const(v) => {
+                            state.io.outputs.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+                for (k, src) in &a.setpoints {
+                    match src {
+                        In(id) => {
+                            if let Some(v) = orig_state.io.inputs.get(id) {
+                                state.setpoints.insert(k.clone(), v.clone());
+                            }
+                        }
+                        Out(id) => {
+                            if let Some(v) = orig_state.io.outputs.get(id) {
+                                state.setpoints.insert(k.clone(), v.clone());
+                            }
+                        }
+                        Const(v) => {
+                            state.setpoints.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -541,6 +566,7 @@ mod tests {
                     ),
                     from: "start".into(),
                     to: "step-one".into(),
+                    actions: vec![],
                 },
                 Transition {
                     condition: BooleanExpr::Eval(
@@ -548,6 +574,7 @@ mod tests {
                     ),
                     from: "step-one".into(),
                     to: "step-two".into(),
+                    actions: vec![],
                 },
             ],
         };
@@ -566,4 +593,59 @@ mod tests {
         );
     }
 
+    #[test]
+    fn apply_fsm_transition_actions() {
+        let dt = Duration::from_secs(1);
+        let sm = StateMachine {
+            transitions: vec![
+                Transition {
+                    condition: BooleanExpr::Eval(
+                        Source::In("x".into()).cmp_eq(Source::Const(true.into())),
+                    ),
+                    from: "start".into(),
+                    to: "step-one".into(),
+                    actions: vec!["foo".into()],
+                },
+                Transition {
+                    condition: BooleanExpr::Eval(
+                        Source::In("y".into()).cmp_eq(Source::Const(123.into())),
+                    ),
+                    from: "step-one".into(),
+                    to: "step-two".into(),
+                    actions: vec!["bar".into()],
+                },
+            ],
+        };
+        let mut rt = SyncRuntime::default();
+        let mut foo_outputs = HashMap::new();
+        let mut bar_setpoints = HashMap::new();
+        foo_outputs.insert("x".to_string(), Value::from(99.9).into());
+        bar_setpoints.insert("y".to_string(), Value::from(-100).into());
+        rt.actions = vec![
+            Action {
+                id: "foo".into(),
+                outputs: foo_outputs,
+                setpoints: HashMap::new(),
+            },
+            Action {
+                id: "bar".into(),
+                outputs: HashMap::new(),
+                setpoints: bar_setpoints,
+            },
+        ];
+        rt.state_machines.insert("fsm".into(), sm);
+        let mut state = SyncSystemState::default();
+        state.io.inputs.insert("x".into(), false.into());
+        let mut state = rt.next((&state, "i", &dt)).unwrap();
+        state.state_machines.insert("fsm".into(), "start".into());
+        assert!(state.io.outputs.get("x").is_none());
+        assert!(state.setpoints.get("y").is_none());
+        state.io.inputs.insert("x".into(), true.into());
+        let mut state = rt.next((&state, "i", &dt)).unwrap();
+        assert_eq!(*state.io.outputs.get("x").unwrap(), Value::from(99.9));
+        assert!(state.setpoints.get("y").is_none());
+        state.io.inputs.insert("y".into(), 123.into());
+        let state = rt.next((&state, "i", &dt)).unwrap();
+        assert_eq!(*state.setpoints.get("y").unwrap(), Value::from(-100));
+    }
 }
