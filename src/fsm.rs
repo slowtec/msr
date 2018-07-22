@@ -17,13 +17,15 @@ pub struct Transition {
     pub actions: Vec<String>,
 }
 
-impl<'a> PureController<(&'a str, &'a IoState), Option<(String, Vec<String>)>> for StateMachine {
-    fn next(&self, input: (&str, &IoState)) -> Option<(String, Vec<String>)> {
-        let (state, io) = input;
+impl<'a> PureController<(&'a str, &'a SyncSystemState), Option<(String, Vec<String>)>>
+    for StateMachine
+{
+    fn next(&self, input: (&str, &SyncSystemState)) -> Option<(String, Vec<String>)> {
+        let (fsm_state, state) = input;
 
         for t in &self.transitions {
-            if t.from == state {
-                if let Ok(active) = t.condition.eval(io) {
+            if t.from == fsm_state {
+                if let Ok(active) = t.condition.eval(state) {
                     if active {
                         return Some((t.to.clone(), t.actions.clone()));
                     }
@@ -41,7 +43,7 @@ mod tests {
 
     #[test]
     fn simple_fsm() {
-        let mut io = IoState::default();
+        let mut state = SyncSystemState::default();
         let machine = StateMachine {
             transitions: vec![
                 Transition {
@@ -62,16 +64,16 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(machine.next(("start", &io)), None);
-        io.inputs.insert("x".into(), Value::Decimal(5.1));
+        assert_eq!(machine.next(("start", &state)), None);
+        state.io.inputs.insert("x".into(), Value::Decimal(5.1));
         assert_eq!(
-            machine.next(("start", &io)),
+            machine.next(("start", &state)),
             Some(("step-one".into(), vec![]))
         );
-        assert_eq!(machine.next(("step-one", &io)), None);
-        io.inputs.insert("y".into(), Value::Decimal(7.1));
+        assert_eq!(machine.next(("step-one", &state)), None);
+        state.io.inputs.insert("y".into(), Value::Decimal(7.1));
         assert_eq!(
-            machine.next(("step-one", &io)),
+            machine.next(("step-one", &state)),
             Some(("step-two".into(), vec![]))
         );
     }

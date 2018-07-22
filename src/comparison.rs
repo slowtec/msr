@@ -26,14 +26,14 @@ pub struct Comparison {
     pub(crate) right: Source,
 }
 
-impl IoEvaluation for Comparison {
+impl Evaluation<SyncSystemState> for Comparison {
     type Output = bool;
-    fn eval(&self, io: &IoState) -> Result<bool> {
+    fn eval(&self, state: &SyncSystemState) -> Result<bool> {
         use Comparator::*;
         use ErrorKind::*;
         use Value::*;
-        let left = get_val(&self.left, io)?;
-        let right = get_val(&self.right, io)?;
+        let left = get_val(&self.left, state)?;
+        let right = get_val(&self.right, state)?;
         let res = match left {
             Bit(a) => {
                 if let Bit(b) = right {
@@ -142,20 +142,26 @@ impl IoEvaluation for Comparison {
     }
 }
 
-fn get_val<'a>(src: &'a Source, io: &'a IoState) -> Result<&'a Value> {
+fn get_val<'a>(src: &'a Source, state: &'a SyncSystemState) -> Result<&'a Value> {
     use ErrorKind::*;
     use Source::*;
     match src {
-        In(ref id) => io.inputs.get(id).ok_or_else(|| {
+        In(ref id) => state.io.inputs.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
                 format!("The state of input '{}' does not exist", id),
             )
         }),
-        Out(ref id) => io.outputs.get(id).ok_or_else(|| {
+        Out(ref id) => state.io.outputs.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
                 format!("The state of output '{}' does not exist", id),
+            )
+        }),
+        Setpoint(ref id) => state.setpoints.get(id).ok_or_else(|| {
+            Error::new(
+                NotFound,
+                format!("The state of setpoint '{}' does not exist", id),
             )
         }),
         Const(ref v) => Ok(v),
@@ -207,16 +213,16 @@ mod tests {
 
     #[test]
     fn evaluate_comparison_with_missing_values() {
-        let mut state = IoState::default();
+        let mut state = SyncSystemState::default();
         let cmp = In("x".into()).cmp_gt(In("y".into()));
         assert!(cmp.eval(&mut state).is_err());
-        state.inputs.insert("x".into(), 5.4.into());
+        state.io.inputs.insert("x".into(), 5.4.into());
         assert!(cmp.eval(&mut state).is_err());
-        state.inputs.remove("x");
-        state.inputs.insert("y".into(), 5.4.into());
+        state.io.inputs.remove("x");
+        state.io.inputs.insert("y".into(), 5.4.into());
         assert!(cmp.eval(&mut state).is_err());
-        state.inputs.insert("x".into(), 5.4.into());
-        state.inputs.insert("y".into(), 5.4.into());
+        state.io.inputs.insert("x".into(), 5.4.into());
+        state.io.inputs.insert("y".into(), 5.4.into());
         assert!(cmp.eval(&mut state).is_ok());
     }
 
@@ -331,7 +337,7 @@ mod tests {
     }
 
     fn run_cmp_ok_tests(ok_tests: Vec<(Value, Comparator, Value, bool)>) {
-        let mut state = IoState::default();
+        let mut state = SyncSystemState::default();
         let left = In("x".into());
         let right = In("y".into());
         for (a, cmp, b, res) in ok_tests {
@@ -340,14 +346,14 @@ mod tests {
                 cmp,
                 right: right.clone(),
             };
-            state.inputs.insert("x".into(), a);
-            state.inputs.insert("y".into(), b);
+            state.io.inputs.insert("x".into(), a);
+            state.io.inputs.insert("y".into(), b);
             assert_eq!(cmp.eval(&mut state).unwrap(), res);
         }
     }
 
     fn run_cmp_err_tests(err_tests: Vec<(Value, Comparator, Value)>) {
-        let mut state = IoState::default();
+        let mut state = SyncSystemState::default();
         let left = In("x".into());
         let right = In("y".into());
         for (a, cmp, b) in err_tests {
@@ -356,8 +362,8 @@ mod tests {
                 cmp,
                 right: right.clone(),
             };
-            state.inputs.insert("x".into(), a);
-            state.inputs.insert("y".into(), b);
+            state.io.inputs.insert("x".into(), a);
+            state.io.inputs.insert("y".into(), b);
             assert!(cmp.eval(&mut state).is_err());
         }
     }

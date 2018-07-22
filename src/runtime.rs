@@ -91,7 +91,7 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
             }
         }
 
-        state.rules = self.rules_state(&state.io)?;
+        state.rules = self.rules_state(&state)?;
 
         let rule_actions = state
             .rules
@@ -111,7 +111,7 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
         }
 
         //TODO: avoid clone
-        let io = state.io.clone();
+        let x_state = state.clone();
 
         let mut actions = vec![];
 
@@ -120,7 +120,8 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
             .into_iter()
             .map(|(id, machine_state)| {
                 if let Some(machine) = self.state_machines.get(&id) {
-                    if let Some((new_fsm_state, fsm_actions)) = machine.next((&machine_state, &io))
+                    if let Some((new_fsm_state, fsm_actions)) =
+                        machine.next((&machine_state, &x_state))
                     {
                         if !fsm_actions.is_empty() {
                             //TODO: avoid clone
@@ -145,11 +146,11 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
 
 impl SyncRuntime {
     /// Check for active [Rule]s.
-    fn rules_state(&self, io: &IoState) -> Result<HashMap<String, bool>> {
+    fn rules_state(&self, state: &SyncSystemState) -> Result<HashMap<String, bool>> {
         let mut rules_state = HashMap::new();
         for r in &self.rules {
-            let state = r.condition.eval(io)?;
-            rules_state.insert(r.id.clone(), state);
+            let r_state = r.condition.eval(state)?;
+            rules_state.insert(r.id.clone(), r_state);
         }
         Ok(rules_state)
     }
@@ -179,6 +180,11 @@ impl SyncRuntime {
                         Const(v) => {
                             state.io.outputs.insert(k.clone(), v.clone());
                         }
+                        Setpoint(id) => {
+                            if let Some(v) = orig_state.setpoints.get(id) {
+                                state.io.outputs.insert(k.clone(), v.clone());
+                            }
+                        }
                     }
                 }
                 for (k, src) in &a.setpoints {
@@ -195,6 +201,11 @@ impl SyncRuntime {
                         }
                         Const(v) => {
                             state.setpoints.insert(k.clone(), v.clone());
+                        }
+                        Setpoint(id) => {
+                            if let Some(v) = orig_state.setpoints.get(id) {
+                                state.setpoints.insert(k.clone(), v.clone());
+                            }
                         }
                     }
                 }
@@ -299,18 +310,21 @@ mod tests {
 
     #[test]
     fn check_active_rules() {
-        let mut io = IoState::default();
+        let mut state = SyncSystemState::default();
         let mut rt = SyncRuntime::default();
-        assert_eq!(rt.rules_state(&mut io).unwrap().len(), 0);
+        assert_eq!(rt.rules_state(&mut state).unwrap().len(), 0);
         rt.rules = vec![Rule {
             id: "foo".into(),
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
-        assert!(rt.rules_state(&mut io).is_err());
-        io.inputs.insert("x".into(), 33.3.into());
-        io.outputs.insert("y".into(), 33.3.into());
-        assert_eq!(*rt.rules_state(&mut io).unwrap().get("foo").unwrap(), true);
+        assert!(rt.rules_state(&mut state).is_err());
+        state.io.inputs.insert("x".into(), 33.3.into());
+        state.io.outputs.insert("y".into(), 33.3.into());
+        assert_eq!(
+            *rt.rules_state(&mut state).unwrap().get("foo").unwrap(),
+            true
+        );
     }
 
     #[test]

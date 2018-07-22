@@ -223,6 +223,7 @@ impl SyncIoSystem for IoState {
 pub enum Source {
     In(String),
     Out(String),
+    Setpoint(String),
     Const(Value),
 }
 
@@ -272,11 +273,11 @@ pub enum BooleanExpr<T> {
     Eval(T),
 }
 
-/// An operation that can be evaulated with a given [IoState]
-pub trait IoEvaluation {
+/// An operation that can be evaulated with a given input.
+pub trait Evaluation<In> {
     /// Evaluation result type.
     type Output;
-    fn eval(&self, io: &IoState) -> Result<Self::Output>;
+    fn eval(&self, input: &In) -> Result<Self::Output>;
 }
 
 trait IoSources {
@@ -299,20 +300,20 @@ impl IoSources for BooleanExpr<Comparison> {
     }
 }
 
-impl<T> IoEvaluation for BooleanExpr<T>
+impl<T> Evaluation<SyncSystemState> for BooleanExpr<T>
 where
-    T: IoEvaluation<Output = bool>,
+    T: Evaluation<SyncSystemState, Output = bool>,
 {
     type Output = bool;
-    fn eval(&self, io: &IoState) -> Result<Self::Output> {
+    fn eval(&self, state: &SyncSystemState) -> Result<Self::Output> {
         use BooleanExpr::*;
         match self {
             True => Ok(true),
             False => Ok(false),
-            And(ref a, ref b) => Ok(a.eval(io)? && b.eval(io)?),
-            Or(ref a, ref b) => Ok(a.eval(io)? || b.eval(io)?),
-            Not(ref x) => Ok(!x.eval(io)?),
-            Eval(ref x) => x.eval(io),
+            And(ref a, ref b) => Ok(a.eval(state)? && b.eval(state)?),
+            Or(ref a, ref b) => Ok(a.eval(state)? || b.eval(state)?),
+            Not(ref x) => Ok(!x.eval(state)?),
+            Eval(ref x) => x.eval(state),
         }
     }
 }
@@ -361,13 +362,13 @@ mod tests {
         use BooleanExpr::*;
         use Source::*;
 
-        let mut io = IoState::default();
+        let mut state = SyncSystemState::default();
 
         // x > 5.0
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
         let expr = Eval(x_gt_5.clone());
-        io.inputs.insert("x".into(), 5.0.into());
-        assert_eq!(expr.eval(&mut io).unwrap(), false);
+        state.io.inputs.insert("x".into(), 5.0.into());
+        assert_eq!(expr.eval(&state).unwrap(), false);
 
         // y == true
         let y_eq_true = In("y".into()).cmp_eq(true.into());
@@ -377,31 +378,31 @@ mod tests {
             Box::new(Eval(x_gt_5.clone())),
             Box::new(Eval(y_eq_true.clone())),
         );
-        io.inputs.insert("x".into(), 5.1.into());
-        io.inputs.insert("y".into(), true.into());
-        assert_eq!(expr.eval(&mut io).unwrap(), true);
-        io.inputs.insert("y".into(), false.into());
-        assert_eq!(expr.eval(&mut io).unwrap(), false);
+        state.io.inputs.insert("x".into(), 5.1.into());
+        state.io.inputs.insert("y".into(), true.into());
+        assert_eq!(expr.eval(&state).unwrap(), true);
+        state.io.inputs.insert("y".into(), false.into());
+        assert_eq!(expr.eval(&state).unwrap(), false);
 
         // x > 5.0 || y == true
         let expr = Or(
             Box::new(Eval(x_gt_5.clone())),
             Box::new(Eval(y_eq_true.clone())),
         );
-        io.inputs.insert("x".into(), 3.0.into());
-        io.inputs.insert("y".into(), true.into());
-        assert_eq!(expr.eval(&mut io).unwrap(), true);
-        io.inputs.insert("y".into(), false.into());
-        assert_eq!(expr.eval(&mut io).unwrap(), false);
+        state.io.inputs.insert("x".into(), 3.0.into());
+        state.io.inputs.insert("y".into(), true.into());
+        assert_eq!(expr.eval(&state).unwrap(), true);
+        state.io.inputs.insert("y".into(), false.into());
+        assert_eq!(expr.eval(&state).unwrap(), false);
 
         // !(x > 5.0)
         let expr = Not(Box::new(Eval(x_gt_5)));
-        io.inputs.insert("x".into(), 6.0.into());
-        assert_eq!(expr.eval(&mut io).unwrap(), false);
+        state.io.inputs.insert("x".into(), 6.0.into());
+        assert_eq!(expr.eval(&state).unwrap(), false);
 
         // just true
         let expr: BooleanExpr<Comparison> = True;
-        assert_eq!(expr.eval(&mut io).unwrap(), true);
+        assert_eq!(expr.eval(&state).unwrap(), true);
     }
 
     #[test]
