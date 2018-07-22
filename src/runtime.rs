@@ -27,10 +27,10 @@ impl Default for SyncRuntime {
 }
 
 //TODO: tidy up!
-impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<SyncSystemState>>
+impl<'a> PureController<(&'a SystemState, &'a str, &'a Duration), Result<SystemState>>
     for SyncRuntime
 {
-    fn next(&self, input: (&SyncSystemState, &str, &Duration)) -> Result<SyncSystemState> {
+    fn next(&self, input: (&SystemState, &str, &Duration)) -> Result<SystemState> {
         let (orig_state, interval, dt) = input;
         let mut state = orig_state.clone();
 
@@ -146,7 +146,7 @@ impl<'a> PureController<(&'a SyncSystemState, &'a str, &'a Duration), Result<Syn
 
 impl SyncRuntime {
     /// Check for active [Rule]s.
-    fn rules_state(&self, state: &SyncSystemState) -> Result<HashMap<String, bool>> {
+    fn rules_state(&self, state: &SystemState) -> Result<HashMap<String, bool>> {
         let mut rules_state = HashMap::new();
         for r in &self.rules {
             let r_state = r.condition.eval(state)?;
@@ -155,12 +155,7 @@ impl SyncRuntime {
         Ok(rules_state)
     }
 
-    fn apply_actions(
-        &self,
-        actions: &[String],
-        orig_state: &SyncSystemState,
-        state: &mut SyncSystemState,
-    ) {
+    fn apply_actions(&self, actions: &[String], orig_state: &SystemState, state: &mut SystemState) {
         use Source::*;
 
         for a_id in actions {
@@ -230,7 +225,7 @@ mod tests {
             controller,
         };
         let mut rt = SyncRuntime::default();
-        let mut s = SyncSystemState::default();
+        let mut s = SystemState::default();
         s.io.inputs.insert("input".into(), 0.0.into());
         assert!(rt.next((&s, "i", &dt)).is_ok());
         rt.loops.insert("i".into(), vec![loop0]);
@@ -253,7 +248,7 @@ mod tests {
         }];
         let mut rt = SyncRuntime::default();
         rt.loops.insert("i".into(), loops);
-        let mut s = SyncSystemState::default();
+        let mut s = SystemState::default();
         s.io.inputs.insert("input".into(), true.into());
         assert!(rt.next((&s, "i", &dt)).is_err());
         s.io.inputs.insert("input".into(), Value::Bin(vec![]));
@@ -277,7 +272,7 @@ mod tests {
         }];
         let mut rt = SyncRuntime::default();
         rt.loops.insert("i".into(), loops);
-        let mut s = SyncSystemState::default();
+        let mut s = SystemState::default();
         s.io.inputs.insert("sensor".into(), 0.0.into());
         let s = rt.next((&s, "i", &dt)).unwrap();
         assert_eq!(*s.io.outputs.get("actuator").unwrap(), Value::Decimal(20.0));
@@ -299,7 +294,7 @@ mod tests {
         }];
         let mut rt = SyncRuntime::default();
         rt.loops.insert("i".into(), loops);
-        let mut s = SyncSystemState::default();
+        let mut s = SystemState::default();
         s.io.inputs.insert(sensor.clone(), 0.0.into());
         let mut s = rt.next((&s, "i", &dt)).unwrap();
         assert_eq!(*s.io.outputs.get(&actuator).unwrap(), Value::Bit(false));
@@ -310,7 +305,7 @@ mod tests {
 
     #[test]
     fn check_active_rules() {
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let mut rt = SyncRuntime::default();
         assert_eq!(rt.rules_state(&mut state).unwrap().len(), 0);
         rt.rules = vec![Rule {
@@ -330,7 +325,7 @@ mod tests {
     #[test]
     fn apply_actions() {
         let mut rt = SyncRuntime::default();
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let dt = Duration::from_secs(1);
         rt.rules = vec![Rule {
             id: "foo".into(),
@@ -386,7 +381,7 @@ mod tests {
 
     #[test]
     fn runtime_state() {
-        let mut s = SyncSystemState::default();
+        let mut s = SystemState::default();
         //let mut io = IoState::default();
         let mut rt = SyncRuntime::default();
         let dt = Duration::from_secs(1);
@@ -461,7 +456,7 @@ mod tests {
     fn only_run_loops_of_corresponding_interval_id() {
         let mut rt = SyncRuntime::default();
         let dt = Duration::from_secs(1);
-        let mut s = SyncSystemState::default();
+        let mut s = SystemState::default();
 
         s.io.inputs.insert("a".into(), 3.0.into());
         s.io.inputs.insert("x".into(), 1.0.into());
@@ -532,7 +527,7 @@ mod tests {
                 controller: bb,
             },
         ];
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let mut runtime = SyncRuntime::default();
         runtime.loops.insert("interval".into(), loops);
         state.io.inputs.insert("sensor".into(), 0.0.into());
@@ -594,7 +589,7 @@ mod tests {
         };
         let mut rt = SyncRuntime::default();
         rt.state_machines.insert("fsm".into(), sm);
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         state.io.inputs.insert("x".into(), 0.0.into());
         let mut state = rt.next((&state, "i", &dt)).unwrap();
         assert!(state.state_machines.get("fsm").is_none());
@@ -648,7 +643,7 @@ mod tests {
             },
         ];
         rt.state_machines.insert("fsm".into(), sm);
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         state.io.inputs.insert("x".into(), false.into());
         let mut state = rt.next((&state, "i", &dt)).unwrap();
         state.state_machines.insert("fsm".into(), "start".into());

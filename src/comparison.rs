@@ -26,9 +26,9 @@ pub struct Comparison {
     pub(crate) right: Source,
 }
 
-impl Evaluation<SyncSystemState> for Comparison {
+impl Evaluation<SystemState> for Comparison {
     type Output = bool;
-    fn eval(&self, state: &SyncSystemState) -> Result<bool> {
+    fn eval(&self, state: &SystemState) -> Result<bool> {
         use Comparator::*;
         use ErrorKind::*;
         use Value::*;
@@ -142,7 +142,7 @@ impl Evaluation<SyncSystemState> for Comparison {
     }
 }
 
-fn get_val<'a>(src: &'a Source, state: &'a SyncSystemState) -> Result<&'a Value> {
+fn get_val<'a>(src: &'a Source, state: &'a SystemState) -> Result<&'a Value> {
     use ErrorKind::*;
     use Source::*;
     match src {
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn evaluate_comparison_with_missing_values() {
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let cmp = In("x".into()).cmp_gt(In("y".into()));
         assert!(cmp.eval(&mut state).is_err());
         state.io.inputs.insert("x".into(), 5.4.into());
@@ -337,7 +337,7 @@ mod tests {
     }
 
     fn run_cmp_ok_tests(ok_tests: Vec<(Value, Comparator, Value, bool)>) {
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let left = In("x".into());
         let right = In("y".into());
         for (a, cmp, b, res) in ok_tests {
@@ -353,7 +353,7 @@ mod tests {
     }
 
     fn run_cmp_err_tests(err_tests: Vec<(Value, Comparator, Value)>) {
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let left = In("x".into());
         let right = In("y".into());
         for (a, cmp, b) in err_tests {

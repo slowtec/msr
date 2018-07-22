@@ -166,7 +166,7 @@ pub struct IoState {
 
 /// The state of a synchronous controlling system.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SyncSystemState {
+pub struct SystemState {
     /// I/O states
     pub io: IoState,
     /// Controller setpoints
@@ -179,9 +179,9 @@ pub struct SyncSystemState {
     pub rules: HashMap<String, bool>,
 }
 
-impl Default for SyncSystemState {
+impl Default for SystemState {
     fn default() -> Self {
-        SyncSystemState {
+        SystemState {
             io: IoState::default(),
             setpoints: HashMap::new(),
             controllers: HashMap::new(),
@@ -300,12 +300,12 @@ impl IoSources for BooleanExpr<Comparison> {
     }
 }
 
-impl<T> Evaluation<SyncSystemState> for BooleanExpr<T>
+impl<T> Evaluation<SystemState> for BooleanExpr<T>
 where
-    T: Evaluation<SyncSystemState, Output = bool>,
+    T: Evaluation<SystemState, Output = bool>,
 {
     type Output = bool;
-    fn eval(&self, state: &SyncSystemState) -> Result<Self::Output> {
+    fn eval(&self, state: &SystemState) -> Result<Self::Output> {
         use BooleanExpr::*;
         match self {
             True => Ok(true),
@@ -362,7 +362,7 @@ mod tests {
         use BooleanExpr::*;
         use Source::*;
 
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
 
         // x > 5.0
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());

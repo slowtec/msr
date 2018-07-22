@@ -17,10 +17,10 @@ pub struct Transition {
     pub actions: Vec<String>,
 }
 
-impl<'a> PureController<(&'a str, &'a SyncSystemState), Option<(String, Vec<String>)>>
+impl<'a> PureController<(&'a str, &'a SystemState), Option<(String, Vec<String>)>>
     for StateMachine
 {
-    fn next(&self, input: (&str, &SyncSystemState)) -> Option<(String, Vec<String>)> {
+    fn next(&self, input: (&str, &SystemState)) -> Option<(String, Vec<String>)> {
         let (fsm_state, state) = input;
 
         for t in &self.transitions {
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn simple_fsm() {
-        let mut state = SyncSystemState::default();
+        let mut state = SystemState::default();
         let machine = StateMachine {
             transitions: vec![
                 Transition {
