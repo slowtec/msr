@@ -96,6 +96,7 @@ impl Pid {
 
 /// PID Configuration
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct PidConfig {
     /// Proportional coefficient
     pub k_p: f64,

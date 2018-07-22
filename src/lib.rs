@@ -1,3 +1,7 @@
+#[cfg(feature = "serde_support")]
+#[macro_use]
+extern crate serde_derive;
+
 use std::{
     collections::HashMap, io::{Error, ErrorKind, Result}, ops::Not, time::Duration,
 };
@@ -64,6 +68,7 @@ pub enum ControllerType {
 
 /// Controller configuration
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum ControllerConfig {
     Pid(pid::PidConfig),
     BangBang(bang_bang::BangBangConfig),
