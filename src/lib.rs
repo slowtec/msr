@@ -169,18 +169,24 @@ pub struct IoState {
 pub struct SyncSystemState {
     /// I/O states
     pub io: IoState,
-    /// Runtime state
-    pub runtime: SyncRuntimeState,
     /// Controller setpoints
     pub setpoints: HashMap<String, Value>,
+    /// Controller states
+    pub controllers: HashMap<String, ControllerState>,
+    /// Finite State Machine states
+    pub state_machines: HashMap<String, String>,
+    /// Rule states
+    pub rules: HashMap<String, bool>,
 }
 
 impl Default for SyncSystemState {
     fn default() -> Self {
         SyncSystemState {
             io: IoState::default(),
-            runtime: SyncRuntimeState::default(),
             setpoints: HashMap::new(),
+            controllers: HashMap::new(),
+            state_machines: HashMap::new(),
+            rules: HashMap::new(),
         }
     }
 }
