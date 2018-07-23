@@ -4,6 +4,8 @@ use super::*;
 /// Finit State Machine
 #[derive(Debug, Clone)]
 pub struct StateMachine {
+    /// Initial state
+    pub initial: String,
     /// Transitions
     pub transitions: Vec<Transition>,
 }
@@ -17,14 +19,14 @@ pub struct Transition {
     pub actions: Vec<String>,
 }
 
-impl<'a> PureController<(&'a str, &'a SystemState), Option<(String, Vec<String>)>>
+impl<'a> PureController<(Option<&'a str>, &'a SystemState), Option<(String, Vec<String>)>>
     for StateMachine
 {
-    fn next(&self, input: (&str, &SystemState)) -> Option<(String, Vec<String>)> {
+    fn next(&self, input: (Option<&str>, &SystemState)) -> Option<(String, Vec<String>)> {
         let (fsm_state, state) = input;
 
         for t in &self.transitions {
-            if t.from == fsm_state {
+            if t.from == fsm_state.unwrap_or_else(|| &self.initial) {
                 if let Ok(active) = t.condition.eval(state) {
                     if active {
                         return Some((t.to.clone(), t.actions.clone()));
@@ -45,6 +47,7 @@ mod tests {
     fn simple_fsm() {
         let mut state = SystemState::default();
         let machine = StateMachine {
+            initial: "start".into(),
             transitions: vec![
                 Transition {
                     condition: BooleanExpr::Eval(
@@ -64,16 +67,16 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(machine.next(("start", &state)), None);
+        assert_eq!(machine.next((None, &state)), None);
         state.io.inputs.insert("x".into(), Value::Decimal(5.1));
         assert_eq!(
-            machine.next(("start", &state)),
+            machine.next((None, &state)),
             Some(("step-one".into(), vec![]))
         );
-        assert_eq!(machine.next(("step-one", &state)), None);
+        assert_eq!(machine.next((Some("step-one"), &state)), None);
         state.io.inputs.insert("y".into(), Value::Decimal(7.1));
         assert_eq!(
-            machine.next(("step-one", &state)),
+            machine.next((Some("step-one"), &state)),
             Some(("step-two".into(), vec![]))
         );
     }

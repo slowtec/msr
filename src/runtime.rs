@@ -110,31 +110,18 @@ impl<'a> PureController<(&'a SystemState, &'a str, &'a Duration), Result<SystemS
             self.apply_actions(&x, orig_state, &mut state);
         }
 
-        //TODO: avoid clone
-        let x_state = state.clone();
-
         let mut actions = vec![];
 
-        let new_state_machines = state
-            .state_machines
-            .into_iter()
-            .map(|(id, machine_state)| {
-                if let Some(machine) = self.state_machines.get(&id) {
-                    if let Some((new_fsm_state, fsm_actions)) =
-                        machine.next((&machine_state, &x_state))
-                    {
-                        if !fsm_actions.is_empty() {
-                            //TODO: avoid clone
-                            actions.push(fsm_actions.clone());
-                        }
-                        return (id, new_fsm_state);
-                    }
+        for (m_id, machine) in &self.state_machines {
+            if let Some((new_fsm_state, fsm_actions)) =
+                machine.next((state.state_machines.get(m_id).map(|x| &**x), &state))
+            {
+                if !fsm_actions.is_empty() {
+                    actions.push(fsm_actions);
                 }
-                (id, machine_state)
-            })
-            .collect();
-
-        state.state_machines = new_state_machines;
+                state.state_machines.insert(m_id.clone(), new_fsm_state);
+            }
+        }
 
         for x in actions {
             self.apply_actions(&x, orig_state, &mut state);
@@ -568,6 +555,7 @@ mod tests {
     fn check_fsm_states() {
         let dt = Duration::from_secs(1);
         let sm = StateMachine {
+            initial: "start".into(),
             transitions: vec![
                 Transition {
                     condition: BooleanExpr::Eval(
@@ -606,6 +594,7 @@ mod tests {
     fn apply_fsm_transition_actions() {
         let dt = Duration::from_secs(1);
         let sm = StateMachine {
+            initial: "start".into(),
             transitions: vec![
                 Transition {
                     condition: BooleanExpr::Eval(
