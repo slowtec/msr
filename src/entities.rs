@@ -127,6 +127,8 @@ pub struct Action {
     pub outputs: HashMap<String, Source>,
     /// Define setpoint values
     pub setpoints: HashMap<String, Source>,
+    /// Reset controller states
+    pub controller_resets: Vec<String>,
 }
 
 #[cfg(test)]
