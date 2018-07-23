@@ -86,6 +86,7 @@ impl FromStr for Source {
             }
             return Ok(Source::Out(res[1].into()));
         }
+        // TODO: check for setpoint as source
         if s.contains("true") {
             return Ok(Source::Const(true.into()));
         }

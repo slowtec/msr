@@ -6,6 +6,7 @@ use std::{collections::HashMap, io::Result, time::Duration};
 #[derive(Debug)]
 pub struct SyncRuntime {
     /// Loops grouped by interval IDs
+    // TODO: separte intervals and loops
     pub loops: HashMap<String, Vec<Loop>>,
     /// Rules that will be evaluated on each step.
     pub rules: Vec<Rule>,
