@@ -166,6 +166,11 @@ impl SyncRuntime {
                         state.setpoints.insert(k.clone(), v.clone());
                     }
                 }
+                for (k, src) in &a.memory {
+                    if let Some(v) = orig_state.get(&src) {
+                        state.io.mem.insert(k.clone(), v.clone());
+                    }
+                }
                 for id in &a.controller_resets {
                     if let Some(loops) = self.loops.get(interval) {
                         if let Some(l) = loops.iter().find(|l| l.id == *id) {
@@ -304,6 +309,7 @@ mod tests {
         }];
         let mut outputs = HashMap::new();
         let mut setpoints = HashMap::new();
+        let mut memory = HashMap::new();
 
         outputs.insert("z".into(), Source::Const(6.into()));
         outputs.insert("j".into(), Source::In("ref-in".into()));
@@ -313,10 +319,16 @@ mod tests {
         setpoints.insert("bar".into(), Source::In("a".into()));
         setpoints.insert("baz".into(), Source::Out("b".into()));
 
+        memory.insert(
+            "a-message".into(),
+            Source::Const("hello memory".to_string().into()),
+        );
+
         rt.actions = vec![Action {
             id: "a".into(),
             outputs,
             setpoints,
+            memory,
             controller_resets: vec![],
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
@@ -327,6 +339,7 @@ mod tests {
         assert!(state.setpoints.get("foo").is_none());
         assert!(state.setpoints.get("bar").is_none());
         assert!(state.setpoints.get("baz").is_none());
+        assert!(state.io.mem.get("a-massage").is_none());
         state.io.inputs.insert("x".into(), 10.0.into());
         state.io.inputs.insert("ref-in".into(), 33.0.into());
         state.io.inputs.insert("a".into(), true.into());
@@ -348,6 +361,10 @@ mod tests {
         );
         assert_eq!(*state.setpoints.get("bar").unwrap(), Value::Bit(true));
         assert_eq!(*state.setpoints.get("baz").unwrap(), Value::Bit(false));
+        assert_eq!(
+            *state.io.mem.get("a-message").unwrap(),
+            Value::Text("hello memory".into())
+        );
     }
 
     #[test]
@@ -379,6 +396,7 @@ mod tests {
             id: "a".into(),
             outputs: HashMap::new(),
             setpoints: HashMap::new(),
+            memory: HashMap::new(),
             controller_resets: vec!["pid".into()],
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
@@ -679,12 +697,14 @@ mod tests {
                 id: "foo".into(),
                 outputs: foo_outputs,
                 setpoints: HashMap::new(),
+                memory: HashMap::new(),
                 controller_resets: vec![],
             },
             Action {
                 id: "bar".into(),
                 outputs: HashMap::new(),
                 setpoints: bar_setpoints,
+                memory: HashMap::new(),
                 controller_resets: vec![],
             },
         ];

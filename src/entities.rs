@@ -125,6 +125,8 @@ pub struct Action {
     pub id: String,
     /// Define output values
     pub outputs: HashMap<String, Source>,
+    /// Define memory values
+    pub memory: HashMap<String, Source>,
     /// Define setpoint values
     pub setpoints: HashMap<String, Source>,
     /// Reset controller states
