@@ -154,62 +154,16 @@ impl SyncRuntime {
         state: &mut SystemState,
         interval: &str,
     ) {
-        use Source::*;
-
         for a_id in actions {
             if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
                 for (k, src) in &a.outputs {
-                    match src {
-                        In(id) => {
-                            if let Some(v) = orig_state.io.inputs.get(id) {
-                                state.io.outputs.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Out(id) => {
-                            if let Some(v) = orig_state.io.outputs.get(id) {
-                                state.io.outputs.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Mem(id) => {
-                            if let Some(v) = orig_state.io.mem.get(id) {
-                                state.io.outputs.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Const(v) => {
-                            state.io.outputs.insert(k.clone(), v.clone());
-                        }
-                        Setpoint(id) => {
-                            if let Some(v) = orig_state.setpoints.get(id) {
-                                state.io.outputs.insert(k.clone(), v.clone());
-                            }
-                        }
+                    if let Some(v) = orig_state.get(&src) {
+                        state.io.outputs.insert(k.clone(), v.clone());
                     }
                 }
                 for (k, src) in &a.setpoints {
-                    match src {
-                        In(id) => {
-                            if let Some(v) = orig_state.io.inputs.get(id) {
-                                state.setpoints.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Out(id) => {
-                            if let Some(v) = orig_state.io.outputs.get(id) {
-                                state.setpoints.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Mem(id) => {
-                            if let Some(v) = orig_state.io.mem.get(id) {
-                                state.setpoints.insert(k.clone(), v.clone());
-                            }
-                        }
-                        Const(v) => {
-                            state.setpoints.insert(k.clone(), v.clone());
-                        }
-                        Setpoint(id) => {
-                            if let Some(v) = orig_state.setpoints.get(id) {
-                                state.setpoints.insert(k.clone(), v.clone());
-                            }
-                        }
+                    if let Some(v) = orig_state.get(&src) {
+                        state.setpoints.insert(k.clone(), v.clone());
                     }
                 }
                 for id in &a.controller_resets {

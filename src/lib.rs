@@ -186,6 +186,20 @@ pub struct SystemState {
     pub rules: HashMap<String, bool>,
 }
 
+impl SystemState {
+    /// Get a specific value defined by a [Source].
+    pub fn get<'a>(&'a self, src: &'a Source) -> Option<&'a Value> {
+        use Source::*;
+        match src {
+            In(id) => self.io.inputs.get(id),
+            Out(id) => self.io.outputs.get(id),
+            Mem(id) => self.io.mem.get(id),
+            Const(v) => Some(v),
+            Setpoint(id) => self.setpoints.get(id),
+        }
+    }
+}
+
 impl Default for SystemState {
     fn default() -> Self {
         SystemState {
