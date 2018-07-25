@@ -167,6 +167,8 @@ pub struct IoState {
     pub inputs: HashMap<String, Value>,
     /// Output gates (actuators)
     pub outputs: HashMap<String, Value>,
+    /// Values that only live in memory
+    pub mem: HashMap<String, Value>,
 }
 
 /// The state of a synchronous controlling system.
@@ -201,6 +203,7 @@ impl Default for IoState {
         IoState {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
+            mem: HashMap::new(),
         }
     }
 }
@@ -228,6 +231,7 @@ impl SyncIoSystem for IoState {
 pub enum Source {
     In(String),
     Out(String),
+    Mem(String),
     Setpoint(String),
     Const(Value),
 }

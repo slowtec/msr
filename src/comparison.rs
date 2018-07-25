@@ -158,6 +158,12 @@ fn get_val<'a>(src: &'a Source, state: &'a SystemState) -> Result<&'a Value> {
                 format!("The state of output '{}' does not exist", id),
             )
         }),
+        Mem(ref id) => state.io.mem.get(id).ok_or_else(|| {
+            Error::new(
+                NotFound,
+                format!("The state of memory '{}' does not exist", id),
+            )
+        }),
         Setpoint(ref id) => state.setpoints.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,

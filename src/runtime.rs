@@ -170,6 +170,11 @@ impl SyncRuntime {
                                 state.io.outputs.insert(k.clone(), v.clone());
                             }
                         }
+                        Mem(id) => {
+                            if let Some(v) = orig_state.io.mem.get(id) {
+                                state.io.outputs.insert(k.clone(), v.clone());
+                            }
+                        }
                         Const(v) => {
                             state.io.outputs.insert(k.clone(), v.clone());
                         }
@@ -189,6 +194,11 @@ impl SyncRuntime {
                         }
                         Out(id) => {
                             if let Some(v) = orig_state.io.outputs.get(id) {
+                                state.setpoints.insert(k.clone(), v.clone());
+                            }
+                        }
+                        Mem(id) => {
+                            if let Some(v) = orig_state.io.mem.get(id) {
                                 state.setpoints.insert(k.clone(), v.clone());
                             }
                         }
