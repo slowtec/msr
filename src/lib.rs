@@ -184,6 +184,8 @@ pub struct SystemState {
     pub state_machines: HashMap<String, String>,
     /// Rule states
     pub rules: HashMap<String, bool>,
+    /// Timeout states
+    pub timeouts: HashMap<String, Value>,
 }
 
 impl SystemState {
@@ -194,6 +196,7 @@ impl SystemState {
             In(id) => self.io.inputs.get(id),
             Out(id) => self.io.outputs.get(id),
             Mem(id) => self.io.mem.get(id),
+            Timeout(id) => self.timeouts.get(id),
             Const(v) => Some(v),
             Setpoint(id) => self.setpoints.get(id),
         }
@@ -208,6 +211,7 @@ impl Default for SystemState {
             controllers: HashMap::new(),
             state_machines: HashMap::new(),
             rules: HashMap::new(),
+            timeouts: HashMap::new(),
         }
     }
 }
@@ -247,6 +251,7 @@ pub enum Source {
     Out(String),
     Mem(String),
     Setpoint(String),
+    Timeout(String),
     Const(Value),
 }
 

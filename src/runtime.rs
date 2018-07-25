@@ -77,6 +77,21 @@ impl<'a> PureController<(&'a SystemState, &'a str, &'a Duration), Result<SystemS
             }
         }
 
+        for (id, t) in &orig_state.timeouts {
+            if let Value::Timeout(t) = t {
+                match t.checked_sub(*dt) {
+                    Some(x) => {
+                        state.timeouts.insert(id.clone(), x.into());
+                    }
+                    None => {
+                        state
+                            .timeouts
+                            .insert(id.clone(), Duration::new(0, 0).into());
+                    }
+                }
+            }
+        }
+
         state.rules = self.rules_state(&state)?;
 
         let rule_actions = state
@@ -176,6 +191,18 @@ impl SyncRuntime {
                         if let Some(l) = loops.iter().find(|l| l.id == *id) {
                             state.controllers.remove(id);
                             self.initialize_controller_state(l, state);
+                        }
+                    }
+                }
+                for (id, t) in &a.timeouts {
+                    match t {
+                        Some(t) => {
+                            if state.timeouts.get(id).is_none() {
+                                state.timeouts.insert(id.clone(), (*t).into());
+                            }
+                        }
+                        None => {
+                            state.timeouts.remove(id);
                         }
                     }
                 }
@@ -301,7 +328,7 @@ mod tests {
     fn apply_actions() {
         let mut rt = SyncRuntime::default();
         let mut state = SystemState::default();
-        let dt = Duration::from_secs(1);
+        let dt = Duration::from_millis(1);
         rt.rules = vec![Rule {
             id: "foo".into(),
             condition: BooleanExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
@@ -310,6 +337,7 @@ mod tests {
         let mut outputs = HashMap::new();
         let mut setpoints = HashMap::new();
         let mut memory = HashMap::new();
+        let mut timeouts = HashMap::new();
 
         outputs.insert("z".into(), Source::Const(6.into()));
         outputs.insert("j".into(), Source::In("ref-in".into()));
@@ -324,14 +352,21 @@ mod tests {
             Source::Const("hello memory".to_string().into()),
         );
 
+        timeouts.insert("a-timeout".into(), Some(Duration::from_millis(100).into()));
+        timeouts.insert("an-other-timeout".into(), None);
+
         rt.actions = vec![Action {
             id: "a".into(),
             outputs,
             setpoints,
+            timeouts,
             memory,
             controller_resets: vec![],
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
+        state
+            .timeouts
+            .insert("an-other-timeout".into(), Duration::from_millis(100).into());
         let mut state = rt.next((&state, "i", &dt)).unwrap();
         assert!(state.io.outputs.get("z").is_none());
         assert!(state.io.outputs.get("j").is_none());
@@ -340,6 +375,11 @@ mod tests {
         assert!(state.setpoints.get("bar").is_none());
         assert!(state.setpoints.get("baz").is_none());
         assert!(state.io.mem.get("a-massage").is_none());
+        assert!(state.timeouts.get("a-timeout").is_none());
+        assert_eq!(
+            *state.timeouts.get("an-other-timeout").unwrap(),
+            Value::Timeout(Duration::from_millis(99).into())
+        );
         state.io.inputs.insert("x".into(), 10.0.into());
         state.io.inputs.insert("ref-in".into(), 33.0.into());
         state.io.inputs.insert("a".into(), true.into());
@@ -364,6 +404,21 @@ mod tests {
         assert_eq!(
             *state.io.mem.get("a-message").unwrap(),
             Value::Text("hello memory".into())
+        );
+        assert_eq!(
+            *state.timeouts.get("a-timeout").unwrap(),
+            Value::Timeout(Duration::from_millis(100).into())
+        );
+        assert!(state.timeouts.get("an-other-timeout").is_none());
+        let state = rt.next((&state, "i", &dt)).unwrap();
+        assert_eq!(
+            *state.timeouts.get("a-timeout").unwrap(),
+            Value::Timeout(Duration::from_millis(99).into())
+        );
+        let state = rt.next((&state, "i", &Duration::from_millis(200))).unwrap();
+        assert_eq!(
+            *state.timeouts.get("a-timeout").unwrap(),
+            Value::Timeout(Duration::from_millis(0).into())
         );
     }
 
@@ -397,6 +452,7 @@ mod tests {
             outputs: HashMap::new(),
             setpoints: HashMap::new(),
             memory: HashMap::new(),
+            timeouts: HashMap::new(),
             controller_resets: vec!["pid".into()],
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
@@ -698,6 +754,7 @@ mod tests {
                 outputs: foo_outputs,
                 setpoints: HashMap::new(),
                 memory: HashMap::new(),
+                timeouts: HashMap::new(),
                 controller_resets: vec![],
             },
             Action {
@@ -705,6 +762,7 @@ mod tests {
                 outputs: HashMap::new(),
                 setpoints: bar_setpoints,
                 memory: HashMap::new(),
+                timeouts: HashMap::new(),
                 controller_resets: vec![],
             },
         ];

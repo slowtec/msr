@@ -1,4 +1,5 @@
 use super::*;
+use std::time::Duration;
 
 /// Input gate (sensor)
 ///
@@ -131,6 +132,8 @@ pub struct Action {
     pub setpoints: HashMap<String, Source>,
     /// Reset controller states
     pub controller_resets: Vec<String>,
+    /// Define timeouts
+    pub timeouts: HashMap<String, Option<Duration>>,
 }
 
 #[cfg(test)]

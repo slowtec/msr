@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 /// A value representation within a MSR system.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
@@ -11,6 +13,8 @@ pub enum Value {
     Text(String),
     /// Binary data
     Bin(Vec<u8>),
+    /// Timeout
+    Timeout(Duration),
 }
 
 impl From<bool> for Value {
@@ -52,6 +56,12 @@ impl From<String> for Value {
 impl From<Vec<u8>> for Value {
     fn from(b: Vec<u8>) -> Value {
         Value::Bin(b)
+    }
+}
+
+impl From<Duration> for Value {
+    fn from(d: Duration) -> Value {
+        Value::Timeout(d)
     }
 }
 

@@ -72,6 +72,13 @@ impl FromStr for Source {
             return Ok(Source::Const(v.into()));
         }
         let s = s.to_lowercase();
+        if s.contains("timeout.") {
+            let res = s.split("timeout.").collect::<Vec<&str>>();
+            if res.len() < 2 || res[1].is_empty() {
+                return Err(Error::new(ErrorKind::InvalidInput, "invalid identifier"));
+            }
+            return Ok(Source::Timeout(res[1].into()));
+        }
         if s.contains("in.") {
             let res = s.split("in.").collect::<Vec<&str>>();
             if res.len() < 2 || res[1].is_empty() {
@@ -151,6 +158,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_timeout_src() {
+        assert_eq!(
+            Source::from_str("timeout.y").unwrap(),
+            Source::Timeout("y".into())
+        );
+        assert_eq!(
+            Source::from_str("TIMEOUT.y").unwrap(),
+            Source::Timeout("y".into())
+        );
+    }
+
+    #[test]
     fn parse_boolean_src() {
         assert_eq!(
             Source::from_str("true").unwrap(),
@@ -216,6 +235,12 @@ mod tests {
             ),
             ("out.z < in.y", Out("z".into()), Less, In("y".into())),
             ("out.z != in.y", Out("z".into()), NotEqual, In("y".into())),
+            (
+                "timeout.t == true",
+                Timeout("t".into()),
+                Equal,
+                Const(true.into()),
+            ),
         ];
 
         for (s, left, cmp, right) in tests {

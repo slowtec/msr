@@ -35,11 +35,22 @@ impl Evaluation<SystemState> for Comparison {
         let left = get_val(&self.left, state)?;
         let right = get_val(&self.right, state)?;
         let res = match left {
-            Bit(a) => {
-                if let Bit(b) = right {
+            Bit(a) => match right {
+                Bit(b) => match self.cmp {
+                    Equal => a == b,
+                    NotEqual => a != b,
+                    _ => {
+                        return Err(Error::new(
+                            InvalidInput,
+                            format!("Bits can't be compared with a '{:?}' comparator", self.cmp),
+                        ));
+                    }
+                },
+                Timeout(t) => {
+                    let timed_out = *t == Duration::new(0, 0);
                     match self.cmp {
-                        Equal => a == b,
-                        NotEqual => a != b,
+                        Equal => *a == timed_out,
+                        NotEqual => *a != timed_out,
                         _ => {
                             return Err(Error::new(
                                 InvalidInput,
@@ -50,13 +61,14 @@ impl Evaluation<SystemState> for Comparison {
                             ));
                         }
                     }
-                } else {
+                }
+                _ => {
                     return Err(Error::new(
                         InvalidInput,
-                        "Bits can only compared with other bits",
+                        "Bits can only compared with other bits or timeouts",
                     ));
                 }
-            }
+            },
             Decimal(a) => {
                 if let Decimal(b) = right {
                     match self.cmp {
@@ -137,6 +149,38 @@ impl Evaluation<SystemState> for Comparison {
                     ));
                 }
             }
+            Timeout(a) => match right {
+                Timeout(b) => match self.cmp {
+                    Less => a < b,
+                    LessOrEqual => a <= b,
+                    Greater => a > b,
+                    GreaterOrEqual => a >= b,
+                    Equal => a == b,
+                    NotEqual => a != b,
+                },
+                Bit(b) => {
+                    let timed_out = *a == Duration::new(0, 0);
+                    match self.cmp {
+                        Equal => timed_out == *b,
+                        NotEqual => timed_out != *b,
+                        _ => {
+                            return Err(Error::new(
+                                InvalidInput,
+                                format!(
+                                    "Binary data can't be compared with a '{:?}' comparator",
+                                    self.cmp
+                                ),
+                            ));
+                        }
+                    }
+                }
+                _ => {
+                    return Err(Error::new(
+                        InvalidInput,
+                        "Timeouts can only compared with other timeouts or boolan",
+                    ));
+                }
+            },
         };
         Ok(res)
     }
@@ -168,6 +212,12 @@ fn get_val<'a>(src: &'a Source, state: &'a SystemState) -> Result<&'a Value> {
             Error::new(
                 NotFound,
                 format!("The state of setpoint '{}' does not exist", id),
+            )
+        }),
+        Timeout(ref id) => state.timeouts.get(id).ok_or_else(|| {
+            Error::new(
+                NotFound,
+                format!("The state of timeout '{}' does not exist", id),
             )
         }),
         Const(ref v) => Ok(v),
@@ -267,6 +317,70 @@ mod tests {
             (true.into(), Equal, 5.4.into()),
             (true.into(), Equal, "true".to_string().into()),
             (true.into(), Equal, vec![0x01_u8].into()),
+        ];
+        run_cmp_ok_tests(ok_tests);
+        run_cmp_err_tests(err_tests);
+    }
+
+    #[test]
+    fn evaluate_timeout_comparison() {
+        let ok_tests: Vec<(Value, Comparator, Value, bool)> = vec![
+            (
+                Duration::from_millis(5).into(),
+                LessOrEqual,
+                Duration::from_millis(5).into(),
+                true,
+            ),
+            (
+                Duration::from_millis(4).into(),
+                Less,
+                Duration::from_millis(5).into(),
+                true,
+            ),
+            (
+                Duration::from_millis(5).into(),
+                GreaterOrEqual,
+                Duration::from_millis(5).into(),
+                true,
+            ),
+            (
+                Duration::from_millis(6).into(),
+                Greater,
+                Duration::from_millis(5).into(),
+                true,
+            ),
+            (
+                Duration::from_millis(5).into(),
+                Equal,
+                Duration::from_millis(5).into(),
+                true,
+            ),
+            (
+                Duration::from_millis(6).into(),
+                NotEqual,
+                Duration::from_millis(5).into(),
+                true,
+            ),
+            (Duration::from_millis(0).into(), Equal, true.into(), true),
+            (Duration::from_millis(2).into(), Equal, false.into(), true),
+            (true.into(), Equal, Duration::from_millis(0).into(), true),
+            (
+                true.into(),
+                NotEqual,
+                Duration::from_millis(0).into(),
+                false,
+            ),
+            (false.into(), Equal, Duration::from_millis(1).into(), true),
+            (
+                false.into(),
+                NotEqual,
+                Duration::from_millis(1).into(),
+                false,
+            ),
+        ];
+        let err_tests: Vec<(Value, Comparator, Value)> = vec![
+            (Duration::from_millis(5).into(), LessOrEqual, true.into()),
+            (Duration::from_millis(5).into(), GreaterOrEqual, true.into()),
         ];
         run_cmp_ok_tests(ok_tests);
         run_cmp_err_tests(err_tests);
