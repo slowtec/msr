@@ -10,12 +10,10 @@ homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"
 
 [dependencies]
-serde_derive = { version = "1.0", optional = true }
-serde = { version = "1.0", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
-default = ["serde_support"]
-serde_support = ["serde_derive", "serde"]
+default = ["serde"]
 
 [badges]
 travis-ci = { repository = "slowtec/msr" }
