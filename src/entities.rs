@@ -28,7 +28,7 @@ pub struct Input {
 /// a value of `from.high` to `to.high`,
 /// values in-between to values in-between, etc.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ValueMapping {
     /// The bounds of the value’s current range
     pub from: ValueBounds,
@@ -44,7 +44,7 @@ impl ValueMapping {
 
 /// Bounds of a value’s range.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ValueBounds {
     /// the lower bound of the value’s range
     pub low: f64,

@@ -25,7 +25,7 @@ pub struct BangBang {
 
 /// Bang-bang controller configuration
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BangBangConfig {
     pub default_threshold: f64,
     pub hysteresis: f64,
