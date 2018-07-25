@@ -86,7 +86,20 @@ impl FromStr for Source {
             }
             return Ok(Source::Out(res[1].into()));
         }
-        // TODO: check for setpoint as source
+        if s.contains("mem.") {
+            let res = s.split("mem.").collect::<Vec<&str>>();
+            if res.len() < 2 || res[1].is_empty() {
+                return Err(Error::new(ErrorKind::InvalidInput, "invalid identifier"));
+            }
+            return Ok(Source::Mem(res[1].into()));
+        }
+        if s.contains("setpoint.") {
+            let res = s.split("setpoint.").collect::<Vec<&str>>();
+            if res.len() < 2 || res[1].is_empty() {
+                return Err(Error::new(ErrorKind::InvalidInput, "invalid identifier"));
+            }
+            return Ok(Source::Setpoint(res[1].into()));
+        }
         if s.contains("true") {
             return Ok(Source::Const(true.into()));
         }
@@ -117,6 +130,24 @@ mod tests {
     fn parse_out_src() {
         assert_eq!(Source::from_str("out.y").unwrap(), Source::Out("y".into()));
         assert_eq!(Source::from_str("OUT.y").unwrap(), Source::Out("y".into()));
+    }
+
+    #[test]
+    fn parse_mem_src() {
+        assert_eq!(Source::from_str("mem.y").unwrap(), Source::Mem("y".into()));
+        assert_eq!(Source::from_str("MEM.y").unwrap(), Source::Mem("y".into()));
+    }
+
+    #[test]
+    fn parse_setpoint_src() {
+        assert_eq!(
+            Source::from_str("setpoint.y").unwrap(),
+            Source::Setpoint("y".into())
+        );
+        assert_eq!(
+            Source::from_str("SETPOINT.y").unwrap(),
+            Source::Setpoint("y".into())
+        );
     }
 
     #[test]
