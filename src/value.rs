@@ -37,13 +37,13 @@ impl From<i64> for Value {
 
 impl From<i32> for Value {
     fn from(v: i32) -> Value {
-        Value::Integer(v as i64)
+        Value::Integer(i64::from(v))
     }
 }
 
 impl From<u32> for Value {
     fn from(v: u32) -> Value {
-        Value::Integer(v as i64)
+        Value::Integer(i64::from(v))
     }
 }
 

@@ -28,6 +28,8 @@ pub struct Comparison {
 
 impl Evaluation<SystemState> for Comparison {
     type Output = bool;
+
+    #[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
     fn eval(&self, state: &SystemState) -> Result<bool> {
         use Comparator::*;
         use ErrorKind::*;
