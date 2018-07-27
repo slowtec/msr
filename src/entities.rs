@@ -21,6 +21,8 @@ pub struct Input {
     pub id: String,
     /// Value mapping
     pub mapping: Option<ValueMapping>,
+    /// Value cropping
+    pub cropping: Option<ValueBounds>,
 }
 
 /// Map a number **from** one range **to** another.
@@ -28,6 +30,7 @@ pub struct Input {
 /// That is, a value of `from.low` would get mapped to `to.low`,
 /// a value of `from.high` to `to.high`,
 /// values in-between to values in-between, etc.
+// TODO: Make this more gerneric
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ValueMapping {
@@ -47,15 +50,15 @@ impl ValueMapping {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ValueBounds {
-    /// the lower bound of the value’s range
+    /// The lower bound of the value’s range
     pub low: f64,
-    /// the upper bound of the value’s range
+    /// The upper bound of the value’s range
     pub high: f64,
 }
 
 impl Input {
     pub fn new(id: String) -> Self {
-        Input { id, mapping: None }
+        Input { id, mapping: None, cropping: None }
     }
 }
 
