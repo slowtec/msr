@@ -1,23 +1,20 @@
 use super::*;
 use std::time::Duration;
 
-/// Input gate (sensor)
+/// I/O (sensor or actuator)
 ///
 /// # Example
 /// ```rust,no_run
 /// use msr::*;
 ///
-/// let tcr001 = Input::new("tcr001".into());
+/// let tcr001 = IoGate::new("tcr001".into());
 ///
 /// // or create it from a str
-/// let tcr002 : Input = "tcr002".into();
-///
-/// // You can also add some description to it
-/// let mut tcr003 = Input::new("tcr003".into());
+/// let tcr002 : IoGate = "tcr002".into();
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct Input {
-    /// The unique ID of the input
+pub struct IoGate {
+    /// The unique ID of the gate
     pub id: String,
     /// Value mapping
     pub mapping: Option<ValueMapping>,
@@ -66,9 +63,9 @@ pub struct Cropping {
     pub high: Option<f64>,
 }
 
-impl Input {
+impl IoGate {
     pub fn new(id: String) -> Self {
-        Input {
+        IoGate {
             id,
             mapping: None,
             cropping: None,
@@ -76,30 +73,9 @@ impl Input {
     }
 }
 
-impl<'a> From<&'a str> for Input {
+impl<'a> From<&'a str> for IoGate {
     fn from(id: &'a str) -> Self {
-        Input::new(id.into())
-    }
-}
-
-/// Output gate (actuator)
-#[derive(Debug, Clone, PartialEq)]
-pub struct Output {
-    /// The unique ID of the output
-    pub id: String,
-    /// Value mapping
-    pub mapping: Option<ValueMapping>,
-}
-
-impl Output {
-    pub fn new(id: String) -> Self {
-        Output { id, mapping: None }
-    }
-}
-
-impl<'a> From<&'a str> for Output {
-    fn from(id: &'a str) -> Self {
-        Output::new(id.into())
+        IoGate::new(id.into())
     }
 }
 
