@@ -22,7 +22,7 @@ pub struct Input {
     /// Value mapping
     pub mapping: Option<ValueMapping>,
     /// Value cropping
-    pub cropping: Option<ValueBounds>,
+    pub cropping: Option<Cropping>,
 }
 
 /// Map a number **from** one range **to** another.
@@ -56,9 +56,23 @@ pub struct ValueBounds {
     pub high: f64,
 }
 
+/// Cropping value
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Cropping {
+    /// The lower threshold
+    pub low: Option<f64>,
+    /// The upper threshold
+    pub high: Option<f64>,
+}
+
 impl Input {
     pub fn new(id: String) -> Self {
-        Input { id, mapping: None, cropping: None }
+        Input {
+            id,
+            mapping: None,
+            cropping: None,
+        }
     }
 }
 
