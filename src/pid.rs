@@ -154,6 +154,7 @@ impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidC
 
         let err_i = err_p * f64::from(delta_t);
         state.i += self.k_i * err_i;
+        state.i = limit(self.i_min, self.i_max, state.i);
 
         state.d = if delta_t.is_empty() {
             0.0
@@ -334,6 +335,19 @@ mod tests {
         let dt = Duration::from_secs(1);
         assert_eq!(pid.next((0.0, &dt)), 4.0);
         assert_eq!(pid.next((5.0, &dt)), -2.0);
+    }
+
+    #[test]
+    fn calculate_i_with_limits() {
+        let mut cfg = PidConfig::default();
+        cfg.k_p = 0.0;
+        cfg.k_i = 2.0;
+        cfg.i_max = Some(1.0);
+        let mut pid = Pid::new(cfg);
+        let dt = Duration::from_secs(1);
+        assert_eq!(pid.next((0.0, &dt)), 0.0);
+        pid.set_target(1.0);
+        assert_eq!(pid.next((0.0, &dt)), 1.0);
     }
 
     #[test]
