@@ -63,6 +63,21 @@ pub struct Cropping {
     pub high: Option<f64>,
 }
 
+impl Cropping {
+    /// Crop a value
+    ///
+    /// e.g. with `low = 2.0`
+    /// - `1.9` -> `2.0`
+    /// - `2.0` -> `2.0`
+    ///
+    /// with `high = 2.0`
+    /// - `2.1` -> `2.0`
+    /// - `1.9` -> `1.9`
+    pub fn crop(&self, x: f64) -> f64 {
+        util::limit(self.low, self.high, x)
+    }
+}
+
 impl IoGate {
     pub fn new(id: String) -> Self {
         IoGate {
@@ -149,5 +164,19 @@ mod tests {
         assert_eq!(map.map(4.0), 0.0);
         assert_eq!(map.map(12.0), 50.0);
         assert_eq!(map.map(20.0), 100.0);
+    }
+
+    #[test]
+    fn crop_input() {
+        let cropping = Cropping {
+          low: Some(2.0),
+          high: Some(3.0)
+        };
+        assert_eq!(cropping.crop(1.9), 2.0);
+        assert_eq!(cropping.crop(-1.9), 2.0);
+        assert_eq!(cropping.crop(2.0), 2.0);
+        assert_eq!(cropping.crop(2.1), 2.1);
+        assert_eq!(cropping.crop(3.0), 3.0);
+        assert_eq!(cropping.crop(3.1), 3.0);
     }
 }
