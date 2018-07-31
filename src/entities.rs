@@ -20,6 +20,8 @@ pub struct IoGate {
     pub mapping: Option<ValueMapping>,
     /// Value cropping
     pub cropping: Option<Cropping>,
+    /// Value calibration
+    pub calib: Option<Calibration>,
 }
 
 /// Map a number **from** one range **to** another.
@@ -78,12 +80,22 @@ impl Cropping {
     }
 }
 
+/// Calibration coefficients
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Calibration {
+    pub a: Option<f64>,
+    pub b: Option<f64>,
+    pub c: Option<f64>,
+}
+
 impl IoGate {
     pub fn new(id: String) -> Self {
         IoGate {
             id,
             mapping: None,
             cropping: None,
+            calib: None,
         }
     }
 }
@@ -169,8 +181,8 @@ mod tests {
     #[test]
     fn crop_input() {
         let cropping = Cropping {
-          low: Some(2.0),
-          high: Some(3.0)
+            low: Some(2.0),
+            high: Some(3.0),
         };
         assert_eq!(cropping.crop(1.9), 2.0);
         assert_eq!(cropping.crop(-1.9), 2.0);
