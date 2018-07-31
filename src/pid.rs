@@ -38,8 +38,8 @@
 //! ```
 
 use super::{Controller, PureController};
-use std::f64;
-use std::time::Duration;
+use std::{f64, time::Duration};
+use util::limit;
 
 /// PID controller implementation
 #[derive(Debug, Clone)]
@@ -211,20 +211,6 @@ impl From<DurationInSeconds> for f64 {
     fn from(from: DurationInSeconds) -> Self {
         from.seconds()
     }
-}
-
-fn limit(min: Option<f64>, max: Option<f64>, mut value: f64) -> f64 {
-    if let Some(max) = max {
-        if value > max {
-            value = max;
-        }
-    }
-    if let Some(min) = min {
-        if value < min {
-            value = min;
-        }
-    }
-    value
 }
 
 #[cfg(test)]

@@ -6,6 +6,21 @@ pub fn map_value(x: f64, x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> f64 
     (x - x_min) * s + y_min
 }
 
+/// Limit a value by minimum and maximum values.
+pub fn limit(min: Option<f64>, max: Option<f64>, mut value: f64) -> f64 {
+    if let Some(max) = max {
+        if value > max {
+            value = max;
+        }
+    }
+    if let Some(min) = min {
+        if value < min {
+            value = min;
+        }
+    }
+    value
+}
+
 #[cfg(test)]
 mod tests {
 
