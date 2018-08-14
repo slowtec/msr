@@ -308,11 +308,12 @@ pub trait Evaluation<In> {
     fn eval(&self, input: &In) -> Result<Self::Output>;
 }
 
-trait IoSources {
+/// Extract sources
+pub trait Sources {
     fn sources(&self) -> Vec<Source>;
 }
 
-impl IoSources for BooleanExpr<Comparison> {
+impl Sources for BooleanExpr<Comparison> {
     fn sources(&self) -> Vec<Source> {
         use BooleanExpr::*;
         match self {
