@@ -134,7 +134,7 @@ pub struct Rule {
     /// The unique ID of the rule
     pub id: String,
     /// The condition
-    pub condition: BooleanExpr<Comparison>,
+    pub condition: BoolExpr<Comparison>,
     /// Actions that should be triggerd
     pub actions: Vec<String>,
 }

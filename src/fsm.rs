@@ -13,7 +13,7 @@ pub struct StateMachine {
 /// A State Transition
 #[derive(Debug, Clone)]
 pub struct Transition {
-    pub condition: BooleanExpr<Comparison>,
+    pub condition: BoolExpr<Comparison>,
     pub from: String,
     pub to: String,
     pub actions: Vec<String>,
@@ -50,7 +50,7 @@ mod tests {
             initial: "start".into(),
             transitions: vec![
                 Transition {
-                    condition: BooleanExpr::Eval(
+                    condition: BoolExpr::Eval(
                         Source::In("x".into()).cmp_gt(Source::Const(5.0.into())),
                     ),
                     from: "start".into(),
@@ -58,7 +58,7 @@ mod tests {
                     actions: vec![],
                 },
                 Transition {
-                    condition: BooleanExpr::Eval(
+                    condition: BoolExpr::Eval(
                         Source::In("y".into()).cmp_gt(Source::Const(7.0.into())),
                     ),
                     from: "step-one".into(),

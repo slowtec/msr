@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(rt.rules_state(&mut state).unwrap().len(), 0);
         rt.rules = vec![Rule {
             id: "foo".into(),
-            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
+            condition: BoolExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
         assert!(rt.rules_state(&mut state).is_err());
@@ -318,7 +318,7 @@ mod tests {
         let dt = Duration::from_millis(1);
         rt.rules = vec![Rule {
             id: "foo".into(),
-            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
+            condition: BoolExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
             actions: vec!["a".into()],
         }];
         let mut outputs = HashMap::new();
@@ -428,7 +428,7 @@ mod tests {
         });
         rt.rules = vec![Rule {
             id: "foo".into(),
-            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
+            condition: BoolExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
             actions: vec!["a".into()],
         }];
         rt.actions = vec![Action {
@@ -497,7 +497,7 @@ mod tests {
 
         rt.rules = vec![Rule {
             id: "foo".into(),
-            condition: BooleanExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
+            condition: BoolExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
         let state = rt.next((&s, &dt)).unwrap();
@@ -610,7 +610,7 @@ mod tests {
             initial: "start".into(),
             transitions: vec![
                 Transition {
-                    condition: BooleanExpr::Eval(
+                    condition: BoolExpr::Eval(
                         Source::In("x".into()).cmp_gt(Source::Const(1.0.into())),
                     ),
                     from: "start".into(),
@@ -618,7 +618,7 @@ mod tests {
                     actions: vec![],
                 },
                 Transition {
-                    condition: BooleanExpr::Eval(
+                    condition: BoolExpr::Eval(
                         Source::In("y".into()).cmp_gt(Source::Const(2.0.into())),
                     ),
                     from: "step-one".into(),
@@ -649,7 +649,7 @@ mod tests {
             initial: "start".into(),
             transitions: vec![
                 Transition {
-                    condition: BooleanExpr::Eval(
+                    condition: BoolExpr::Eval(
                         Source::In("x".into()).cmp_eq(Source::Const(true.into())),
                     ),
                     from: "start".into(),
@@ -657,7 +657,7 @@ mod tests {
                     actions: vec!["foo".into()],
                 },
                 Transition {
-                    condition: BooleanExpr::Eval(
+                    condition: BoolExpr::Eval(
                         Source::In("y".into()).cmp_eq(Source::Const(123.into())),
                     ),
                     from: "step-one".into(),

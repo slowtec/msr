@@ -3,7 +3,10 @@
 extern crate serde;
 
 use std::{
-    collections::HashMap, io::{Error, ErrorKind, Result}, ops::Not, time::Duration,
+    collections::HashMap,
+    io::{Error, ErrorKind, Result},
+    ops::Not,
+    time::Duration,
 };
 
 mod comparison;
@@ -228,7 +231,8 @@ impl Default for IoState {
 
 impl SyncIoSystem for IoState {
     fn read(&mut self, id: &str) -> Result<Value> {
-        Ok(self.inputs
+        Ok(self
+            .inputs
             .get(id)
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "no such input"))?
             .clone())
@@ -285,17 +289,17 @@ impl Source {
 
 /// A boolean expression
 #[derive(Debug, Clone, PartialEq)]
-pub enum BooleanExpr<T> {
+pub enum BoolExpr<T> {
     /// `true`
     True,
     /// `false`
     False,
     /// The logical AND of two expressions.
-    And(Box<BooleanExpr<T>>, Box<BooleanExpr<T>>),
+    And(Box<BoolExpr<T>>, Box<BoolExpr<T>>),
     /// The locigal OR of two expressions.
-    Or(Box<BooleanExpr<T>>, Box<BooleanExpr<T>>),
+    Or(Box<BoolExpr<T>>, Box<BoolExpr<T>>),
     /// The logical complement of the contained expression.
-    Not(Box<BooleanExpr<T>>),
+    Not(Box<BoolExpr<T>>),
     /// Evaluate expr of type `T`
     /// This expression represents a value that is not known until evaluation time.
     Eval(T),
@@ -313,9 +317,9 @@ pub trait Sources {
     fn sources(&self) -> Vec<Source>;
 }
 
-impl Sources for BooleanExpr<Comparison> {
+impl Sources for BoolExpr<Comparison> {
     fn sources(&self) -> Vec<Source> {
-        use BooleanExpr::*;
+        use BoolExpr::*;
         match self {
             And(ref a, ref b) | Or(ref a, ref b) => {
                 let mut srcs = a.sources();
@@ -329,13 +333,13 @@ impl Sources for BooleanExpr<Comparison> {
     }
 }
 
-impl<T> Evaluation<SystemState> for BooleanExpr<T>
+impl<T> Evaluation<SystemState> for BoolExpr<T>
 where
     T: Evaluation<SystemState, Output = bool>,
 {
     type Output = bool;
     fn eval(&self, state: &SystemState) -> Result<Self::Output> {
-        use BooleanExpr::*;
+        use BoolExpr::*;
         match self {
             True => Ok(true),
             False => Ok(false),
@@ -347,10 +351,10 @@ where
     }
 }
 
-impl<T> Not for BooleanExpr<T> {
+impl<T> Not for BoolExpr<T> {
     type Output = Self;
     fn not(self) -> Self {
-        BooleanExpr::Not(Box::new(self))
+        BoolExpr::Not(Box::new(self))
     }
 }
 
@@ -363,9 +367,9 @@ where
     }
 }
 
-impl From<Comparison> for BooleanExpr<Comparison> {
+impl From<Comparison> for BoolExpr<Comparison> {
     fn from(c: Comparison) -> Self {
-        BooleanExpr::Eval(c)
+        BoolExpr::Eval(c)
     }
 }
 
@@ -388,7 +392,7 @@ mod tests {
 
     #[test]
     fn bool_expr_eval() {
-        use BooleanExpr::*;
+        use BoolExpr::*;
         use Source::*;
 
         let mut state = SystemState::default();
@@ -430,13 +434,13 @@ mod tests {
         assert_eq!(expr.eval(&state).unwrap(), false);
 
         // just true
-        let expr: BooleanExpr<Comparison> = True;
+        let expr: BoolExpr<Comparison> = True;
         assert_eq!(expr.eval(&state).unwrap(), true);
     }
 
     #[test]
     fn bool_expr_sources() {
-        use BooleanExpr::*;
+        use BoolExpr::*;
         use Source::*;
 
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
@@ -460,20 +464,17 @@ mod tests {
     fn bool_expr_from_comparison() {
         use Source::*;
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
-        let expr = BooleanExpr::from(x_gt_5.clone());
-        assert_eq!(expr, BooleanExpr::Eval(x_gt_5));
+        let expr = BoolExpr::from(x_gt_5.clone());
+        assert_eq!(expr, BoolExpr::Eval(x_gt_5));
     }
 
     #[test]
     fn bool_expr_not_operation() {
         use Source::*;
         let x_eq_1 = In("x".into()).cmp_eq(1.0.into());
-        let expr = BooleanExpr::from(x_eq_1.clone());
+        let expr = BoolExpr::from(x_eq_1.clone());
         let not_expr = !expr;
-        assert_eq!(
-            not_expr,
-            BooleanExpr::Not(Box::new(BooleanExpr::Eval(x_eq_1)))
-        );
+        assert_eq!(not_expr, BoolExpr::Not(Box::new(BoolExpr::Eval(x_eq_1))));
     }
 
     #[test]
