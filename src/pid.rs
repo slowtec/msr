@@ -110,6 +110,10 @@ pub struct PidConfig {
     pub min: Option<f64>,
     /// Maximum output value
     pub max: Option<f64>,
+    /// Minimum proportional portion
+    pub p_min: Option<f64>,
+    /// Maximum proportional portion
+    pub p_max: Option<f64>,
     /// Minimum integral portion
     pub i_min: Option<f64>,
     /// Maximum integral portion
@@ -125,6 +129,8 @@ impl Default for PidConfig {
             default_target: 0.0,
             min: None,
             max: None,
+            p_min: None,
+            p_max: None,
             i_min: None,
             i_max: None,
         }
@@ -151,6 +157,7 @@ impl<'a> PureController<(PidState, f64, &'a Duration), (PidState, f64)> for PidC
 
         let err_p = state.target - actual;
         state.p = self.k_p * err_p;
+        state.p = limit(self.p_min, self.p_max, state.p);
 
         let err_i = err_p * f64::from(delta_t);
         state.i += self.k_i * err_i;
@@ -229,6 +236,8 @@ mod tests {
         assert_eq!(cfg.max, None);
         assert_eq!(cfg.i_min, None);
         assert_eq!(cfg.i_max, None);
+        assert_eq!(cfg.p_min, None);
+        assert_eq!(cfg.p_max, None);
     }
 
     #[test]
@@ -334,6 +343,20 @@ mod tests {
         assert_eq!(pid.next((0.0, &dt)), 0.0);
         pid.set_target(1.0);
         assert_eq!(pid.next((0.0, &dt)), 1.0);
+    }
+
+    #[test]
+    fn calculate_p_with_limits() {
+        let mut cfg = PidConfig::default();
+        cfg.k_p = 2.0;
+        cfg.p_max = Some(1.7);
+        cfg.p_min = Some(-0.5);
+        let mut pid = Pid::new(cfg);
+        let dt = Duration::from_secs(1);
+        assert_eq!(pid.next((0.0, &dt)), 0.0);
+        pid.set_target(10.0);
+        assert_eq!(pid.next((0.0, &dt)), 1.7);
+        assert_eq!(pid.next((40.0, &dt)), -0.5);
     }
 
     #[test]
