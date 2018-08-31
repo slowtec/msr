@@ -1,3 +1,5 @@
+#[cfg(feature = "serde")]
+use serde::ser::{Serialize, Serializer};
 use std::time::Duration;
 
 /// A value representation within a MSR system.
@@ -65,10 +67,29 @@ impl From<Duration> for Value {
     }
 }
 
+#[cfg(feature = "serde")]
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Value::Bit(b) => serializer.serialize_bool(*b),
+            Value::Decimal(d) => serializer.serialize_f64(*d),
+            Value::Integer(i) => serializer.serialize_i64(*i),
+            Value::Text(t) => serializer.serialize_str(t),
+            Value::Bin(b) => serializer.serialize_bytes(b),
+            Value::Timeout(t) => t.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    #[cfg(feature = "serde")]
+    use serde_json;
 
     #[test]
     fn value_casting() {
@@ -82,5 +103,30 @@ mod tests {
             Value::Text("txt".to_string())
         );
         assert_eq!(Value::from(vec![0x07]), Value::Bin(vec![0x07]));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn value_serialization() {
+        let b = Value::Bit(true);
+        assert_eq!(serde_json::to_string(&b).unwrap(), "true");
+
+        let f = Value::Decimal(6.99);
+        assert_eq!(serde_json::to_string(&f).unwrap(), "6.99");
+
+        let i = Value::Integer(-8);
+        assert_eq!(serde_json::to_string(&i).unwrap(), "-8");
+
+        let t = Value::Text("blabla".into());
+        assert_eq!(serde_json::to_string(&t).unwrap(), "\"blabla\"");
+
+        let b = Value::Bin(vec![0x45, 0xFF]);
+        assert_eq!(serde_json::to_string(&b).unwrap(), "[69,255]");
+
+        let t = Value::Timeout(Duration::from_millis(1500));
+        assert_eq!(
+            serde_json::to_string(&t).unwrap(),
+            "{\"secs\":1,\"nanos\":500000000}"
+        );
     }
 }

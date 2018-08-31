@@ -2,6 +2,9 @@
 #[macro_use]
 extern crate serde;
 
+#[cfg(test)]
+extern crate serde_json;
+
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind, Result},

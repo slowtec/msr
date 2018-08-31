@@ -17,3 +17,6 @@ default = ["serde"]
 
 [badges]
 travis-ci = { repository = "slowtec/msr" }
+
+[dev-dependencies]
+serde_json = "1.0"
