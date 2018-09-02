@@ -1,5 +1,10 @@
 #[cfg(feature = "serde")]
-use serde::ser::{Serialize, Serializer};
+use serde::{
+    de::{Error, MapAccess, SeqAccess, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+#[cfg(feature = "serde")]
+use std::fmt;
 use std::time::Duration;
 
 /// A value representation within a MSR system.
@@ -84,6 +89,80 @@ impl Serialize for Value {
     }
 }
 
+#[cfg(feature = "serde")]
+struct ValueVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Visitor<'de> for ValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a boolean, a number, a string, an array of bytes or an timeout.")
+    }
+    fn visit_bool<E>(self, value: bool) -> Result<Value, E> {
+        Ok(Value::Bit(value))
+    }
+    fn visit_f64<E>(self, value: f64) -> Result<Value, E> {
+        Ok(Value::Decimal(value))
+    }
+    fn visit_i64<E>(self, value: i64) -> Result<Value, E> {
+        Ok(Value::Integer(value))
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Value, E>
+    where
+        E: ::serde::de::Error,
+    {
+        Ok(Value::Text(value.into()))
+    }
+    fn visit_seq<A>(self, mut access: A) -> Result<Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut bin: Vec<u8> = vec![];
+
+        while let Some(value) = access.next_element()? {
+            bin.push(value);
+        }
+        Ok(Value::Bin(bin))
+    }
+    fn visit_map<A>(self, mut access: A) -> Result<Value, A::Error>
+    where
+        A: MapAccess<'de>,
+        A::Error: ::serde::de::Error,
+    {
+        let mut secs: Option<u64> = None;
+        let mut nanos: Option<u32> = None;
+
+        while let Some((key, value)) = access.next_entry()? {
+            match key {
+                "secs" => {
+                    secs = Some(value);
+                }
+                "nanos" => {
+                    nanos = Some(value as u32);
+                }
+                k => return Err(A::Error::custom(format!("Unknown key: {}", k))),
+            }
+        }
+        if let Some(secs) = secs {
+            if let Some(nanos) = nanos {
+                return Ok(Value::Timeout(Duration::new(secs, nanos)));
+            }
+        }
+        Err(A::Error::custom("Unknown map"))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -128,5 +207,30 @@ mod tests {
             serde_json::to_string(&t).unwrap(),
             "{\"secs\":1,\"nanos\":500000000}"
         );
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn value_deserialization() {
+        let v: Value = serde_json::from_str("true").unwrap();
+        assert_eq!(v, Value::Bit(true));
+
+        let v: Value = serde_json::from_str("6.99").unwrap();
+        assert_eq!(v, Value::Decimal(6.99));
+
+        let v: Value = serde_json::from_str("-8").unwrap();
+        assert_eq!(v, Value::Integer(-8));
+
+        let v: Value = serde_json::from_str("\"blabla\"").unwrap();
+        assert_eq!(v, Value::Text("blabla".into()));
+
+        let v: Value = serde_json::from_str("[69,255]").unwrap();
+        assert_eq!(v, Value::Bin(vec![0x45, 0xFF]));
+
+        let v: Value = serde_json::from_str("{\"secs\":1,\"nanos\":500000000}").unwrap();
+        assert_eq!(v, Value::Timeout(Duration::from_millis(1500)));
+
+        assert!(serde_json::from_str::<Value>("{\"secs\":1,\"nanooos\":500}").is_err());
+        assert!(serde_json::from_str::<Value>("{\"secs\":1}").is_err());
     }
 }
