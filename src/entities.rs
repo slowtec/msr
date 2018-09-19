@@ -151,7 +151,7 @@ pub struct Action {
     /// Define setpoint values
     pub setpoints: HashMap<String, Source>,
     /// Define controller states
-    pub controller: HashMap<String, ControllerAction>,
+    pub controllers: HashMap<String, ControllerAction>,
     /// Define timeouts
     pub timeouts: HashMap<String, Option<Duration>>,
 }

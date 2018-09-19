@@ -182,7 +182,7 @@ impl SyncRuntime {
                         state.io.mem.insert(k.clone(), v.clone());
                     }
                 }
-                for (id, ctl) in &a.controller {
+                for (id, ctl) in &a.controllers {
                     if let Some(l) = self.loops.iter().find(|l| l.id == *id) {
                         if ctl.reset {
                             state.controllers.remove(id);
@@ -367,7 +367,7 @@ mod tests {
 
         timeouts.insert("a-timeout".into(), Some(Duration::from_millis(100).into()));
         timeouts.insert("an-other-timeout".into(), None);
-        let controller = HashMap::new();
+        let controllers = HashMap::new();
 
         rt.actions = vec![Action {
             id: "a".into(),
@@ -375,7 +375,7 @@ mod tests {
             setpoints,
             timeouts,
             memory,
-            controller,
+            controllers,
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
         state
@@ -459,8 +459,8 @@ mod tests {
             actions: vec!["a".into()],
         }];
 
-        let mut controller = HashMap::new();
-        controller.insert(
+        let mut controllers = HashMap::new();
+        controllers.insert(
             "pid".into(),
             ControllerAction {
                 reset: true,
@@ -474,7 +474,7 @@ mod tests {
             setpoints: HashMap::new(),
             memory: HashMap::new(),
             timeouts: HashMap::new(),
-            controller,
+            controllers,
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
         state.io.inputs.insert("sensor".into(), 0.0.into());
@@ -566,10 +566,10 @@ mod tests {
             },
         ];
 
-        let mut controller_a = HashMap::new();
-        let mut controller_b = HashMap::new();
+        let mut controllers_a = HashMap::new();
+        let mut controllers_b = HashMap::new();
 
-        controller_a.insert(
+        controllers_a.insert(
             "pid_1".into(),
             ControllerAction {
                 reset: false,
@@ -577,7 +577,7 @@ mod tests {
             },
         );
 
-        controller_b.insert(
+        controllers_b.insert(
             "pid_1".into(),
             ControllerAction {
                 reset: false,
@@ -585,7 +585,7 @@ mod tests {
             },
         );
 
-        controller_b.insert(
+        controllers_b.insert(
             "pid_0".into(),
             ControllerAction {
                 reset: false,
@@ -600,7 +600,7 @@ mod tests {
                 setpoints: HashMap::new(),
                 memory: HashMap::new(),
                 timeouts: HashMap::new(),
-                controller: controller_a,
+                controllers: controllers_a,
             },
             Action {
                 id: "b".into(),
@@ -608,7 +608,7 @@ mod tests {
                 setpoints: HashMap::new(),
                 memory: HashMap::new(),
                 timeouts: HashMap::new(),
-                controller: controller_b,
+                controllers: controllers_b,
             },
         ];
 
@@ -878,7 +878,7 @@ mod tests {
                 setpoints: HashMap::new(),
                 memory: HashMap::new(),
                 timeouts: HashMap::new(),
-                controller: HashMap::new(),
+                controllers: HashMap::new(),
             },
             Action {
                 id: "bar".into(),
@@ -886,7 +886,7 @@ mod tests {
                 setpoints: bar_setpoints,
                 memory: HashMap::new(),
                 timeouts: HashMap::new(),
-                controller: HashMap::new(),
+                controllers: HashMap::new(),
             },
         ];
         rt.state_machines.insert("fsm".into(), sm);
