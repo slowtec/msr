@@ -56,10 +56,18 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
                 }
             }
         }
-        for l in self.loops.iter() {
+
+        //TODO: don't clone
+        let ignore = state.inactive_loops.clone();
+        for l in self
+            .loops
+            .iter()
+            .filter(|l| !ignore.iter().any(|x| *x == l.id))
+        {
             if state.controllers.get(&l.id).is_none() {
                 self.initialize_controller_state(l, &mut state);
             }
+
             let (new_controller, new_io) = l.next((
                 state
                     .controllers
@@ -99,8 +107,7 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         for x in rule_actions {
             self.apply_actions(&x, orig_state, &mut state);
@@ -175,10 +182,29 @@ impl SyncRuntime {
                         state.io.mem.insert(k.clone(), v.clone());
                     }
                 }
-                for id in &a.controller_resets {
+                for (id, ctl) in &a.controller {
                     if let Some(l) = self.loops.iter().find(|l| l.id == *id) {
-                        state.controllers.remove(id);
-                        self.initialize_controller_state(l, state);
+                        if ctl.reset {
+                            state.controllers.remove(id);
+                            self.initialize_controller_state(l, state);
+                        }
+                        if let Some(act) = ctl.active {
+                            if act {
+                                if let Some(idx) = state.inactive_loops.iter().position(|x| x == id)
+                                {
+                                    state.inactive_loops.remove(idx);
+                                }
+                                if state.controllers.get(id).is_none() {
+                                    self.initialize_controller_state(l, state);
+                                }
+                            } else {
+                                state.controllers.remove(id);
+                                state.inactive_loops.push(id.to_string());
+                                for o in &l.outputs {
+                                    state.io.outputs.remove(o);
+                                }
+                            }
+                        }
                     }
                 }
                 for (id, t) in &a.timeouts {
@@ -341,6 +367,7 @@ mod tests {
 
         timeouts.insert("a-timeout".into(), Some(Duration::from_millis(100).into()));
         timeouts.insert("an-other-timeout".into(), None);
+        let controller = HashMap::new();
 
         rt.actions = vec![Action {
             id: "a".into(),
@@ -348,7 +375,7 @@ mod tests {
             setpoints,
             timeouts,
             memory,
-            controller_resets: vec![],
+            controller,
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
         state
@@ -431,13 +458,23 @@ mod tests {
             condition: BoolExpr::Eval(Source::In("x".into()).cmp_eq(Source::Const(10.0.into()))),
             actions: vec!["a".into()],
         }];
+
+        let mut controller = HashMap::new();
+        controller.insert(
+            "pid".into(),
+            ControllerAction {
+                reset: true,
+                active: None,
+            },
+        );
+
         rt.actions = vec![Action {
             id: "a".into(),
             outputs: HashMap::new(),
             setpoints: HashMap::new(),
             memory: HashMap::new(),
             timeouts: HashMap::new(),
-            controller_resets: vec!["pid".into()],
+            controller,
         }];
         state.io.inputs.insert("x".into(), 0.0.into());
         state.io.inputs.insert("sensor".into(), 0.0.into());
@@ -477,6 +514,169 @@ mod tests {
                 d: 0.0,
             })
         );
+    }
+
+    #[test]
+    fn apply_controller_start_and_stop_actions() {
+        let mut rt = SyncRuntime::default();
+        let mut state = SystemState::default();
+        let dt = Duration::from_secs(1);
+
+        let mut pid_0_cfg = PidConfig::default();
+        let mut pid_1_cfg = PidConfig::default();
+
+        pid_0_cfg.k_p = 2.0;
+        pid_0_cfg.k_i = 100.0;
+        pid_0_cfg.k_d = 1.0;
+        pid_0_cfg.default_target = 10.0;
+
+        pid_1_cfg.k_p = 5.0;
+        pid_1_cfg.default_target = 20.0;
+
+        let controller_0 = ControllerConfig::Pid(pid_0_cfg);
+        let controller_1 = ControllerConfig::Pid(pid_1_cfg);
+
+        rt.loops.push(Loop {
+            id: "pid_0".into(),
+            inputs: vec!["sensor_0".into()],
+            outputs: vec!["actuator_0".into()],
+            controller: controller_0,
+        });
+        rt.loops.push(Loop {
+            id: "pid_1".into(),
+            inputs: vec!["sensor_1".into()],
+            outputs: vec!["actuator_1".into()],
+            controller: controller_1,
+        });
+
+        rt.rules = vec![
+            Rule {
+                id: "foo".into(),
+                condition: BoolExpr::Eval(
+                    Source::In("x".into()).cmp_eq(Source::Const(10.0.into())),
+                ),
+                actions: vec!["a".into()],
+            },
+            Rule {
+                id: "bar".into(),
+                condition: BoolExpr::Eval(
+                    Source::In("x".into()).cmp_eq(Source::Const(20.0.into())),
+                ),
+                actions: vec!["b".into()],
+            },
+        ];
+
+        let mut controller_a = HashMap::new();
+        let mut controller_b = HashMap::new();
+
+        controller_a.insert(
+            "pid_1".into(),
+            ControllerAction {
+                reset: false,
+                active: Some(false),
+            },
+        );
+
+        controller_b.insert(
+            "pid_1".into(),
+            ControllerAction {
+                reset: false,
+                active: Some(true),
+            },
+        );
+
+        controller_b.insert(
+            "pid_0".into(),
+            ControllerAction {
+                reset: false,
+                active: Some(true), // start it, even if it's already running
+            },
+        );
+
+        rt.actions = vec![
+            Action {
+                id: "a".into(),
+                outputs: HashMap::new(),
+                setpoints: HashMap::new(),
+                memory: HashMap::new(),
+                timeouts: HashMap::new(),
+                controller: controller_a,
+            },
+            Action {
+                id: "b".into(),
+                outputs: HashMap::new(),
+                setpoints: HashMap::new(),
+                memory: HashMap::new(),
+                timeouts: HashMap::new(),
+                controller: controller_b,
+            },
+        ];
+
+        state.io.inputs.insert("x".into(), 0.0.into());
+        state.io.inputs.insert("sensor_0".into(), 0.0.into());
+        state.io.inputs.insert("sensor_1".into(), 0.0.into());
+        state.setpoints.insert("pid_0".into(), 20.0.into());
+        state.setpoints.insert("pid_1".into(), 30.0.into());
+        let state = rt.next((&state, &dt)).unwrap();
+        assert_eq!(
+            *state.io.outputs.get("actuator_0").unwrap(),
+            Value::Decimal(1020.0)
+        );
+        assert_eq!(
+            *state.io.outputs.get("actuator_1").unwrap(),
+            Value::Decimal(100.0)
+        );
+
+        let mut state = rt.next((&state, &dt)).unwrap();
+        assert_eq!(
+            *state.io.outputs.get("actuator_0").unwrap(),
+            Value::Decimal(3040.0)
+        );
+        assert_eq!(
+            *state.io.outputs.get("actuator_1").unwrap(),
+            Value::Decimal(150.0)
+        );
+        assert_eq!(
+            *state.controllers.get("pid_0").unwrap(),
+            ControllerState::Pid(PidState {
+                target: 20.0,
+                prev_value: Some(0.0),
+                p: 40.0,
+                i: 3000.0,
+                d: 0.0,
+            })
+        );
+        assert_eq!(
+            *state.controllers.get("pid_1").unwrap(),
+            ControllerState::Pid(PidState {
+                target: 30.0,
+                prev_value: Some(0.0),
+                p: 150.0,
+                i: 0.0,
+                d: 0.0,
+            })
+        );
+        // trigger the rule "a"
+        state.io.inputs.insert("x".into(), 10.0.into());
+        let mut state = rt.next((&state, &dt)).unwrap();
+        assert!(state.controllers.get("pid_0").is_some());
+        assert!(state.controllers.get("pid_1").is_none());
+        assert!(state.io.outputs.get("actuator_1").is_none());
+
+        // rule "a" is no longer active
+        state.io.inputs.insert("x".into(), 0.0.into());
+        let state = rt.next((&state, &dt)).unwrap();
+        let mut state = rt.next((&state, &dt)).unwrap();
+        assert!(state.controllers.get("pid_0").is_some());
+        assert!(state.controllers.get("pid_1").is_none());
+        assert!(state.io.outputs.get("actuator_1").is_none());
+
+        // trigger the rule "b"
+        state.io.inputs.insert("x".into(), 20.0.into());
+        let state = rt.next((&state, &dt)).unwrap();
+        assert!(state.controllers.get("pid_0").is_some());
+        assert!(state.controllers.get("pid_1").is_some());
+        assert!(state.io.outputs.get("actuator_1").is_none());
     }
 
     #[test]
@@ -678,7 +878,7 @@ mod tests {
                 setpoints: HashMap::new(),
                 memory: HashMap::new(),
                 timeouts: HashMap::new(),
-                controller_resets: vec![],
+                controller: HashMap::new(),
             },
             Action {
                 id: "bar".into(),
@@ -686,7 +886,7 @@ mod tests {
                 setpoints: bar_setpoints,
                 memory: HashMap::new(),
                 timeouts: HashMap::new(),
-                controller_resets: vec![],
+                controller: HashMap::new(),
             },
         ];
         rt.state_machines.insert("fsm".into(), sm);

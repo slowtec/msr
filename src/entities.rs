@@ -150,10 +150,19 @@ pub struct Action {
     pub memory: HashMap<String, Source>,
     /// Define setpoint values
     pub setpoints: HashMap<String, Source>,
-    /// Reset controller states
-    pub controller_resets: Vec<String>,
+    /// Define controller states
+    pub controller: HashMap<String, ControllerAction>,
     /// Define timeouts
     pub timeouts: HashMap<String, Option<Duration>>,
+}
+
+/// An action to modify the state or behaviour of a controller.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ControllerAction {
+    /// Reset controlle state
+    pub reset: bool,
+    /// Start/Stop a controller
+    pub active: Option<bool>,
 }
 
 #[cfg(test)]

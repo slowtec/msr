@@ -186,6 +186,8 @@ pub struct SystemState {
     pub setpoints: HashMap<String, Value>,
     /// Controller states
     pub controllers: HashMap<String, ControllerState>,
+    /// List of inactive loops
+    inactive_loops: Vec<String>,
     /// Finite State Machine states
     pub state_machines: HashMap<String, String>,
     /// Rule states
@@ -215,6 +217,7 @@ impl Default for SystemState {
             io: IoState::default(),
             setpoints: HashMap::new(),
             controllers: HashMap::new(),
+            inactive_loops: vec![],
             state_machines: HashMap::new(),
             rules: HashMap::new(),
             timeouts: HashMap::new(),
