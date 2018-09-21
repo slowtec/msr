@@ -187,7 +187,7 @@ pub struct SystemState {
     /// Controller states
     pub controllers: HashMap<String, ControllerState>,
     /// List of inactive loops
-    inactive_loops: Vec<String>,
+    pub inactive_loops: Vec<String>,
     /// Finite State Machine states
     pub state_machines: HashMap<String, String>,
     /// Rule states
