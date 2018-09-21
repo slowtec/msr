@@ -1,6 +1,6 @@
 use super::*;
 use fsm::*;
-use std::{collections::HashMap, io::Result, time::Duration};
+use std::{collections::HashMap, io, result, time::Duration};
 
 /// A simple synchronous closed-loop runtime.
 #[derive(Debug)]
@@ -26,11 +26,21 @@ impl Default for SyncRuntime {
     }
 }
 
+/// A runtime error
+#[derive(Debug)]
+pub struct Error<T> {
+    pub state: T,
+    pub causes: Vec<io::Error>,
+}
+
+type Result<T> = result::Result<T, Error<T>>;
+
 //TODO: tidy up!
 impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> for SyncRuntime {
     fn next(&self, input: (&SystemState, &Duration)) -> Result<SystemState> {
         let (orig_state, dt) = input;
         let mut state = orig_state.clone();
+        let mut errors = vec![];
 
         for (id, s) in &orig_state.setpoints {
             if self.loops.iter().any(|l| l.id == *id) {
@@ -68,16 +78,24 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
                 self.initialize_controller_state(l, &mut state);
             }
 
-            let (new_controller, new_io) = l.next((
+            let res = l.next((
                 state
                     .controllers
                     .get(&l.id)
                     .expect("The controller state was not initialized"),
                 &state.io,
                 dt,
-            ))?;
-            state.io = new_io;
-            state.controllers.insert(l.id.clone(), new_controller);
+            ));
+            match res {
+                Ok(x) => {
+                    let (new_controller, new_io) = x;
+                    state.io = new_io;
+                    state.controllers.insert(l.id.clone(), new_controller);
+                }
+                Err(err) => {
+                    errors.push(err);
+                }
+            }
         }
 
         for (id, t) in &orig_state.timeouts {
@@ -94,8 +112,17 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
                 }
             }
         }
-
-        state.rules = self.rules_state(&state)?;
+        match self.rules_state(&state) {
+            Ok(rules) => {
+                state.rules = rules;
+            }
+            Err(err) => {
+                state.rules = err.state;
+                for e in err.causes {
+                    errors.push(e);
+                }
+            }
+        }
 
         let rule_actions = state
             .rules
@@ -130,6 +157,12 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
             self.apply_actions(&x, orig_state, &mut state);
         }
 
+        if !errors.is_empty() {
+            return Err(Error {
+                state,
+                causes: errors,
+            });
+        }
         Ok(state)
     }
 }
@@ -138,9 +171,22 @@ impl SyncRuntime {
     /// Check for active [Rule]s.
     fn rules_state(&self, state: &SystemState) -> Result<HashMap<String, bool>> {
         let mut rules_state = HashMap::new();
+        let mut errors = vec![];
         for r in &self.rules {
-            let r_state = r.condition.eval(state)?;
-            rules_state.insert(r.id.clone(), r_state);
+            match r.condition.eval(state) {
+                Ok(r_state) => {
+                    rules_state.insert(r.id.clone(), r_state);
+                }
+                Err(e) => {
+                    errors.push(e);
+                }
+            }
+        }
+        if !errors.is_empty() {
+            return Err(Error {
+                state: rules_state,
+                causes: errors,
+            });
         }
         Ok(rules_state)
     }
@@ -903,5 +949,36 @@ mod tests {
         state.io.inputs.insert("y".into(), 123.into());
         let state = rt.next((&state, &dt)).unwrap();
         assert_eq!(*state.setpoints.get("y").unwrap(), Value::from(-100));
+    }
+
+    #[test]
+    fn collect_runtime_errors() {
+        let dt = Duration::from_secs(1);
+        let mut rt = SyncRuntime::default();
+        let mut state = SystemState::default();
+        let mut pid_cfg = PidConfig::default();
+        pid_cfg.k_p = 2.0;
+        let pid_controller_0 = ControllerConfig::Pid(pid_cfg.clone());
+        let pid_controller_1 = ControllerConfig::Pid(pid_cfg);
+        let loops = vec![
+            Loop {
+                id: "pid_0".into(),
+                inputs: vec!["sensor_0".into()],
+                outputs: vec!["actuator_0".into()],
+                controller: pid_controller_0,
+            },
+            Loop {
+                id: "pid_1".into(),
+                inputs: vec!["sensor_1".into()],
+                outputs: vec!["actuator_1".into()],
+                controller: pid_controller_1,
+            },
+        ];
+        state.io.inputs.insert("sensor_1".into(), 5.0.into());
+        rt.loops = loops;
+        let err = rt.next((&state, &dt)).err().unwrap();
+        assert_eq!(err.causes.len(), 1);
+        assert!(err.state.io.outputs.get("actuator_0").is_none());
+        assert!(err.state.io.outputs.get("actuator_1").is_some());
     }
 }
