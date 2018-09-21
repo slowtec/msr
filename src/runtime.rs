@@ -229,27 +229,19 @@ impl SyncRuntime {
                     }
                 }
                 for (id, ctl) in &a.controllers {
-                    if let Some(l) = self.loops.iter().find(|l| l.id == *id) {
-                        if ctl.reset {
-                            state.controllers.remove(id);
+                    if ctl.reset {
+                        state.controllers.remove(id);
+                        if let Some(l) = self.loops.iter().find(|l| l.id == *id) {
                             self.initialize_controller_state(l, state);
                         }
-                        if let Some(act) = ctl.active {
-                            if act {
-                                if let Some(idx) = state.inactive_loops.iter().position(|x| x == id)
-                                {
-                                    state.inactive_loops.remove(idx);
-                                }
-                                if state.controllers.get(id).is_none() {
-                                    self.initialize_controller_state(l, state);
-                                }
-                            } else {
-                                state.controllers.remove(id);
-                                state.inactive_loops.push(id.to_string());
-                                for o in &l.outputs {
-                                    state.io.outputs.remove(o);
-                                }
+                    }
+                    if let Some(act) = ctl.active {
+                        if act {
+                            if let Some(idx) = state.inactive_loops.iter().position(|x| x == id) {
+                                state.inactive_loops.remove(idx);
                             }
+                        } else if !state.inactive_loops.iter().any(|l| l == id) {
+                            state.inactive_loops.push(id.to_string());
                         }
                     }
                 }
@@ -568,29 +560,22 @@ mod tests {
         let mut state = SystemState::default();
         let dt = Duration::from_secs(1);
 
-        let mut pid_0_cfg = PidConfig::default();
-        let mut pid_1_cfg = PidConfig::default();
+        let mut pid_cfg = PidConfig::default();
+        pid_cfg.k_i = 1.0;
+        pid_cfg.default_target = 10.0;
 
-        pid_0_cfg.k_p = 2.0;
-        pid_0_cfg.k_i = 100.0;
-        pid_0_cfg.k_d = 1.0;
-        pid_0_cfg.default_target = 10.0;
-
-        pid_1_cfg.k_p = 5.0;
-        pid_1_cfg.default_target = 20.0;
-
-        let controller_0 = ControllerConfig::Pid(pid_0_cfg);
-        let controller_1 = ControllerConfig::Pid(pid_1_cfg);
+        let controller_0 = ControllerConfig::Pid(pid_cfg.clone());
+        let controller_1 = ControllerConfig::Pid(pid_cfg);
 
         rt.loops.push(Loop {
             id: "pid_0".into(),
-            inputs: vec!["sensor_0".into()],
+            inputs: vec!["sensor".into()],
             outputs: vec!["actuator_0".into()],
             controller: controller_0,
         });
         rt.loops.push(Loop {
             id: "pid_1".into(),
-            inputs: vec!["sensor_1".into()],
+            inputs: vec!["sensor".into()],
             outputs: vec!["actuator_1".into()],
             controller: controller_1,
         });
@@ -659,70 +644,53 @@ mod tests {
         ];
 
         state.io.inputs.insert("x".into(), 0.0.into());
-        state.io.inputs.insert("sensor_0".into(), 0.0.into());
-        state.io.inputs.insert("sensor_1".into(), 0.0.into());
-        state.setpoints.insert("pid_0".into(), 20.0.into());
-        state.setpoints.insert("pid_1".into(), 30.0.into());
+        state.io.inputs.insert("sensor".into(), 0.0.into());
         let state = rt.next((&state, &dt)).unwrap();
         assert_eq!(
             *state.io.outputs.get("actuator_0").unwrap(),
-            Value::Decimal(1020.0)
+            Value::Decimal(20.0)
         );
         assert_eq!(
             *state.io.outputs.get("actuator_1").unwrap(),
-            Value::Decimal(100.0)
+            Value::Decimal(20.0)
         );
 
         let mut state = rt.next((&state, &dt)).unwrap();
         assert_eq!(
             *state.io.outputs.get("actuator_0").unwrap(),
-            Value::Decimal(3040.0)
+            Value::Decimal(30.0)
         );
         assert_eq!(
             *state.io.outputs.get("actuator_1").unwrap(),
-            Value::Decimal(150.0)
-        );
-        assert_eq!(
-            *state.controllers.get("pid_0").unwrap(),
-            ControllerState::Pid(PidState {
-                target: 20.0,
-                prev_value: Some(0.0),
-                p: 40.0,
-                i: 3000.0,
-                d: 0.0,
-            })
-        );
-        assert_eq!(
-            *state.controllers.get("pid_1").unwrap(),
-            ControllerState::Pid(PidState {
-                target: 30.0,
-                prev_value: Some(0.0),
-                p: 150.0,
-                i: 0.0,
-                d: 0.0,
-            })
+            Value::Decimal(30.0)
         );
         // trigger the rule "a"
         state.io.inputs.insert("x".into(), 10.0.into());
+        let state = rt.next((&state, &dt)).unwrap();
         let mut state = rt.next((&state, &dt)).unwrap();
-        assert!(state.controllers.get("pid_0").is_some());
-        assert!(state.controllers.get("pid_1").is_none());
-        assert!(state.io.outputs.get("actuator_1").is_none());
+        assert_eq!(state.inactive_loops, vec!["pid_1"]);
+        assert_eq!(state.io.outputs.get("actuator_0"), Some(&Value::from(50.0)));
+        assert_eq!(state.io.outputs.get("actuator_1"), Some(&Value::from(40.0)));
 
         // rule "a" is no longer active
         state.io.inputs.insert("x".into(), 0.0.into());
         let state = rt.next((&state, &dt)).unwrap();
         let mut state = rt.next((&state, &dt)).unwrap();
-        assert!(state.controllers.get("pid_0").is_some());
-        assert!(state.controllers.get("pid_1").is_none());
-        assert!(state.io.outputs.get("actuator_1").is_none());
+        assert_eq!(state.inactive_loops, vec!["pid_1"]);
+        assert_eq!(state.io.outputs.get("actuator_0"), Some(&Value::from(70.0)));
+        assert_eq!(state.io.outputs.get("actuator_1"), Some(&Value::from(40.0)));
 
         // trigger the rule "b"
         state.io.inputs.insert("x".into(), 20.0.into());
         let state = rt.next((&state, &dt)).unwrap();
-        assert!(state.controllers.get("pid_0").is_some());
-        assert!(state.controllers.get("pid_1").is_some());
-        assert!(state.io.outputs.get("actuator_1").is_none());
+        assert!(state.inactive_loops.is_empty());
+        assert_eq!(state.io.outputs.get("actuator_0"), Some(&Value::from(80.0)));
+        assert_eq!(state.io.outputs.get("actuator_1"), Some(&Value::from(40.0)));
+
+        let state = rt.next((&state, &dt)).unwrap();
+        assert!(state.inactive_loops.is_empty());
+        assert_eq!(state.io.outputs.get("actuator_0"), Some(&Value::from(90.0)));
+        assert_eq!(state.io.outputs.get("actuator_1"), Some(&Value::from(50.0)));
     }
 
     #[test]
