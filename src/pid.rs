@@ -38,8 +38,8 @@
 //! ```
 
 use super::{Controller, PureController};
+use crate::util::limit;
 use std::{f64, time::Duration};
-use util::limit;
 
 /// PID controller implementation
 #[derive(Debug, Clone)]

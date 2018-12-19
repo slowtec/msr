@@ -199,7 +199,7 @@ pub struct SystemState {
 impl SystemState {
     /// Get a specific value defined by a [Source].
     pub fn get<'a>(&'a self, src: &'a Source) -> Option<&'a Value> {
-        use Source::*;
+        use crate::Source::*;
         match src {
             In(id) => self.io.inputs.get(id),
             Out(id) => self.io.outputs.get(id),
@@ -325,7 +325,7 @@ pub trait Sources {
 
 impl Sources for BoolExpr<Comparison> {
     fn sources(&self) -> Vec<Source> {
-        use BoolExpr::*;
+        use crate::BoolExpr::*;
         match self {
             And(ref a, ref b) | Or(ref a, ref b) => {
                 let mut srcs = a.sources();
@@ -345,7 +345,7 @@ where
 {
     type Output = bool;
     fn eval(&self, state: &SystemState) -> Result<Self::Output> {
-        use BoolExpr::*;
+        use crate::BoolExpr::*;
         match self {
             True => Ok(true),
             False => Ok(false),
@@ -398,8 +398,8 @@ mod tests {
 
     #[test]
     fn bool_expr_eval() {
-        use BoolExpr::*;
-        use Source::*;
+        use crate::BoolExpr::*;
+        use crate::Source::*;
 
         let mut state = SystemState::default();
 
@@ -446,8 +446,8 @@ mod tests {
 
     #[test]
     fn bool_expr_sources() {
-        use BoolExpr::*;
-        use Source::*;
+        use crate::BoolExpr::*;
+        use crate::Source::*;
 
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
         let expr = Eval(x_gt_5.clone());
@@ -468,7 +468,7 @@ mod tests {
 
     #[test]
     fn bool_expr_from_comparison() {
-        use Source::*;
+        use crate::Source::*;
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
         let expr = BoolExpr::from(x_gt_5.clone());
         assert_eq!(expr, BoolExpr::Eval(x_gt_5));
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn bool_expr_not_operation() {
-        use Source::*;
+        use crate::Source::*;
         let x_eq_1 = In("x".into()).cmp_eq(1.0.into());
         let expr = BoolExpr::from(x_eq_1.clone());
         let not_expr = !expr;

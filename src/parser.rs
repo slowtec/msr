@@ -5,7 +5,7 @@ use std::str::FromStr;
 impl FromStr for Comparison {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        use Comparator::*;
+        use crate::Comparator::*;
         if s.trim().is_empty() {
             return Err(Error::new(ErrorKind::InvalidInput, "empty str"));
         }
@@ -19,7 +19,7 @@ impl FromStr for Comparison {
 }
 
 fn comparator_as_str(cmp: Comparator) -> &'static str {
-    use Comparator::*;
+    use crate::Comparator::*;
     match cmp {
         Less => "<",
         LessOrEqual => "<=",
@@ -213,8 +213,8 @@ mod tests {
 
     #[test]
     fn parse_cmp() {
-        use Comparator::*;
-        use Source::*;
+        use crate::Comparator::*;
+        use crate::Source::*;
         assert!(Comparison::from_str("").is_err());
         assert!(Comparison::from_str(" ").is_err());
         assert!(Comparison::from_str("in.x ?? out.z").is_err());

@@ -8,6 +8,7 @@ readme = "README.md"
 keywords = ["automation", "control", "plc", "msr"]
 homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"
+edition = "2018"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true }

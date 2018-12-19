@@ -29,9 +29,9 @@ pub struct Comparison {
 impl Evaluation<SystemState> for Comparison {
     type Output = bool;
     fn eval(&self, state: &SystemState) -> Result<bool> {
-        use Comparator::*;
-        use ErrorKind::*;
-        use Value::*;
+        use crate::Comparator::*;
+        use crate::ErrorKind::*;
+        use crate::Value::*;
         let left = get_val(&self.left, state)?;
         let right = get_val(&self.right, state)?;
         let res = match left {
@@ -187,8 +187,8 @@ impl Evaluation<SystemState> for Comparison {
 }
 
 fn get_val<'a>(src: &'a Source, state: &'a SystemState) -> Result<&'a Value> {
-    use ErrorKind::*;
-    use Source::*;
+    use crate::ErrorKind::*;
+    use crate::Source::*;
     match src {
         In(ref id) => state.io.inputs.get(id).ok_or_else(|| {
             Error::new(
@@ -228,8 +228,8 @@ fn get_val<'a>(src: &'a Source, state: &'a SystemState) -> Result<&'a Value> {
 mod tests {
 
     use super::*;
-    use Comparator::*;
-    use Source::*;
+    use crate::Comparator::*;
+    use crate::Source::*;
 
     #[test]
     fn create_comparison_from_value_source() {

@@ -1,5 +1,5 @@
 use super::*;
-use fsm::*;
+use crate::fsm::*;
 use std::{collections::HashMap, io, result, time::Duration};
 
 /// A simple synchronous closed-loop runtime.
@@ -134,7 +134,8 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
                 } else {
                     None
                 }
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         for x in rule_actions {
             self.apply_actions(&x, orig_state, &mut state);
