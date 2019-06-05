@@ -17,7 +17,7 @@ msr = "*"
 
 ## License
 
-Copyright (c) 2018, [slowtec GmbH](https://www.slowtec.de)
+Copyright (c) 2018 - 2019, [slowtec GmbH](https://www.slowtec.de)
 
 Licensed under either of
 
