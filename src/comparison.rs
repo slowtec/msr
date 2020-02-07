@@ -1,5 +1,8 @@
 use super::*;
-use std::io::{Error, Result};
+use std::{
+    f64::EPSILON,
+    io::{Error, Result},
+};
 
 /// Comperators
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,8 +79,8 @@ impl Evaluation<SystemState> for Comparison {
                         LessOrEqual => a <= b,
                         Greater => a > b,
                         GreaterOrEqual => a >= b,
-                        Equal => a == b,
-                        NotEqual => a != b,
+                        Equal => (a - b).abs() < EPSILON,
+                        NotEqual => (a - b).abs() > EPSILON,
                     }
                 } else {
                     return Err(Error::new(

@@ -51,7 +51,7 @@ where
     for<'a> C: Controller<(I, &'a Duration), O>,
 {
     fn next(&mut self, input: I, delta_t: &Duration) -> O {
-        (self as &mut Controller<(I, &Duration), O>).next((input, delta_t))
+        (self as &mut dyn Controller<(I, &Duration), O>).next((input, delta_t))
     }
 }
 

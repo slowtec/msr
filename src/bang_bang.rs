@@ -175,5 +175,4 @@ mod tests {
         assert_eq!(bb.next(-0.6), false);
         assert_eq!(bb.next(NAN), false);
     }
-
 }

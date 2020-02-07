@@ -4,8 +4,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 #[cfg(feature = "serde")]
-use std::fmt;
-use std::time::Duration;
+use std::{fmt, time::Duration};
 
 /// A value representation within a MSR system.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
