@@ -58,8 +58,10 @@ impl Default for BangBangConfig {
 impl BangBang {
     /// Create a new controller instance with the given configuration.
     pub fn new(cfg: BangBangConfig) -> Self {
-        let mut state = BangBangState::default();
-        state.threshold = cfg.default_threshold;
+        let state = BangBangState {
+            threshold: cfg.default_threshold,
+            ..Default::default()
+        };
         BangBang { cfg, state }
     }
 }

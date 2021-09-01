@@ -129,16 +129,15 @@ impl<'a> PureController<(&'a SystemState, &'a Duration), Result<SystemState>> fo
             .iter()
             .filter(|(_, active)| **active)
             .filter_map(|(r_id, _)| {
-                if let Some(r) = self.rules.iter().find(|r| r.id == *r_id) {
-                    Some(&r.actions)
-                } else {
-                    None
-                }
+                self.rules
+                    .iter()
+                    .find(|r| r.id == *r_id)
+                    .map(|r| &r.actions)
             })
             .collect::<Vec<_>>();
 
         for x in rule_actions {
-            self.apply_actions(&x, orig_state, &mut state);
+            self.apply_actions(x, orig_state, &mut state);
         }
 
         let mut actions = vec![];
@@ -195,15 +194,19 @@ impl SyncRuntime {
     fn initialize_controller_state(&self, l: &Loop, state: &mut SystemState) {
         match l.controller {
             ControllerConfig::Pid(ref cfg) => {
-                let mut s = pid::PidState::default();
-                s.target = cfg.default_target;
+                let s = pid::PidState {
+                    target: cfg.default_target,
+                    ..Default::default()
+                };
                 state
                     .controllers
                     .insert(l.id.clone(), ControllerState::Pid(s));
             }
             ControllerConfig::BangBang(ref cfg) => {
-                let mut s = bang_bang::BangBangState::default();
-                s.threshold = cfg.default_threshold;
+                let s = bang_bang::BangBangState {
+                    threshold: cfg.default_threshold,
+                    ..Default::default()
+                };
                 state
                     .controllers
                     .insert(l.id.clone(), ControllerState::BangBang(s));
@@ -215,17 +218,17 @@ impl SyncRuntime {
         for a_id in actions {
             if let Some(a) = self.actions.iter().find(|a| a.id == *a_id) {
                 for (k, src) in &a.outputs {
-                    if let Some(v) = orig_state.get(&src) {
+                    if let Some(v) = orig_state.get(src) {
                         state.io.outputs.insert(k.clone(), v.clone());
                     }
                 }
                 for (k, src) in &a.setpoints {
-                    if let Some(v) = orig_state.get(&src) {
+                    if let Some(v) = orig_state.get(src) {
                         state.setpoints.insert(k.clone(), v.clone());
                     }
                 }
                 for (k, src) in &a.memory {
-                    if let Some(v) = orig_state.get(&src) {
+                    if let Some(v) = orig_state.get(src) {
                         state.io.mem.insert(k.clone(), v.clone());
                     }
                 }

@@ -79,8 +79,10 @@ impl Default for PidState {
 impl Pid {
     /// Create a new PID controller instance.
     pub fn new(cfg: PidConfig) -> Self {
-        let mut state = PidState::default();
-        state.target = cfg.default_target;
+        let state = PidState {
+            target: cfg.default_target,
+            ..Default::default()
+        };
         Pid { state, cfg }
     }
     /// Set target value.

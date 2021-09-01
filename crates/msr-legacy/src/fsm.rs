@@ -26,7 +26,7 @@ impl<'a> PureController<(Option<&'a str>, &'a SystemState), Option<(String, Vec<
         let (fsm_state, state) = input;
 
         for t in &self.transitions {
-            if t.from == fsm_state.unwrap_or_else(|| &self.initial) {
+            if t.from == fsm_state.unwrap_or(&self.initial) {
                 if let Ok(active) = t.condition.eval(state) {
                     if active {
                         return Some((t.to.clone(), t.actions.clone()));
