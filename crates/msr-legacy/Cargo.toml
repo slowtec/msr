@@ -2,7 +2,7 @@
 name = "msr-legacy"
 description = "Industrial automation library"
 version = "0.2.0"
-authors = ["Markus Kohlhase <markus.kohlhase@slowtec.de>"]
+authors = ["slowtec GmbH <post@slowtec.de>"]
 license = "MIT/Apache-2.0"
 keywords = ["automation", "control", "plc", "msr"]
 homepage = "https://github.com/slowtec/msr"
