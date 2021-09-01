@@ -1,0 +1,20 @@
+[package]
+name = "msr-legacy"
+description = "Industrial automation library"
+version = "0.2.0"
+authors = ["Markus Kohlhase <markus.kohlhase@slowtec.de>"]
+license = "MIT/Apache-2.0"
+keywords = ["automation", "control", "plc", "msr"]
+homepage = "https://github.com/slowtec/msr"
+repository = "https://github.com/slowtec/msr"
+edition = "2018"
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = ["serde"]
+
+[dev-dependencies]
+serde_json = "1.0"
