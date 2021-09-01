@@ -8,3 +8,6 @@ keywords = ["automation", "control", "plc", "msr", "fieldbus"]
 homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"
 edition = "2018"
+
+[badges]
+maintenance = { status = "actively-developed" }
