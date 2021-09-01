@@ -11,7 +11,7 @@ pub enum ValueType {
 
     // Other type(s) (not real-time safe!!!)
     /// Value of e.g. a serial communication device.
-    Text,
+    String,
     /// Binary data
     Bin,
     /// Duration (e.g. a timeout)
@@ -27,7 +27,7 @@ pub enum Value {
     // Other type(s) (not real-time safe!!!)
     // WARNING: Use of these types is strictly forbidden in real-time contexts!
     /// Value of e.g. a serial communication device.
-    Text(String),
+    String(String),
     /// Binary data
     Bin(Vec<u8>),
     /// Duration (e.g. a timeout)
@@ -78,7 +78,7 @@ impl From<f32> for Value {
 
 impl From<String> for Value {
     fn from(from: String) -> Value {
-        Self::Text(from)
+        Self::String(from)
     }
 }
 
