@@ -1,5 +1,7 @@
+mod measure;
 mod value;
-pub use value::*;
+
+pub use self::{measure::*, value::*};
 
 pub mod audit;
 pub mod io;
