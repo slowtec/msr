@@ -10,7 +10,16 @@ repository = "https://github.com/slowtec/msr"
 edition = "2018"
 
 [dependencies]
+chrono = "0.4"
+clokwerk = "0.3"
+csv = { version = "1", optional = true }
+log = "0.4"
+serde = { version = "1", optional = true }
 thiserror = "1"
+
+[features]
+default = ["csv-recording"]
+csv-recording = ["csv", "serde"]
 
 [badges]
 maintenance = { status = "actively-developed" }
