@@ -1,6 +1,6 @@
 [package]
 name = "msr"
-description = "Industrial automation library"
+description = "Industrial Automation library"
 version = "0.3.0"
 authors = ["slowtec GmbH <post@slowtec.de>"]
 license = "MIT/Apache-2.0"
@@ -11,3 +11,4 @@ edition = "2018"
 
 [dependencies]
 msr-core = { path = "../msr-core" }
+msr-plugin = { path = "../msr-plugin" }

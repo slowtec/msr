@@ -1,6 +1,6 @@
 [package]
 name = "msr-legacy"
-description = "Industrial automation library"
+description = "Industrial Automation library - Legacy"
 version = "0.2.0"
 authors = ["slowtec GmbH <post@slowtec.de>"]
 license = "MIT/Apache-2.0"

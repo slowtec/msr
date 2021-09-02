@@ -3,4 +3,5 @@ members = [
   "crates/msr",
   "crates/msr-core",
   "crates/msr-legacy",
+  "crates/msr-plugin"
 ]

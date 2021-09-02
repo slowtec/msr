@@ -1,0 +1,11 @@
+[package]
+name = "msr-plugin"
+version = "0.3.0"
+description = "Industrial Automation library - Plugins"
+authors = ["slowtec GmbH <post@slowtec.de>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+msr-core = { path = "../msr-core" }
+tokio = { version = "*", default_features = false, features = ["macros", "sync"] }
