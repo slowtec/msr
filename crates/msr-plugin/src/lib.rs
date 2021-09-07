@@ -6,10 +6,32 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 //  Plugin shape
 // ------ -------
 
+pub trait Plugin {
+    type Message;
+    type Event;
+    fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message>;
+    fn subscribe(&self) -> broadcast::Receiver<Self::Event>;
+    fn run(self) -> MessageLoop;
+}
+
 #[allow(missing_debug_implementations)]
-pub struct Plugin<M, P, E> {
+pub struct PluginContainer<M, P, E> {
     pub ports: PluginPorts<M, P, E>,
     pub message_loop: MessageLoop,
+}
+
+impl<M, P, E> Plugin for PluginContainer<M, P, E> {
+    type Message = M;
+    type Event = PublishedEvent<P, E>;
+    fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message> {
+        self.ports.message_tx.clone()
+    }
+    fn subscribe(&self) -> broadcast::Receiver<Self::Event> {
+        self.ports.event_subscriber.subscribe()
+    }
+    fn run(self) -> MessageLoop {
+        self.message_loop
+    }
 }
 
 pub type MessageLoop = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
@@ -25,8 +47,8 @@ pub struct PluginPorts<M, P, E> {
 // ------ -------
 
 // TODO: Use bounded channels for backpressure?
-pub type MessageSender<T> = mpsc::UnboundedSender<T>;
-pub type MessageReceiver<T> = mpsc::UnboundedReceiver<T>;
+type MessageSender<T> = mpsc::UnboundedSender<T>;
+type MessageReceiver<T> = mpsc::UnboundedReceiver<T>;
 
 pub fn message_channel<T>() -> (MessageSender<T>, MessageReceiver<T>) {
     mpsc::unbounded_channel()
@@ -50,8 +72,8 @@ pub type ResultReceiver<T, E> = ReplyReceiver<Result<T, E>>;
 //  Broadcasting
 // ------ -------
 
-pub type BroadcastSender<T> = broadcast::Sender<T>;
-pub type BroadcastReceiver<T> = broadcast::Receiver<T>;
+type BroadcastSender<T> = broadcast::Sender<T>;
+type BroadcastReceiver<T> = broadcast::Receiver<T>;
 
 #[derive(Debug, Clone)]
 pub struct BroadcastSubscriber<T> {
