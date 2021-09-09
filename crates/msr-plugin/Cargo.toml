@@ -8,4 +8,4 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 msr-core = { path = "../msr-core" }
-tokio = { version = "*", default_features = false, features = ["macros", "sync"] }
+tokio = { version = "1", default_features = false, features = ["sync"] }
