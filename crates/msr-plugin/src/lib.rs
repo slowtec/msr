@@ -10,7 +10,7 @@ pub trait Plugin {
     type Message;
     type Event;
     fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message>;
-    fn subscribe(&self) -> broadcast::Receiver<Self::Event>;
+    fn subscribe_events(&self) -> broadcast::Receiver<Self::Event>;
     fn run(self) -> MessageLoop;
 }
 
@@ -26,7 +26,7 @@ impl<M, P, E> Plugin for PluginContainer<M, P, E> {
     fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message> {
         self.ports.message_tx.clone()
     }
-    fn subscribe(&self) -> broadcast::Receiver<Self::Event> {
+    fn subscribe_events(&self) -> broadcast::Receiver<Self::Event> {
         self.ports.event_subscriber.subscribe()
     }
     fn run(self) -> MessageLoop {

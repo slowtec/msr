@@ -1,6 +1,12 @@
 use anyhow::Result;
 use msr_plugin::{MessageLoop, Plugin};
-use tokio::sync::{broadcast, mpsc};
+use tokio::{
+    sync::{
+        broadcast,
+        mpsc::{self, UnboundedSender},
+    },
+    task::JoinHandle,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -12,68 +18,121 @@ async fn main() -> Result<()> {
 
     let (shutdown_tx, shutdown_rx) = broadcast::channel(100);
 
-    let plugin_tasks = spawn_plugins(shutdown_rx);
+    log::info!("Spawning tasks");
+    let main_task = spawn_tasks(shutdown_rx)?;
 
-    tokio::select! {
-      _ = tokio::signal::ctrl_c() => {
-        log::debug!("received CTRL+C");
-        log::info!("Terminating Modbus TCP recording example");
-        shutdown_tx.send(())?;
-      }
-      _ = plugin_tasks => {
-          // plugins terminated
-      }
+    loop {
+        // TODO: The select macro is actually not needed here an only
+        // required for handling more complex use cases.
+        tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            log::debug!("Received CTRL+C");
+            log::info!("Terminating Modbus TCP recording example");
+            shutdown_tx.send(())?;
+            break;
+        }
+        }
     }
+
+    log::info!("Awaiting termination of tasks");
+    main_task.await?;
+
     Ok(())
 }
 
-async fn spawn_plugins(mut shutdown_rx: broadcast::Receiver<()>) -> Result<()> {
-    log::info!("Spawning plugins");
+async fn run_mediator(
+    modbus_tx: UnboundedSender<ModbusMessage>,
+    recorder_tx: UnboundedSender<RecorderMessage>,
+    mut modbus_event_rx: broadcast::Receiver<ModbusEvent>,
+    mut shutdown_rx: broadcast::Receiver<()>,
+) -> () {
+    log::info!("Starting mediator task");
+    loop {
+        tokio::select! {
+            Ok(ev) = modbus_event_rx.recv() => {
+            match ev {
+                ModbusEvent::Data(x) => {
+                    if let Err(_) = recorder_tx.send(RecorderMessage::Record(x)) {
+                        log::warn!("The recorder plugin message channel was closed");
+                    }
+                }
+            }
+            }
+            _ = shutdown_rx.recv() => {
+                if let Err(_) = modbus_tx.send(ModbusMessage::Shutdown) {
+                    log::warn!("The modbus plugin message channel was closed");
+                }
+                if let Err(_) = recorder_tx.send(RecorderMessage::Shutdown) {
+                    log::warn!("The recorder plugin message channel was closed");
+                }
+                break;
+            }
+            else => {
+                break;
+            }
+        }
+    }
+    log::info!("Exiting mediator task");
+}
 
-    let modbus_plugin = ModbusPlugin::setup()?;
-    let recorder_plugin = RecorderPlugin::setup()?;
-
-    let mut event_rx = modbus_plugin.subscribe();
-    let recorder_tx = recorder_plugin.message_sender();
+fn spawn_mediator(
+    modbus_plugin: &ModbusPlugin,
+    recorder_plugin: &RecorderPlugin,
+    shutdown_rx: broadcast::Receiver<()>,
+) -> JoinHandle<()> {
     let modbus_tx = modbus_plugin.message_sender();
+    let recorder_tx = recorder_plugin.message_sender();
+    let modbus_event_rx = modbus_plugin.subscribe_events();
 
     // Spawn event mediators in any order before starting the plugins
     // ...they should do nothing until events from plugins are received
-    let mediator = tokio::spawn(async move {
-        loop {
-            tokio::select! {
-              Ok(ev) = event_rx.recv() => {
-                match ev {
-                    ModbusEvent::Data(x) => {
-                        if let Err(_) = recorder_tx.send(RecorderMessage::Record(x)) {
-                            log::warn!("The recorder plugin message channel was closed");
-                            return;
-                        }
-                    }
+    let mediator = tokio::spawn(run_mediator(
+        modbus_tx,
+        recorder_tx,
+        modbus_event_rx,
+        shutdown_rx,
+    ));
+
+    mediator
+}
+
+fn spawn_tasks(shutdown_rx: broadcast::Receiver<()>) -> Result<JoinHandle<()>> {
+    log::info!("Setting up plugins");
+    let modbus_plugin = ModbusPlugin::setup()?;
+    let recorder_plugin = RecorderPlugin::setup()?;
+
+    log::info!("Spawning mediator task");
+    // The mediator is passive and should be spawned before any plugin
+    // is running. Otherwise some initial event messages from plugins
+    // might not be received and get lost.
+    let mediator_task = spawn_mediator(&modbus_plugin, &recorder_plugin, shutdown_rx);
+
+    log::info!("Spawning plugin tasks");
+    let modbus_plugin_task = tokio::spawn(modbus_plugin.run());
+    let recorder_plugin_task = tokio::spawn(recorder_plugin.run());
+
+    let main_task = tokio::spawn(async move {
+        log::info!("Starting main task");
+        match tokio::join!(mediator_task, modbus_plugin_task, recorder_plugin_task) {
+            (Ok(_), Ok(_), Ok(_)) => {
+                log::info!("All worker tasks terminated");
+            }
+            (mediator_task, modbus_plugin_task, recorder_plugin_task) => {
+                if let Err(err) = mediator_task {
+                    log::error!("Failed to join mediator task: {}", err);
                 }
-              }
-              _ = shutdown_rx.recv() => {
-                  if let Err(_) = modbus_tx.send(ModbusMessage::Shutdown) {
-                      log::warn!("The modbus plugin message channel was closed");
-                  }
-                  if let Err(_) = recorder_tx.send(RecorderMessage::Shutdown) {
-                      log::warn!("The recorder plugin message channel was closed");
-                  }
-                  break;
-              }
+                if let Err(err) = modbus_plugin_task {
+                    log::error!("Failed to join modbus plugin task: {}", err);
+                }
+                if let Err(err) = recorder_plugin_task {
+                    log::error!("Failed to join recorder plugin task: {}", err);
+                }
             }
         }
-        log::info!("Terminating the mediator");
+        log::info!("Terminating main task");
     });
 
-    let recorder = tokio::spawn(recorder_plugin.run());
-    let modbus = tokio::spawn(modbus_plugin.run());
-
-    for task in [mediator, recorder, modbus] {
-        task.await?;
-    }
-    log::info!("All plugin tasks terminated");
-    Ok(())
+    Ok(main_task)
 }
 
 // ------    ------ //
@@ -101,30 +160,36 @@ impl ModbusPlugin {
         let (message_tx, mut message_rx) = mpsc::unbounded_channel();
         let (broadcast_tx, _) = broadcast::channel(100);
 
-        let ev_tx = broadcast_tx.clone();
+        let event_tx = broadcast_tx.clone();
         let message_loop = Box::pin(async move {
-            log::info!("Start modbus plugin message looop");
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+            log::info!("Entering modbus plugin message loop");
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
             let mut cnt = 0;
             loop {
                 tokio::select! {
-                  _ = interval.tick() => {
-                    if let Err(_) = ev_tx.send(ModbusEvent::Data(cnt)) {
-                      log::debug!("Could not send event: no modbus event listener subscribed");
+                    _ = interval.tick() => {
+                        let event = ModbusEvent::Data(cnt);
+                        if let Err(event) = event_tx.send(event) {
+                            log::debug!("No subscribers, dropping event: {:?}", event);
+                        }
+                        cnt += 1;
                     }
-                    cnt += 1;
-                  }
-                  Some(msg) = message_rx.recv() => {
-                      log::debug!("Received message: {:?}", msg);
-                      match msg {
-                          ModbusMessage::Shutdown => {
-                            break;
-                          }
-                      }
-                  }
+                    next_msg = message_rx.recv() => {
+                        if let Some(msg) = next_msg {
+                        log::debug!("Received message: {:?}", msg);
+                        match msg {
+                            ModbusMessage::Shutdown => {
+                              break;
+                            }
+                        }
+                    } else {
+                        log::info!("All message senders have been dropped");
+                        break;
+                    }
+                    }
                 }
             }
-            log::info!("Terminating the modbus plugin message loop");
+            log::info!("Exiting modbus plugin message loop");
         });
         Ok(Self {
             message_tx,
@@ -140,7 +205,7 @@ impl Plugin for ModbusPlugin {
     fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message> {
         self.message_tx.clone()
     }
-    fn subscribe(&self) -> broadcast::Receiver<Self::Event> {
+    fn subscribe_events(&self) -> broadcast::Receiver<Self::Event> {
         self.broadcast_tx.subscribe()
     }
     fn run(self) -> MessageLoop {
@@ -172,22 +237,27 @@ impl RecorderPlugin {
         let (message_tx, mut message_rx) = mpsc::unbounded_channel();
         let (broadcast_tx, _) = broadcast::channel(100);
         let message_loop = Box::pin(async move {
-            log::info!("Start recorder plugin message loop");
+            log::info!("Entering recorder plugin message loop");
             loop {
-                tokio::select! {
-                  Some(msg) = message_rx.recv() => {
-                      match msg {
-                          RecorderMessage::Record(data) => {
-                              log::debug!("Recording data: {}", data);
-                          }
-                          RecorderMessage::Shutdown => {
-                            break;
-                          }
-                      }
-                  }
+                match message_rx.recv().await {
+                    Some(msg) => {
+                        log::debug!("Received message: {:?}", msg);
+                        match msg {
+                            RecorderMessage::Record(data) => {
+                                log::debug!("Recording data: {}", data);
+                            }
+                            RecorderMessage::Shutdown => {
+                                break;
+                            }
+                        }
+                    }
+                    None => {
+                        log::info!("All message senders have been dropped");
+                        break;
+                    }
                 }
             }
-            log::info!("Terminating the recoder plugin message loop");
+            log::info!("Exiting recoder plugin message loop");
         });
         Ok(Self {
             message_tx,
@@ -203,7 +273,7 @@ impl Plugin for RecorderPlugin {
     fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message> {
         self.message_tx.clone()
     }
-    fn subscribe(&self) -> broadcast::Receiver<Self::Event> {
+    fn subscribe_events(&self) -> broadcast::Receiver<Self::Event> {
         self.broadcast_tx.subscribe()
     }
     fn run(self) -> MessageLoop {
