@@ -5,3 +5,9 @@ members = [
   "crates/msr-legacy",
   "crates/msr-plugin"
 ]
+
+[patch.crates-io]
+msr = { path = "crates/msr" }
+msr-core = { path = "crates/msr-core" }
+msr-legacy = { path = "crates/msr-legacy" }
+msr-plugin = { path = "crates/msr-plugin" }

@@ -23,6 +23,3 @@ tempfile = "3"
 [features]
 default = ["csv-recording"]
 csv-recording = ["csv", "serde"]
-
-[badges]
-maintenance = { status = "actively-developed" }

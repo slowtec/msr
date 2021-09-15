@@ -10,8 +10,9 @@ repository = "https://github.com/slowtec/msr"
 edition = "2018"
 
 [dependencies]
-msr-core = { path = "../msr-core" }
-msr-plugin = { path = "../msr-plugin" }
+# Workspace
+msr-core = "0.3"
+msr-plugin = "0.3"
 
 [dev-dependencies]
 anyhow = "1"

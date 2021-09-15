@@ -6,6 +6,9 @@ authors = ["slowtec GmbH <post@slowtec.de>"]
 edition = "2018"
 
 [dependencies]
+# Workspace
+msr-core = "0.3"
+
+# Other
 log = "0.4"
-msr-core = { path = "../msr-core" }
 tokio = { version = "1", default_features = false, features = ["sync"] }
