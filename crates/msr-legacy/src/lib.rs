@@ -311,7 +311,7 @@ pub enum BoolExpr<T> {
     Eval(T),
 }
 
-/// An operation that can be evaulated with a given input.
+/// An operation that can be evaluated with a given input.
 pub trait Evaluation<In> {
     /// Evaluation result type.
     type Output;

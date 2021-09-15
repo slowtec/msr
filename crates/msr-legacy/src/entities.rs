@@ -29,7 +29,7 @@ pub struct IoGate {
 /// That is, a value of `from.low` would get mapped to `to.low`,
 /// a value of `from.high` to `to.high`,
 /// values in-between to values in-between, etc.
-// TODO: Make this more gerneric
+// TODO: Make this more generic
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ValueMapping {
@@ -135,7 +135,7 @@ pub struct Rule {
     pub id: String,
     /// The condition
     pub condition: BoolExpr<Comparison>,
-    /// Actions that should be triggerd
+    /// Actions that should be triggered
     pub actions: Vec<String>,
 }
 
