@@ -407,7 +407,7 @@ mod tests {
         let x_gt_5 = In("x".into()).cmp_gt(5.0.into());
         let expr = Eval(x_gt_5.clone());
         state.io.inputs.insert("x".into(), 5.0.into());
-        assert_eq!(expr.eval(&state).unwrap(), false);
+        assert!(!expr.eval(&state).unwrap());
 
         // y == true
         let y_eq_true = In("y".into()).cmp_eq(true.into());
@@ -419,29 +419,26 @@ mod tests {
         );
         state.io.inputs.insert("x".into(), 5.1.into());
         state.io.inputs.insert("y".into(), true.into());
-        assert_eq!(expr.eval(&state).unwrap(), true);
+        assert!(expr.eval(&state).unwrap());
         state.io.inputs.insert("y".into(), false.into());
-        assert_eq!(expr.eval(&state).unwrap(), false);
+        assert!(!expr.eval(&state).unwrap());
 
         // x > 5.0 || y == true
-        let expr = Or(
-            Box::new(Eval(x_gt_5.clone())),
-            Box::new(Eval(y_eq_true.clone())),
-        );
+        let expr = Or(Box::new(Eval(x_gt_5.clone())), Box::new(Eval(y_eq_true)));
         state.io.inputs.insert("x".into(), 3.0.into());
         state.io.inputs.insert("y".into(), true.into());
-        assert_eq!(expr.eval(&state).unwrap(), true);
+        assert!(expr.eval(&state).unwrap());
         state.io.inputs.insert("y".into(), false.into());
-        assert_eq!(expr.eval(&state).unwrap(), false);
+        assert!(!expr.eval(&state).unwrap());
 
         // !(x > 5.0)
         let expr = Not(Box::new(Eval(x_gt_5)));
         state.io.inputs.insert("x".into(), 6.0.into());
-        assert_eq!(expr.eval(&state).unwrap(), false);
+        assert!(!expr.eval(&state).unwrap());
 
         // just true
         let expr: BoolExpr<Comparison> = True;
-        assert_eq!(expr.eval(&state).unwrap(), true);
+        assert!(expr.eval(&state).unwrap());
     }
 
     #[test]
@@ -485,8 +482,10 @@ mod tests {
 
     #[test]
     fn pure_pid_loop() {
-        let mut pid_cfg = pid::PidConfig::default();
-        pid_cfg.k_p = 2.0;
+        let pid_cfg = pid::PidConfig {
+            k_p: 2.0,
+            ..Default::default()
+        };
         let l = Loop {
             id: "pid".into(),
             inputs: vec!["x".into()],
@@ -495,8 +494,10 @@ mod tests {
         };
         let mut io = IoState::default();
         io.inputs.insert("x".into(), 140.0.into());
-        let mut pid_state = pid::PidState::default();
-        pid_state.target = 150.0;
+        let pid_state = pid::PidState {
+            target: 150.0,
+            ..Default::default()
+        };
         let controller = ControllerState::Pid(pid_state);
         let dt = Duration::from_secs(1);
         let (c, io) = l.next((&controller, &io, &dt)).unwrap();
@@ -513,8 +514,10 @@ mod tests {
 
     #[test]
     fn pure_bb_loop() {
-        let mut bb_cfg = bang_bang::BangBangConfig::default();
-        bb_cfg.default_threshold = 5.0;
+        let bb_cfg = bang_bang::BangBangConfig {
+            default_threshold: 5.0,
+            ..Default::default()
+        };
         let l = Loop {
             id: "bb".into(),
             inputs: vec!["x".into()],

@@ -5,10 +5,12 @@
 //! use msr_legacy::{TimeStepController, pid::*};
 //!
 //! // 1. Create the PID configuration
-//! let mut cfg = PidConfig::default();
-//! cfg.k_p = 2.5; // define the proportional coefficient
-//! cfg.k_i = 0.7; // define the integral coefficient
-//! cfg.k_d = 5.0; // define the derative coefficient
+//! let cfg = PidConfig {
+//!     k_p: 2.5, // define the proportional coefficient
+//!     k_i: 0.7, // define the integral coefficient
+//!     k_d: 5.0, // define the derative coefficient
+//!     ..Default::default()
+//! };
 //!
 //! // 2. Create the PID controller
 //! let mut pid = Pid::new(cfg);
@@ -223,6 +225,7 @@ impl From<DurationInSeconds> for f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
 
     use super::*;
@@ -274,9 +277,11 @@ mod tests {
 
     #[test]
     fn calculate_i() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 0.0;
-        cfg.k_i = 2.0;
+        let cfg = PidConfig {
+            k_p: 0.0,
+            k_i: 2.0,
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         let dt = Duration::from_secs(1);
         assert_eq!(pid.next((0.0, &dt)), 0.0);
@@ -295,11 +300,13 @@ mod tests {
 
     #[test]
     fn calculate_d() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 0.0;
-        cfg.k_i = 0.0;
-        cfg.k_d = 2.0;
-        cfg.default_target = 1.0;
+        let cfg = PidConfig {
+            k_p: 0.0,
+            k_i: 0.0,
+            k_d: 2.0,
+            default_target: 1.0,
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         let dt = Duration::from_secs(1);
         assert_eq!(pid.next((0.0, &dt)), 0.0);
@@ -312,10 +319,12 @@ mod tests {
 
     #[test]
     fn calculate_d_with_zero_delta_t() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 0.0;
-        cfg.k_i = 0.0;
-        cfg.k_d = 2.0;
+        let cfg = PidConfig {
+            k_p: 0.0,
+            k_i: 0.0,
+            k_d: 2.0,
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         let dt = Duration::from_secs(0);
         assert_eq!(pid.next((0.0, &dt)), 0.0);
@@ -323,11 +332,13 @@ mod tests {
 
     #[test]
     fn calculate_with_limits() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 2.0;
-        cfg.max = Some(4.0);
-        cfg.min = Some(-2.0);
-        cfg.default_target = 3.0;
+        let cfg = PidConfig {
+            k_p: 2.0,
+            max: Some(4.0),
+            min: Some(-2.0),
+            default_target: 3.0,
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         let dt = Duration::from_secs(1);
         assert_eq!(pid.next((0.0, &dt)), 4.0);
@@ -336,10 +347,12 @@ mod tests {
 
     #[test]
     fn calculate_i_with_limits() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 0.0;
-        cfg.k_i = 2.0;
-        cfg.i_max = Some(1.0);
+        let cfg = PidConfig {
+            k_p: 0.0,
+            k_i: 2.0,
+            i_max: Some(1.0),
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         let dt = Duration::from_secs(1);
         assert_eq!(pid.next((0.0, &dt)), 0.0);
@@ -349,10 +362,12 @@ mod tests {
 
     #[test]
     fn calculate_p_with_limits() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 2.0;
-        cfg.p_max = Some(1.7);
-        cfg.p_min = Some(-0.5);
+        let cfg = PidConfig {
+            k_p: 2.0,
+            p_max: Some(1.7),
+            p_min: Some(-0.5),
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         let dt = Duration::from_secs(1);
         assert_eq!(pid.next((0.0, &dt)), 0.0);
@@ -363,11 +378,13 @@ mod tests {
 
     #[test]
     fn reset() {
-        let mut cfg = PidConfig::default();
-        cfg.k_p = 7.0;
-        cfg.k_i = 5.0;
-        cfg.k_d = 2.0;
-        cfg.default_target = 9.9;
+        let cfg = PidConfig {
+            k_p: 7.0,
+            k_i: 5.0,
+            k_d: 2.0,
+            default_target: 9.9,
+            ..Default::default()
+        };
         let mut pid = Pid::new(cfg);
         pid.set_target(50.0);
         let dt = Duration::from_secs(1);

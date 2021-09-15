@@ -1,17 +1,18 @@
 //! # Example
 //! ```rust,no_run
-//! use msr_legacy::{Controller,bang_bang::*};
+//! use msr_legacy::{Controller, bang_bang::*};
 //!
-//! let mut cfg = BangBangConfig::default();
-//! cfg.default_threshold = 5.8;
-//! cfg.hysteresis = 0.1;
+//! let cfg = BangBangConfig {
+//!     default_threshold: 5.8,
+//!     hysteresis: 0.1,
+//! };
 //! let mut c = BangBang::new(cfg);
 //!
-//! assert_eq!(c.next(5.89), false); // 5.89 < threshold + hysteresis
-//! assert_eq!(c.next(5.9),  true);
-//! assert_eq!(c.next(5.89), true);  // 5.89 > threshold - hysteresis
-//! assert_eq!(c.next(5.71), true);
-//! assert_eq!(c.next(5.69),  false);
+//! assert!(!c.next(5.89)); // 5.89 < threshold + hysteresis
+//! assert!(c.next(5.9));
+//! assert!(c.next(5.89));  // 5.89 > threshold - hysteresis
+//! assert!(c.next(5.71));
+//! assert!(!c.next(5.69));
 //! ```
 
 use super::{Controller, PureController};
@@ -86,9 +87,12 @@ impl PureController<(BangBangState, f64), BangBangState> for BangBangConfig {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
 
     use super::*;
+
+    use std::f64::{INFINITY, NAN, NEG_INFINITY};
 
     #[test]
     fn default_bang_bang_config() {
@@ -100,28 +104,32 @@ mod tests {
     #[test]
     fn calculate_with_default_cfg() {
         let mut bb = BangBang::new(BangBangConfig::default());
-        assert_eq!(bb.next(0.1), true);
-        assert_eq!(bb.next(0.0), true);
-        assert_eq!(bb.next(-0.1), false);
-        assert_eq!(bb.next(0.0), false);
+        assert!(bb.next(0.1));
+        assert!(bb.next(0.0));
+        assert!(!bb.next(-0.1));
+        assert!(!bb.next(0.0));
     }
 
     #[test]
     fn calculate_with_custom_threshold() {
-        let mut cfg = BangBangConfig::default();
-        cfg.default_threshold = 3.3;
+        let cfg = BangBangConfig {
+            default_threshold: 3.3,
+            ..Default::default()
+        };
         let mut bb = BangBang::new(cfg);
-        assert_eq!(bb.next(1.0), false);
-        assert_eq!(bb.next(3.3), false);
-        assert_eq!(bb.next(3.4), true);
-        assert_eq!(bb.next(3.3), true);
-        assert_eq!(bb.next(3.2), false);
+        assert!(!bb.next(1.0));
+        assert!(!bb.next(3.3));
+        assert!(bb.next(3.4));
+        assert!(bb.next(3.3));
+        assert!(!bb.next(3.2));
     }
 
     #[test]
     fn calculate_with_hysteresis() {
-        let mut cfg = BangBangConfig::default();
-        cfg.hysteresis = 0.5;
+        let cfg = BangBangConfig {
+            hysteresis: 0.5,
+            ..Default::default()
+        };
         let mut bb = BangBang::new(cfg);
         let states = vec![
             (0.0, false),
@@ -143,38 +151,41 @@ mod tests {
 
     #[test]
     fn calculate_with_infinity_input() {
-        use std::f64::*;
         let cfg = BangBangConfig::default();
         let mut bb = BangBang::new(cfg);
-        assert_eq!(bb.next(INFINITY), true);
-        assert_eq!(bb.next(0.0), true);
-        assert_eq!(bb.next(NEG_INFINITY), false);
+        assert!(bb.next(INFINITY));
+        assert!(bb.next(0.0));
+        assert!(!bb.next(NEG_INFINITY));
     }
 
     #[test]
     fn calculate_with_infinity_threshold() {
-        use std::f64::*;
-        let mut cfg = BangBangConfig::default();
-        cfg.default_threshold = INFINITY;
+        let cfg = BangBangConfig {
+            default_threshold: INFINITY,
+            ..Default::default()
+        };
         let mut bb = BangBang::new(cfg);
-        assert_eq!(bb.next(INFINITY * 2.0), false);
+        assert!(!bb.next(INFINITY * 2.0));
 
-        let mut cfg = BangBangConfig::default();
-        cfg.default_threshold = NEG_INFINITY;
+        let cfg = BangBangConfig {
+            default_threshold: NEG_INFINITY,
+            ..Default::default()
+        };
         let mut bb = BangBang::new(cfg);
-        assert_eq!(bb.next(NEG_INFINITY * 2.0), false);
+        assert!(!bb.next(NEG_INFINITY * 2.0));
     }
 
     #[test]
     fn ignore_nan_input() {
-        use std::f64::*;
-        let mut cfg = BangBangConfig::default();
-        cfg.hysteresis = 0.5;
+        let cfg = BangBangConfig {
+            hysteresis: 0.5,
+            ..Default::default()
+        };
         let mut bb = BangBang::new(cfg);
-        assert_eq!(bb.next(0.6), true);
-        assert_eq!(bb.next(NAN), true);
-        assert_eq!(bb.next(-0.49), true);
-        assert_eq!(bb.next(-0.6), false);
-        assert_eq!(bb.next(NAN), false);
+        assert!(bb.next(0.6));
+        assert!(bb.next(NAN));
+        assert!(bb.next(-0.49));
+        assert!(!bb.next(-0.6));
+        assert!(!bb.next(NAN));
     }
 }

@@ -22,6 +22,7 @@ pub fn limit(min: Option<f64>, max: Option<f64>, mut value: f64) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
 
     #[test]

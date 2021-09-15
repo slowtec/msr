@@ -303,8 +303,10 @@ mod tests {
             outputs: vec!["output".into()],
             controller,
         }];
-        let mut rt = SyncRuntime::default();
-        rt.loops = loops;
+        let rt = SyncRuntime {
+            loops,
+            ..Default::default()
+        };
         let mut s = SystemState::default();
         s.io.inputs.insert("input".into(), true.into());
         assert!(rt.next((&s, &dt)).is_err());
@@ -316,9 +318,11 @@ mod tests {
 
     #[test]
     fn run_pid_controllers() {
-        let mut pid_cfg = PidConfig::default();
-        pid_cfg.k_p = 2.0;
-        pid_cfg.default_target = 10.0;
+        let pid_cfg = PidConfig {
+            k_p: 2.0,
+            default_target: 10.0,
+            ..Default::default()
+        };
         let controller = ControllerConfig::Pid(pid_cfg);
         let dt = Duration::from_secs(1);
         let loops = vec![Loop {
@@ -327,8 +331,10 @@ mod tests {
             outputs: vec!["actuator".into()],
             controller,
         }];
-        let mut rt = SyncRuntime::default();
-        rt.loops = loops;
+        let rt = SyncRuntime {
+            loops,
+            ..Default::default()
+        };
         let mut s = SystemState::default();
         s.io.inputs.insert("sensor".into(), 0.0.into());
         let s = rt.next((&s, &dt)).unwrap();
@@ -337,8 +343,10 @@ mod tests {
 
     #[test]
     fn run_bang_bang_controllers() {
-        let mut bb_cfg = BangBangConfig::default();
-        bb_cfg.default_threshold = 2.0;
+        let bb_cfg = BangBangConfig {
+            default_threshold: 2.0,
+            ..Default::default()
+        };
         let controller = ControllerConfig::BangBang(bb_cfg);
         let dt = Duration::from_secs(1);
         let sensor = "sensor".to_string();
@@ -349,8 +357,10 @@ mod tests {
             outputs: vec![actuator.clone()],
             controller,
         }];
-        let mut rt = SyncRuntime::default();
-        rt.loops = loops;
+        let rt = SyncRuntime {
+            loops,
+            ..Default::default()
+        };
         let mut s = SystemState::default();
         s.io.inputs.insert(sensor.clone(), 0.0.into());
         let mut s = rt.next((&s, &dt)).unwrap();
@@ -364,19 +374,16 @@ mod tests {
     fn check_active_rules() {
         let mut state = SystemState::default();
         let mut rt = SyncRuntime::default();
-        assert_eq!(rt.rules_state(&mut state).unwrap().len(), 0);
+        assert_eq!(rt.rules_state(&state).unwrap().len(), 0);
         rt.rules = vec![Rule {
             id: "foo".into(),
             condition: BoolExpr::Eval(Source::In("x".into()).cmp_ge(Source::Out("y".into()))),
             actions: vec!["a".into()],
         }];
-        assert!(rt.rules_state(&mut state).is_err());
+        assert!(rt.rules_state(&state).is_err());
         state.io.inputs.insert("x".into(), 33.3.into());
         state.io.outputs.insert("y".into(), 33.3.into());
-        assert_eq!(
-            *rt.rules_state(&mut state).unwrap().get("foo").unwrap(),
-            true
-        );
+        assert!(*rt.rules_state(&state).unwrap().get("foo").unwrap(),);
     }
 
     #[test]
@@ -407,7 +414,7 @@ mod tests {
             Source::Const("hello memory".to_string().into()),
         );
 
-        timeouts.insert("a-timeout".into(), Some(Duration::from_millis(100).into()));
+        timeouts.insert("a-timeout".into(), Some(Duration::from_millis(100)));
         timeouts.insert("an-other-timeout".into(), None);
         let controllers = HashMap::new();
 
@@ -434,7 +441,7 @@ mod tests {
         assert!(state.timeouts.get("a-timeout").is_none());
         assert_eq!(
             *state.timeouts.get("an-other-timeout").unwrap(),
-            Value::Timeout(Duration::from_millis(99).into())
+            Value::Timeout(Duration::from_millis(99))
         );
         state.io.inputs.insert("x".into(), 10.0.into());
         state.io.inputs.insert("ref-in".into(), 33.0.into());
@@ -451,10 +458,7 @@ mod tests {
             *state.io.outputs.get("k").unwrap(),
             Value::Text("bla".into())
         );
-        assert_eq!(
-            *state.setpoints.get("foo").unwrap(),
-            Value::Decimal(99.7.into())
-        );
+        assert_eq!(*state.setpoints.get("foo").unwrap(), Value::Decimal(99.7));
         assert_eq!(*state.setpoints.get("bar").unwrap(), Value::Bit(true));
         assert_eq!(*state.setpoints.get("baz").unwrap(), Value::Bit(false));
         assert_eq!(
@@ -463,18 +467,18 @@ mod tests {
         );
         assert_eq!(
             *state.timeouts.get("a-timeout").unwrap(),
-            Value::Timeout(Duration::from_millis(100).into())
+            Value::Timeout(Duration::from_millis(100))
         );
         assert!(state.timeouts.get("an-other-timeout").is_none());
         let state = rt.next((&state, &dt)).unwrap();
         assert_eq!(
             *state.timeouts.get("a-timeout").unwrap(),
-            Value::Timeout(Duration::from_millis(99).into())
+            Value::Timeout(Duration::from_millis(99))
         );
         let state = rt.next((&state, &Duration::from_millis(200))).unwrap();
         assert_eq!(
             *state.timeouts.get("a-timeout").unwrap(),
-            Value::Timeout(Duration::from_millis(0).into())
+            Value::Timeout(Duration::from_millis(0))
         );
     }
 
@@ -483,11 +487,13 @@ mod tests {
         let mut rt = SyncRuntime::default();
         let mut state = SystemState::default();
         let dt = Duration::from_secs(1);
-        let mut pid_cfg = PidConfig::default();
-        pid_cfg.k_p = 2.0;
-        pid_cfg.k_i = 100.0;
-        pid_cfg.k_d = 1.0;
-        pid_cfg.default_target = 10.0;
+        let pid_cfg = PidConfig {
+            k_p: 2.0,
+            k_i: 100.0,
+            k_d: 1.0,
+            default_target: 10.0,
+            ..Default::default()
+        };
         let controller = ControllerConfig::Pid(pid_cfg);
         rt.loops.push(Loop {
             id: "pid".into(),
@@ -564,9 +570,11 @@ mod tests {
         let mut state = SystemState::default();
         let dt = Duration::from_secs(1);
 
-        let mut pid_cfg = PidConfig::default();
-        pid_cfg.k_i = 1.0;
-        pid_cfg.default_target = 10.0;
+        let pid_cfg = PidConfig {
+            k_i: 1.0,
+            default_target: 10.0,
+            ..Default::default()
+        };
 
         let controller_0 = ControllerConfig::Pid(pid_cfg.clone());
         let controller_1 = ControllerConfig::Pid(pid_cfg);
@@ -720,17 +728,21 @@ mod tests {
         }];
         let state = rt.next((&s, &dt)).unwrap();
         assert_eq!(state.rules.len(), 1);
-        assert_eq!(*state.rules.get("foo").unwrap(), false);
+        assert!(!*state.rules.get("foo").unwrap());
         assert_eq!(state.io.inputs.get("x").unwrap(), &Value::from(1.0));
         assert_eq!(state.io.outputs.get("y").unwrap(), &Value::from(2.0));
 
-        let mut bb_cfg = BangBangConfig::default();
-        bb_cfg.default_threshold = 2.0;
+        let bb_cfg = BangBangConfig {
+            default_threshold: 2.0,
+            ..Default::default()
+        };
         let bb = ControllerConfig::BangBang(bb_cfg);
 
-        let mut pid_cfg = PidConfig::default();
-        pid_cfg.k_p = 2.0;
-        pid_cfg.default_target = 10.0;
+        let pid_cfg = PidConfig {
+            k_p: 2.0,
+            default_target: 10.0,
+            ..Default::default()
+        };
         let pid = ControllerConfig::Pid(pid_cfg);
 
         let loops = vec![
@@ -772,11 +784,15 @@ mod tests {
 
     #[test]
     fn apply_setpoints_to_controllers() {
-        let mut pid_cfg = PidConfig::default();
-        pid_cfg.k_p = 2.0;
+        let pid_cfg = PidConfig {
+            k_p: 2.0,
+            ..Default::default()
+        };
         let pid_controller = ControllerConfig::Pid(pid_cfg);
-        let mut bb_cfg = BangBangConfig::default();
-        bb_cfg.default_threshold = 2.0;
+        let bb_cfg = BangBangConfig {
+            default_threshold: 2.0,
+            ..Default::default()
+        };
         let bb = ControllerConfig::BangBang(bb_cfg);
         let dt = Duration::from_secs(1);
         let loops = vec![
@@ -794,13 +810,17 @@ mod tests {
             },
         ];
         let mut state = SystemState::default();
-        let mut runtime = SyncRuntime::default();
-        runtime.loops = loops;
+        let runtime = SyncRuntime {
+            loops,
+            ..Default::default()
+        };
         state.io.inputs.insert("sensor".into(), 0.0.into());
         state.io.inputs.insert("a".into(), 0.0.into());
         let mut state = runtime.next((&state, &dt)).unwrap();
-        let mut expected_pid_state = PidState::default();
-        expected_pid_state.prev_value = Some(0.0.into());
+        let mut expected_pid_state = PidState {
+            prev_value: Some(0.0),
+            ..Default::default()
+        };
         assert_eq!(
             *state.io.outputs.get("actuator").unwrap(),
             Value::Decimal(0.0)
@@ -928,8 +948,10 @@ mod tests {
         let dt = Duration::from_secs(1);
         let mut rt = SyncRuntime::default();
         let mut state = SystemState::default();
-        let mut pid_cfg = PidConfig::default();
-        pid_cfg.k_p = 2.0;
+        let pid_cfg = PidConfig {
+            k_p: 2.0,
+            ..Default::default()
+        };
         let pid_controller_0 = ControllerConfig::Pid(pid_cfg.clone());
         let pid_controller_1 = ControllerConfig::Pid(pid_cfg);
         let loops = vec![

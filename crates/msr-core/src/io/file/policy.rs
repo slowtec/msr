@@ -464,7 +464,7 @@ mod tests {
         };
 
         let created_at =
-            SystemTime::from(Utc.ymd(1978, 1, 2).and_hms_nano(23, 4, 5, 012345678)).into();
+            SystemTime::from(Utc.ymd(1978, 1, 2).and_hms_nano(23, 4, 5, 12345678)).into();
         let file_path = cfg.new_file_path(created_at);
         verify_file_path(&file_path, &cfg, created_at);
 

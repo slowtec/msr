@@ -274,15 +274,15 @@ mod tests {
     fn evaluate_comparison_with_missing_values() {
         let mut state = SystemState::default();
         let cmp = In("x".into()).cmp_gt(In("y".into()));
-        assert!(cmp.eval(&mut state).is_err());
+        assert!(cmp.eval(&state).is_err());
         state.io.inputs.insert("x".into(), 5.4.into());
-        assert!(cmp.eval(&mut state).is_err());
+        assert!(cmp.eval(&state).is_err());
         state.io.inputs.remove("x");
         state.io.inputs.insert("y".into(), 5.4.into());
-        assert!(cmp.eval(&mut state).is_err());
+        assert!(cmp.eval(&state).is_err());
         state.io.inputs.insert("x".into(), 5.4.into());
         state.io.inputs.insert("y".into(), 5.4.into());
-        assert!(cmp.eval(&mut state).is_ok());
+        assert!(cmp.eval(&state).is_ok());
     }
 
     #[test]
@@ -471,7 +471,7 @@ mod tests {
             };
             state.io.inputs.insert("x".into(), a);
             state.io.inputs.insert("y".into(), b);
-            assert_eq!(cmp.eval(&mut state).unwrap(), res);
+            assert_eq!(cmp.eval(&state).unwrap(), res);
         }
     }
 
@@ -487,7 +487,7 @@ mod tests {
             };
             state.io.inputs.insert("x".into(), a);
             state.io.inputs.insert("y".into(), b);
-            assert!(cmp.eval(&mut state).is_err());
+            assert!(cmp.eval(&state).is_err());
         }
     }
 }

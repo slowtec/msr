@@ -45,24 +45,24 @@ async fn run_mediator(
     recorder_tx: UnboundedSender<RecorderMessage>,
     mut modbus_event_rx: broadcast::Receiver<ModbusEvent>,
     mut shutdown_rx: broadcast::Receiver<()>,
-) -> () {
+) {
     log::info!("Starting mediator task");
     loop {
         tokio::select! {
             Ok(ev) = modbus_event_rx.recv() => {
             match ev {
                 ModbusEvent::Data(x) => {
-                    if let Err(_) = recorder_tx.send(RecorderMessage::Record(x)) {
+                    if recorder_tx.send(RecorderMessage::Record(x)).is_err() {
                         log::warn!("The recorder plugin message channel was closed");
                     }
                 }
             }
             }
             _ = shutdown_rx.recv() => {
-                if let Err(_) = modbus_tx.send(ModbusMessage::Shutdown) {
+                if modbus_tx.send(ModbusMessage::Shutdown).is_err() {
                     log::warn!("The modbus plugin message channel was closed");
                 }
-                if let Err(_) = recorder_tx.send(RecorderMessage::Shutdown) {
+                if recorder_tx.send(RecorderMessage::Shutdown).is_err() {
                     log::warn!("The recorder plugin message channel was closed");
                 }
                 break;
@@ -86,14 +86,12 @@ fn spawn_mediator(
 
     // Spawn event mediators in any order before starting the plugins
     // ...they should do nothing until events from plugins are received
-    let mediator = tokio::spawn(run_mediator(
+    tokio::spawn(run_mediator(
         modbus_tx,
         recorder_tx,
         modbus_event_rx,
         shutdown_rx,
-    ));
-
-    mediator
+    ))
 }
 
 fn spawn_tasks(shutdown_rx: broadcast::Receiver<()>) -> Result<JoinHandle<()>> {

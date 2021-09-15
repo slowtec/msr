@@ -166,8 +166,6 @@ impl<'de> Deserialize<'de> for Value {
 mod tests {
     use super::*;
 
-    use serde_json;
-
     #[test]
     fn value_casting() {
         assert_eq!(Value::from(true), Value::Bit(true));
