@@ -164,9 +164,8 @@ impl<'de> Deserialize<'de> for Value {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    #[cfg(feature = "serde")]
+
     use serde_json;
 
     #[test]
