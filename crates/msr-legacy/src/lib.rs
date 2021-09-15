@@ -149,8 +149,8 @@ impl<'a>
 /// The state of all inputs and outputs of a MSR system.
 /// # Example
 /// ```rust,no_run
-/// use msr::*;
 /// use std::{thread, time::Duration};
+/// use msr_legacy::{IoState, Value};
 ///
 /// let mut state = IoState::default();
 ///

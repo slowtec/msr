@@ -5,7 +5,7 @@ use std::time::Duration;
 ///
 /// # Example
 /// ```rust,no_run
-/// use msr::*;
+/// use msr_legacy::IoGate;
 ///
 /// let tcr001 = IoGate::new("tcr001".into());
 ///

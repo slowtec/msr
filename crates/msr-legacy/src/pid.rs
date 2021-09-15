@@ -1,8 +1,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use msr::{TimeStepController, pid::*};
 //! use std::{thread, time::Duration};
+//! use msr_legacy::{TimeStepController, pid::*};
 //!
 //! // 1. Create the PID configuration
 //! let mut cfg = PidConfig::default();

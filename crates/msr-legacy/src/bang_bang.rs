@@ -1,6 +1,6 @@
 //! # Example
 //! ```rust,no_run
-//! use msr::{Controller,bang_bang::*};
+//! use msr_legacy::{Controller,bang_bang::*};
 //!
 //! let mut cfg = BangBangConfig::default();
 //! cfg.default_threshold = 5.8;
