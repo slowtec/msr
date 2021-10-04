@@ -40,6 +40,22 @@ impl Type {
             F64 => TYPE_STR_F64,
         }
     }
+
+    pub fn try_from_str(s: &str) -> Option<Type> {
+        // TODO: Declare as `const fn` when supported
+        match s {
+            TYPE_STR_BOOL => Some(Type::Bool),
+            TYPE_STR_I16 => Some(Type::I16),
+            TYPE_STR_U16 => Some(Type::U16),
+            TYPE_STR_I32 => Some(Type::I32),
+            TYPE_STR_U32 => Some(Type::U32),
+            TYPE_STR_F32 => Some(Type::F32),
+            TYPE_STR_I64 => Some(Type::I64),
+            TYPE_STR_U64 => Some(Type::U64),
+            TYPE_STR_F64 => Some(Type::F64),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for Type {
