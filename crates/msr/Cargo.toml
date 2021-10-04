@@ -12,9 +12,14 @@ version = "0.3.0"
 [dependencies]
 # Workspace
 msr-core = "0.3"
-msr-plugin = "0.3"
+msr-plugin = { version = "0.3", optional = true }
+
+[features]
+default = []
+plugin = ["msr-plugin"]
 
 [dev-dependencies]
+msr = { version = "*", features = ["plugin"] }
 anyhow = "1"
 env_logger = "0.9"
 log = "0.4"
