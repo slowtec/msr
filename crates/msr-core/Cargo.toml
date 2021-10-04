@@ -1,13 +1,9 @@
 [package]
 name = "msr-core"
-description = "Industrial Automation library - Core"
-version = "0.3.0"
-authors = ["slowtec GmbH <post@slowtec.de>"]
+description = "Industrial Automation Toolbox - Core"
 license = "MIT/Apache-2.0"
-keywords = ["automation", "control", "plc", "msr", "fieldbus"]
-homepage = "https://github.com/slowtec/msr"
-repository = "https://github.com/slowtec/msr"
 edition = "2018"
+version = "0.3.0"
 
 [dependencies]
 chrono = "0.4"

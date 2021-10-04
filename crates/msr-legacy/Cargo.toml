@@ -1,13 +1,10 @@
 [package]
 name = "msr-legacy"
-description = "Industrial Automation library - Legacy"
-version = "0.2.0"
-authors = ["slowtec GmbH <post@slowtec.de>"]
+description = "Industrial Automation Toolbox - Legacy"
 license = "MIT/Apache-2.0"
-keywords = ["automation", "control", "plc", "msr"]
-homepage = "https://github.com/slowtec/msr"
-repository = "https://github.com/slowtec/msr"
 edition = "2018"
+version = "0.2.0"
+# Reserved for internal use and migration purposes
 publish = false
 
 [dependencies]
