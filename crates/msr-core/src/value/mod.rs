@@ -1,29 +1,30 @@
 use std::{fmt, time::Duration};
 
 mod scalar;
-pub use scalar::{Type as ScalarValueType, Value as ScalarValue};
+pub use self::scalar::{Type as ScalarType, Value as ScalarValue};
 
 /// Enumeration of value types
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ValueType {
-    /// Scalar type (real-time safe)
-    Scalar(ScalarValueType),
+    /// Scalar type
+    Scalar(ScalarType),
 
-    // Other type(s) (not real-time safe!!!)
-    /// Value of e.g. a serial communication device.
-    String,
-    /// Binary data
-    Bin,
-    /// Duration (e.g. a timeout)
+    /// Time duration, e.g. a timeout
     Duration,
+
+    /// Text data
+    String,
+
+    /// Binary data
+    Bytes,
 }
 
-const TYPE_STR_STRING: &str = "string";
-const TYPE_STR_BIN: &str = "binary";
 const TYPE_STR_DURATION: &str = "duration";
+const TYPE_STR_STRING: &str = "string";
+const TYPE_STR_BYTES: &str = "bytes";
 
 impl ValueType {
-    pub const fn as_scalar(self) -> Option<ScalarValueType> {
+    pub const fn to_scalar(self) -> Option<ScalarType> {
         match self {
             Self::Scalar(s) => Some(s),
             _ => None,
@@ -31,25 +32,25 @@ impl ValueType {
     }
 
     pub const fn is_scalar(self) -> bool {
-        self.as_scalar().is_some()
+        self.to_scalar().is_some()
     }
 
-    pub const fn from_scalar(scalar: ScalarValueType) -> Self {
+    pub const fn from_scalar(scalar: ScalarType) -> Self {
         Self::Scalar(scalar)
     }
 
     const fn as_str(self) -> &'static str {
         match self {
             Self::Scalar(s) => s.as_str(),
-            Self::String => TYPE_STR_STRING,
-            Self::Bin => TYPE_STR_BIN,
             Self::Duration => TYPE_STR_DURATION,
+            Self::String => TYPE_STR_STRING,
+            Self::Bytes => TYPE_STR_BYTES,
         }
     }
 }
 
-impl From<ScalarValueType> for ValueType {
-    fn from(from: ScalarValueType) -> Self {
+impl From<ScalarType> for ValueType {
+    fn from(from: ScalarType) -> Self {
         Self::from_scalar(from)
     }
 }
@@ -66,14 +67,18 @@ pub enum Value {
     /// Scalar value (real-time safe)
     Scalar(ScalarValue),
 
-    // Other type(s) (not real-time safe!!!)
-    // WARNING: Use of these types is strictly forbidden in real-time contexts!
-    /// Value of e.g. a serial communication device.
-    String(String),
-    /// Binary data
-    Bin(Vec<u8>),
-    /// Duration (e.g. a timeout)
+    /// Duration, e.g. a timeout
     Duration(Duration),
+
+    /// Variable-size text data
+    ///
+    /// Should not be used in real-time contexts!
+    String(String),
+
+    /// Variable-size binary data
+    ///
+    /// Should not be used in real-time contexts!
+    Bytes(Vec<u8>),
 }
 
 impl From<String> for Value {
@@ -84,7 +89,7 @@ impl From<String> for Value {
 
 impl From<Vec<u8>> for Value {
     fn from(from: Vec<u8>) -> Value {
-        Self::Bin(from)
+        Self::Bytes(from)
     }
 }
 
@@ -95,56 +100,60 @@ impl From<Duration> for Value {
 }
 
 impl Value {
-    pub const fn value_type(&self) -> ValueType {
+    pub const fn to_type(&self) -> ValueType {
         match self {
-            Self::Scalar(s) => ValueType::Scalar(s.value_type()),
-            Self::String(_) => ValueType::String,
-            Self::Bin(_) => ValueType::Bin,
+            Self::Scalar(value) => ValueType::Scalar(value.to_type()),
             Self::Duration(_) => ValueType::Duration,
+            Self::String(_) => ValueType::String,
+            Self::Bytes(_) => ValueType::Bytes,
         }
     }
 
-    pub fn to_scalar(&self) -> Option<scalar::Value> {
+    pub const fn to_scalar(&self) -> Option<ScalarValue> {
         match self {
             Self::Scalar(scalar) => Some(*scalar),
             _ => None,
         }
     }
 
+    pub const fn from_scalar(scalar: ScalarValue) -> Self {
+        Self::Scalar(scalar)
+    }
+
     pub fn to_i32(&self) -> Option<i32> {
-        self.to_scalar().and_then(scalar::Value::to_i32)
+        self.to_scalar().and_then(ScalarValue::to_i32)
     }
 
     pub fn to_u32(&self) -> Option<u32> {
-        self.to_scalar().and_then(scalar::Value::to_u32)
+        self.to_scalar().and_then(ScalarValue::to_u32)
     }
 
     pub fn to_i64(&self) -> Option<i64> {
-        self.to_scalar().and_then(scalar::Value::to_i64)
+        self.to_scalar().and_then(ScalarValue::to_i64)
     }
 
     pub fn to_u64(&self) -> Option<u64> {
-        self.to_scalar().and_then(scalar::Value::to_u64)
+        self.to_scalar().and_then(ScalarValue::to_u64)
     }
 
     pub fn to_f32(&self) -> Option<f32> {
-        self.to_scalar().and_then(scalar::Value::to_f32)
+        self.to_scalar().and_then(ScalarValue::to_f32)
     }
 
     pub fn to_f64(&self) -> Option<f64> {
-        self.to_scalar().and_then(scalar::Value::to_f64)
+        self.to_scalar().and_then(ScalarValue::to_f64)
     }
 }
 
 impl From<Value> for ValueType {
     fn from(from: Value) -> Self {
-        from.value_type()
+        from.to_type()
     }
 }
 
 impl<S> From<S> for Value
 where
-    S: Into<scalar::Value>,
+    S: Into<ScalarValue>,
 {
     fn from(from: S) -> Self {
         Value::Scalar(from.into())

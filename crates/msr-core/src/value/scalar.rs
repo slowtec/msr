@@ -237,7 +237,7 @@ impl fmt::Display for Value {
 }
 
 impl Value {
-    pub const fn value_type(self) -> Type {
+    pub const fn to_type(self) -> Type {
         use self::Value::*;
         match self {
             Bool(_) => Type::Bool,
@@ -255,7 +255,7 @@ impl Value {
 
 impl From<Value> for Type {
     fn from(from: Value) -> Self {
-        from.value_type()
+        from.to_type()
     }
 }
 
@@ -306,14 +306,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn scalar_value_types() {
-        assert_eq!(Type::Bool, Value::from(true).value_type());
-        assert_eq!(Type::Bool, Value::from(false).value_type());
-        assert_eq!(Type::I64, Value::from(-123i64).value_type());
-        assert_eq!(Type::U64, Value::from(123u64).value_type());
-        assert_eq!(Type::F64, Value::from(1.234).value_type());
-        assert_eq!(Type::I32, Value::from(-123i32).value_type());
-        assert_eq!(Type::U32, Value::from(123u32).value_type());
-        assert_eq!(Type::F32, Value::from(1.234_f32).value_type());
+    fn value_types() {
+        assert_eq!(Type::Bool, Value::from(true).to_type());
+        assert_eq!(Type::Bool, Value::from(false).to_type());
+        assert_eq!(Type::I32, Value::from(-123i32).to_type());
+        assert_eq!(Type::U32, Value::from(123u32).to_type());
+        assert_eq!(Type::F32, Value::from(1.234_f32).to_type());
+        assert_eq!(Type::I64, Value::from(-123i64).to_type());
+        assert_eq!(Type::U64, Value::from(123u64).to_type());
+        assert_eq!(Type::F64, Value::from(1.234).to_type());
     }
 }
