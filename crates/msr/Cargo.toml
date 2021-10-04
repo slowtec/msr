@@ -11,8 +11,8 @@ version = "0.3.0"
 
 [dependencies]
 # Workspace
-msr-core = "0.3"
-msr-plugin = { version = "0.3", optional = true }
+msr-core = "*"
+msr-plugin = { version = "*", optional = true }
 
 [features]
 default = []
