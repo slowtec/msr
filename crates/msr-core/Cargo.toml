@@ -21,6 +21,6 @@ uuid = { version = "0.8", optional = true }
 tempfile = "3"
 
 [features]
-default = ["csv-recording"]
+default = []
 csv-recording = ["csv", "serde"]
 csv-journaling = ["anyhow", "bs58", "chrono/serde", "csv", "serde", "uuid/v4"]
