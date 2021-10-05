@@ -1,5 +1,6 @@
 use std::{fmt, time::Duration};
 
+// TODO: Make `scalar` module public instead of renaming and re-exporting all types?
 mod scalar;
 pub use self::scalar::{Type as ScalarType, Value as ScalarValue};
 

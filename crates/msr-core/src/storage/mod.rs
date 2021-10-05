@@ -1,6 +1,5 @@
 //! Persistence related stuff
-use crate::{io::file::WriteResult, time::SystemTimeInstant};
-use clokwerk::Interval;
+
 use std::{
     collections::VecDeque,
     io::Error as IoError,
@@ -9,7 +8,13 @@ use std::{
     result::Result as StdResult,
     time::{Duration, SystemTime},
 };
+
+use clokwerk::Interval;
 use thiserror::Error;
+
+use crate::{io::file::WriteResult, time::SystemTimeInstant};
+
+pub mod field;
 
 #[cfg(feature = "csv-recording")]
 pub mod csv;
