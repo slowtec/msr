@@ -12,3 +12,6 @@ pub mod audit;
 pub mod io;
 pub mod storage;
 pub mod time;
+
+#[cfg(feature = "csv-journaling")]
+pub mod journal;

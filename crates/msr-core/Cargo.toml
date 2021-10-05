@@ -8,10 +8,14 @@ version = "0.3.0"
 [dependencies]
 chrono = "0.4"
 clokwerk = "0.3"
-csv = { version = "1", optional = true }
 log = "0.4"
-serde = { version = "1", optional = true }
 thiserror = "1"
+
+anyhow = { version = "1", optional = true }
+bs58 = { version = "0.4", optional = true }
+csv = { version = "1", optional = true }
+serde = { version = "1", optional = true }
+uuid = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -19,3 +23,4 @@ tempfile = "3"
 [features]
 default = ["csv-recording"]
 csv-recording = ["csv", "serde"]
+csv-journaling = ["anyhow", "bs58", "chrono/serde", "csv", "serde", "uuid/v4"]

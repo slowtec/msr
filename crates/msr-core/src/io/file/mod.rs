@@ -2,9 +2,10 @@ use crate::time::SystemTimeInstantError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
+pub mod policy;
+
 #[cfg(feature = "csv-recording")]
 pub mod csv;
-pub mod policy;
 
 #[derive(Error, Debug)]
 pub enum Error {
