@@ -1,14 +1,10 @@
-mod control;
 mod measure;
 mod value;
 
-pub use self::{
-    control::{Input, Output, Value as ControlValue},
-    measure::*,
-    value::*,
-};
+pub use self::{measure::*, value::*};
 
 pub mod audit;
+pub mod control;
 pub mod io;
 pub mod register;
 pub mod storage;

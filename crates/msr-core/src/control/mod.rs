@@ -1,5 +1,7 @@
 use crate::Measurement;
 
+pub mod cyclic;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value<V> {
     Input(Input<V>),
