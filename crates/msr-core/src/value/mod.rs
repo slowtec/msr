@@ -168,12 +168,6 @@ impl ToValueType for Value {
     }
 }
 
-impl From<&Value> for ValueType {
-    fn from(from: &Value) -> Self {
-        from.to_type()
-    }
-}
-
 impl<S> From<S> for Value
 where
     S: Into<ScalarValue>,
