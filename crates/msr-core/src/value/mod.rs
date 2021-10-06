@@ -4,6 +4,10 @@ use std::{fmt, time::Duration};
 mod scalar;
 pub use self::scalar::{Type as ScalarType, Value as ScalarValue};
 
+pub trait ValueToType {
+    fn to_type(&self) -> ValueType;
+}
+
 /// Enumeration of value types
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ValueType {
@@ -155,6 +159,12 @@ impl Value {
 
     pub fn to_f64(&self) -> Option<f64> {
         self.to_scalar().and_then(ScalarValue::to_f64)
+    }
+}
+
+impl ValueToType for Value {
+    fn to_type(&self) -> ValueType {
+        self.to_type()
     }
 }
 

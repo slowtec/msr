@@ -4,6 +4,9 @@ use crate::{time::SystemTimeInstant, Measurement};
 
 pub use crate::{Value, ValueType as Type};
 
+#[cfg(feature = "csv-register-recording")]
+pub mod recording;
+
 /// Address of a register
 ///
 /// Each register is addressed by a uniform, 64-bit unsigned integer value.

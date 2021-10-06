@@ -16,13 +16,13 @@ use crate::{io::file::WriteResult, time::SystemTimeInstant};
 
 pub mod field;
 
-#[cfg(feature = "csv-recording")]
+#[cfg(feature = "csv-storage")]
 pub mod csv;
 
-#[cfg(feature = "csv-recording")]
+#[cfg(feature = "csv-storage")]
 use ::csv::Error as CsvError;
 
-#[cfg(feature = "csv-recording")]
+#[cfg(feature = "csv-storage")]
 use crate::io::file::csv::Error as CsvFileError;
 
 #[derive(Error, Debug)]
@@ -30,12 +30,12 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] IoError),
 
-    #[cfg(feature = "csv-recording")]
+    #[cfg(feature = "csv-storage")]
     #[error(transparent)]
     Csv(#[from] CsvError),
 }
 
-#[cfg(feature = "csv-recording")]
+#[cfg(feature = "csv-storage")]
 impl From<CsvFileError> for Error {
     fn from(err: CsvFileError) -> Self {
         use CsvFileError::*;

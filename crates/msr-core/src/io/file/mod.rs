@@ -4,7 +4,7 @@ use thiserror::Error;
 
 pub mod policy;
 
-#[cfg(feature = "csv-recording")]
+#[cfg(feature = "csv-storage")]
 pub mod csv;
 
 #[derive(Error, Debug)]
@@ -12,7 +12,7 @@ pub enum Error {
     #[error("timing error")]
     Timing(SystemTimeInstantError),
 
-    #[cfg(feature = "csv-recording")]
+    #[cfg(feature = "csv-storage")]
     #[error("CSV format error")]
     Csv(::csv::Error),
 }
@@ -23,7 +23,7 @@ impl From<SystemTimeInstantError> for Error {
     }
 }
 
-#[cfg(feature = "csv-recording")]
+#[cfg(feature = "csv-storage")]
 impl From<::csv::Error> for Error {
     fn from(from: ::csv::Error) -> Self {
         Self::Csv(from)

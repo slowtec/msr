@@ -15,12 +15,16 @@ anyhow = { version = "1", optional = true }
 bs58 = { version = "0.4", optional = true }
 csv = { version = "1", optional = true }
 serde = { version = "1", optional = true }
+serde_json = { version = "1", optional = true }
 uuid = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
 
 [features]
-default = []
-csv-recording = ["csv", "serde"]
-csv-journaling = ["anyhow", "bs58", "chrono/serde", "csv", "serde", "uuid/v4"]
+# FIXME: Disable all default features before release!
+# Keeping all top-level features enabled by default is convenient during development.
+default = ["csv-journaling", "csv-register-recording"]
+csv-storage = ["csv"]
+csv-journaling = ["anyhow", "bs58", "chrono/serde", "csv-storage", "serde", "uuid/v4"]
+csv-register-recording = ["csv-storage", "serde", "serde_json"]
