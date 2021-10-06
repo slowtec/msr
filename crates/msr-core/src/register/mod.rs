@@ -2,8 +2,6 @@ use std::fmt;
 
 use crate::{time::SystemTimeInstant, Measurement};
 
-pub use crate::{Value, ValueType as Type};
-
 #[cfg(feature = "csv-register-recording")]
 pub mod recording;
 

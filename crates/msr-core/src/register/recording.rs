@@ -20,15 +20,15 @@ use crate::{
         StorageConfig, StorageDescriptor, StorageStatistics, WritableRecordPrelude,
     },
     time::SystemTimeInstant,
-    ScalarType, ScalarValue, ToValueType,
+    ScalarType, ScalarValue, ToValueType, Value, ValueType,
 };
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("mismatching register types: expected = {expected:?}, actual = {actual:?}")]
     MismatchingRegisterTypes {
-        expected: register::Type,
-        actual: register::Type,
+        expected: ValueType,
+        actual: ValueType,
     },
 
     #[error(transparent)]
@@ -178,31 +178,38 @@ fn deserialize_scalar_value() {
     );
 }
 
-impl From<register::Value> for SerdeRegisterValue {
-    fn from(from: register::Value) -> Self {
-        use register::Value as R;
+impl From<ScalarValue> for SerdeRegisterValue {
+    fn from(from: ScalarValue) -> Self {
         use ScalarValue as S;
         match from {
-            R::Scalar(val) => match val {
-                S::Bool(val) => Self::Bool(val),
-                S::I8(val) => Self::I64(i64::from(val)),
-                S::U8(val) => Self::U64(u64::from(val)),
-                S::I16(val) => Self::I64(i64::from(val)),
-                S::U16(val) => Self::U64(u64::from(val)),
-                S::I32(val) => Self::I64(i64::from(val)),
-                S::U32(val) => Self::U64(u64::from(val)),
-                S::F32(val) => Self::F64(f64::from(val)),
-                S::I64(val) => Self::I64(val),
-                S::U64(val) => Self::U64(val),
-                S::F64(val) => Self::F64(val),
-            },
-            R::String(val) => Self::String(val),
-            _ => unimplemented!(),
+            S::Bool(val) => Self::Bool(val),
+            S::I8(val) => Self::I64(i64::from(val)),
+            S::U8(val) => Self::U64(u64::from(val)),
+            S::I16(val) => Self::I64(i64::from(val)),
+            S::U16(val) => Self::U64(u64::from(val)),
+            S::I32(val) => Self::I64(i64::from(val)),
+            S::U32(val) => Self::U64(u64::from(val)),
+            S::F32(val) => Self::F64(f64::from(val)),
+            S::I64(val) => Self::I64(val),
+            S::U64(val) => Self::U64(val),
+            S::F64(val) => Self::F64(val),
         }
     }
 }
 
-impl From<SerdeRegisterValue> for register::Value {
+impl From<Value> for SerdeRegisterValue {
+    fn from(from: Value) -> Self {
+        use Value as V;
+        match from {
+            V::Scalar(val) => Self::from(val),
+            V::String(val) => Self::String(val),
+            V::Duration(_) => unimplemented!(),
+            V::Bytes(_) => unimplemented!(),
+        }
+    }
+}
+
+impl From<SerdeRegisterValue> for crate::Value {
     fn from(from: SerdeRegisterValue) -> Self {
         use ScalarValue as S;
         use SerdeRegisterValue::*;
@@ -263,7 +270,7 @@ impl WritableRecordPrelude for StorageRecord {
 }
 
 struct StorageRecordDeserializer {
-    registers: Vec<(register::Index, register::Type)>,
+    registers: Vec<(register::Index, ValueType)>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -314,7 +321,7 @@ impl csv::StringRecordDeserializer<StorageRecord> for StorageRecordDeserializer 
                 continue;
             }
             let parsed_record_field = match register_type {
-                register::Type::Scalar(t) => match t {
+                ValueType::Scalar(t) => match t {
                     ScalarType::Bool => record_field
                         .parse::<bool>()
                         .map(SerdeRegisterValue::Bool)
@@ -353,7 +360,7 @@ impl csv::StringRecordDeserializer<StorageRecord> for StorageRecordDeserializer 
                         .map_err(|err| err.to_string()),
                     _ => unimplemented!(),
                 },
-                register::Type::String => record_field
+                ValueType::String => record_field
                     .parse::<String>()
                     .map(SerdeRegisterValue::String)
                     .map_err(|err| err.to_string()),
@@ -436,14 +443,14 @@ where
 
 #[allow(missing_debug_implementations)]
 pub struct CsvFileRecordStorage {
-    register_types: Vec<register::Type>,
+    register_types: Vec<ValueType>,
     inner: csv::FileRecordStorageWithDeserializer<StorageRecordDeserializer, StorageRecord>,
 }
 
 impl CsvFileRecordStorage {
     pub fn try_new<I>(config: StorageConfig, base_path: PathBuf, registers_iter: I) -> Result<Self>
     where
-        I: IntoIterator<Item = (register::Index, register::Type)>,
+        I: IntoIterator<Item = (register::Index, ValueType)>,
     {
         let file_name_template = RollingFileNameTemplate {
             prefix: "record_".to_string(),
