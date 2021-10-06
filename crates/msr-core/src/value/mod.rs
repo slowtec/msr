@@ -4,8 +4,8 @@ use std::{fmt, time::Duration};
 mod scalar;
 pub use self::scalar::{Type as ScalarType, Value as ScalarValue};
 
-pub trait ValueToType {
-    fn to_type(&self) -> ValueType;
+pub trait ToValueType {
+    fn to_value_type(&self) -> ValueType;
 }
 
 /// Enumeration of value types
@@ -162,14 +162,14 @@ impl Value {
     }
 }
 
-impl ValueToType for Value {
-    fn to_type(&self) -> ValueType {
+impl ToValueType for Value {
+    fn to_value_type(&self) -> ValueType {
         self.to_type()
     }
 }
 
-impl From<Value> for ValueType {
-    fn from(from: Value) -> Self {
+impl From<&Value> for ValueType {
+    fn from(from: &Value) -> Self {
         from.to_type()
     }
 }

@@ -20,7 +20,7 @@ use crate::{
         StorageConfig, StorageDescriptor, StorageStatistics, WritableRecordPrelude,
     },
     time::SystemTimeInstant,
-    ScalarType, ScalarValue, ValueToType,
+    ScalarType, ScalarValue, ToValueType,
 };
 
 #[derive(Error, Debug)]
@@ -503,7 +503,7 @@ impl RecordStorageBase for CsvFileRecordStorage {
 
 impl<RegisterValue> RecordStorage<RegisterValue> for CsvFileRecordStorage
 where
-    RegisterValue: Into<SerdeRegisterValue> + From<SerdeRegisterValue> + ValueToType,
+    RegisterValue: Into<SerdeRegisterValue> + From<SerdeRegisterValue> + ToValueType,
 {
     fn append_record(
         &mut self,
@@ -516,10 +516,10 @@ where
             .zip(record.observation.register_values.iter())
         {
             if let Some(register_value) = register_value {
-                if *register_type != register_value.to_type() {
+                if *register_type != register_value.to_value_type() {
                     return Err(Error::MismatchingRegisterTypes {
                         expected: *register_type,
-                        actual: register_value.to_type(),
+                        actual: register_value.to_value_type(),
                     });
                 }
             }
