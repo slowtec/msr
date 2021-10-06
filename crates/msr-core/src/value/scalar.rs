@@ -1,10 +1,12 @@
-use std::{convert::TryInto, fmt};
+use std::fmt;
 
 /// Enumeration of scalar value types
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Type {
     Bool,
+    I8,
+    U8,
     I16,
     U16,
     I32,
@@ -16,6 +18,8 @@ pub enum Type {
 }
 
 const TYPE_STR_BOOL: &str = "bool";
+const TYPE_STR_I8: &str = "i8";
+const TYPE_STR_U8: &str = "u8";
 const TYPE_STR_I16: &str = "i16";
 const TYPE_STR_U16: &str = "u16";
 const TYPE_STR_I32: &str = "i32";
@@ -30,6 +34,8 @@ impl Type {
         use Type::*;
         match self {
             Bool => TYPE_STR_BOOL,
+            I8 => TYPE_STR_I8,
+            U8 => TYPE_STR_U8,
             I16 => TYPE_STR_I16,
             U16 => TYPE_STR_U16,
             I32 => TYPE_STR_I32,
@@ -45,6 +51,8 @@ impl Type {
         // TODO: Declare as `const fn` when supported
         match s {
             TYPE_STR_BOOL => Some(Type::Bool),
+            TYPE_STR_I8 => Some(Type::I8),
+            TYPE_STR_U8 => Some(Type::U8),
             TYPE_STR_I16 => Some(Type::I16),
             TYPE_STR_U16 => Some(Type::U16),
             TYPE_STR_I32 => Some(Type::I32),
@@ -78,9 +86,13 @@ impl fmt::Display for Type {
 pub enum Value {
     /// Boolean
     Bool(bool),
+    /// 8-bit signed integer
+    I8(i8),
+    /// 8-bit unsigned integer
+    U8(u8),
     /// 16-bit signed integer
     I16(i16),
-    /// 32-bit unsigned integer
+    /// 16-bit unsigned integer
     U16(u16),
     /// 32-bit signed integer
     I32(i32),
@@ -102,27 +114,27 @@ impl Value {
     }
 
     pub const fn from_i8(val: i8) -> Self {
-        Self::I64(val as i64)
+        Self::I8(val)
     }
 
     pub const fn from_u8(val: u8) -> Self {
-        Self::U64(val as u64)
+        Self::U8(val)
     }
 
     pub const fn from_i16(val: i16) -> Self {
-        Self::I64(val as i64)
+        Self::I16(val)
     }
 
     pub const fn from_u16(val: u16) -> Self {
-        Self::U64(val as u64)
+        Self::U16(val)
     }
 
     pub const fn from_i32(val: i32) -> Self {
-        Self::I64(val as i64)
+        Self::I32(val)
     }
 
     pub const fn from_u32(val: u32) -> Self {
-        Self::U64(val as u64)
+        Self::U32(val)
     }
 
     pub const fn from_i64(val: i64) -> Self {
@@ -134,7 +146,7 @@ impl Value {
     }
 
     pub const fn from_f32(val: f32) -> Self {
-        Self::F64(val as f64)
+        Self::F32(val)
     }
 
     pub const fn from_f64(val: f64) -> Self {
@@ -150,69 +162,98 @@ impl Value {
 
     pub fn to_i8(self) -> Option<i8> {
         match self {
-            Self::I64(val) => val.try_into().ok(),
+            Self::I8(val) => Some(val),
             _ => None,
         }
     }
 
     pub fn to_u8(self) -> Option<u8> {
         match self {
-            Self::U64(val) => val.try_into().ok(),
+            Self::U8(val) => Some(val),
             _ => None,
         }
     }
 
     pub fn to_i16(self) -> Option<i16> {
         match self {
-            Self::I64(val) => val.try_into().ok(),
+            Self::I8(val) => Some(val.into()),
+            Self::U8(val) => Some(val.into()),
+            Self::I16(val) => Some(val),
             _ => None,
         }
     }
 
     pub fn to_u16(self) -> Option<u16> {
         match self {
-            Self::U64(val) => val.try_into().ok(),
+            Self::U8(val) => Some(val.into()),
+            Self::U16(val) => Some(val),
             _ => None,
         }
     }
 
     pub fn to_i32(self) -> Option<i32> {
         match self {
-            Self::I64(val) => val.try_into().ok(),
+            Self::I8(val) => Some(val.into()),
+            Self::U8(val) => Some(val.into()),
+            Self::I16(val) => Some(val.into()),
+            Self::U16(val) => Some(val.into()),
+            Self::I32(val) => Some(val),
             _ => None,
         }
     }
 
     pub fn to_u32(self) -> Option<u32> {
         match self {
-            Self::U64(val) => val.try_into().ok(),
+            Self::U8(val) => Some(val.into()),
+            Self::U16(val) => Some(val.into()),
+            Self::U32(val) => Some(val),
             _ => None,
         }
     }
 
-    pub const fn to_i64(self) -> Option<i64> {
+    pub fn to_i64(self) -> Option<i64> {
         match self {
+            Self::I8(val) => Some(val.into()),
+            Self::U8(val) => Some(val.into()),
+            Self::I16(val) => Some(val.into()),
+            Self::U16(val) => Some(val.into()),
+            Self::I32(val) => Some(val.into()),
+            Self::U32(val) => Some(val.into()),
             Self::I64(val) => Some(val),
             _ => None,
         }
     }
 
-    pub const fn to_u64(self) -> Option<u64> {
+    pub fn to_u64(self) -> Option<u64> {
         match self {
+            Self::U8(val) => Some(val.into()),
+            Self::U16(val) => Some(val.into()),
+            Self::U32(val) => Some(val.into()),
             Self::U64(val) => Some(val),
             _ => None,
         }
     }
 
-    pub const fn to_f32(self) -> Option<f32> {
+    pub fn to_f32(self) -> Option<f32> {
         match self {
-            Self::F64(val) => Some(val as f32),
+            Self::I8(val) => Some(val.into()),
+            Self::U8(val) => Some(val.into()),
+            Self::I16(val) => Some(val.into()),
+            Self::U16(val) => Some(val.into()),
+            Self::F32(val) => Some(val),
             _ => None,
         }
     }
 
-    pub const fn to_f64(self) -> Option<f64> {
+    pub fn to_f64(self) -> Option<f64> {
         match self {
+            Self::I8(val) => Some(val.into()),
+            Self::U8(val) => Some(val.into()),
+            Self::I16(val) => Some(val.into()),
+            Self::U16(val) => Some(val.into()),
+            Self::I32(val) => Some(val.into()),
+            Self::U32(val) => Some(val.into()),
+            Self::F32(val) => Some(val.into()),
             Self::F64(val) => Some(val),
             _ => None,
         }
@@ -224,6 +265,8 @@ impl fmt::Display for Value {
         use Value::*;
         match self {
             Bool(val) => write!(f, "{}", val),
+            I8(val) => write!(f, "{}", val),
+            U8(val) => write!(f, "{}", val),
             I16(val) => write!(f, "{}", val),
             U16(val) => write!(f, "{}", val),
             I32(val) => write!(f, "{}", val),
@@ -241,6 +284,8 @@ impl Value {
         use self::Value::*;
         match self {
             Bool(_) => Type::Bool,
+            I8(_) => Type::I8,
+            U8(_) => Type::U8,
             I16(_) => Type::I16,
             U16(_) => Type::U16,
             I32(_) => Type::I32,
@@ -261,43 +306,67 @@ impl From<Value> for Type {
 
 impl From<bool> for Value {
     fn from(from: bool) -> Self {
-        Self::Bool(from)
+        Self::from_bool(from)
     }
 }
 
-impl From<i64> for Value {
-    fn from(from: i64) -> Self {
-        Self::I64(from)
+impl From<i8> for Value {
+    fn from(from: i8) -> Self {
+        Self::from_i8(from)
     }
 }
 
-impl From<u64> for Value {
-    fn from(from: u64) -> Self {
-        Self::U64(from)
+impl From<u8> for Value {
+    fn from(from: u8) -> Self {
+        Self::from_u8(from)
     }
 }
 
-impl From<f64> for Value {
-    fn from(from: f64) -> Self {
-        Self::F64(from)
+impl From<i16> for Value {
+    fn from(from: i16) -> Self {
+        Self::from_i16(from)
+    }
+}
+
+impl From<u16> for Value {
+    fn from(from: u16) -> Self {
+        Self::from_u16(from)
     }
 }
 
 impl From<i32> for Value {
     fn from(from: i32) -> Self {
-        Self::I32(from)
+        Self::from_i32(from)
     }
 }
 
 impl From<u32> for Value {
     fn from(from: u32) -> Self {
-        Self::U32(from)
+        Self::from_u32(from)
     }
 }
 
 impl From<f32> for Value {
     fn from(from: f32) -> Self {
-        Self::F32(from)
+        Self::from_f32(from)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(from: i64) -> Self {
+        Self::from_i64(from)
+    }
+}
+
+impl From<u64> for Value {
+    fn from(from: u64) -> Self {
+        Self::from_u64(from)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(from: f64) -> Self {
+        Self::from_f64(from)
     }
 }
 
@@ -309,11 +378,30 @@ mod tests {
     fn value_types() {
         assert_eq!(Type::Bool, Value::from(true).to_type());
         assert_eq!(Type::Bool, Value::from(false).to_type());
+        assert_eq!(Type::I8, Value::from(-123i8).to_type());
+        assert_eq!(Type::U8, Value::from(123u8).to_type());
+        assert_eq!(Type::I16, Value::from(-123i16).to_type());
+        assert_eq!(Type::U16, Value::from(123u16).to_type());
         assert_eq!(Type::I32, Value::from(-123i32).to_type());
         assert_eq!(Type::U32, Value::from(123u32).to_type());
         assert_eq!(Type::F32, Value::from(1.234_f32).to_type());
         assert_eq!(Type::I64, Value::from(-123i64).to_type());
         assert_eq!(Type::U64, Value::from(123u64).to_type());
         assert_eq!(Type::F64, Value::from(1.234).to_type());
+    }
+
+    #[test]
+    fn try_type_from_str() {
+        assert_eq!(Some(Type::Bool), Type::try_from_str(TYPE_STR_BOOL));
+        assert_eq!(Some(Type::I8), Type::try_from_str(TYPE_STR_I8));
+        assert_eq!(Some(Type::U8), Type::try_from_str(TYPE_STR_U8));
+        assert_eq!(Some(Type::I16), Type::try_from_str(TYPE_STR_I16));
+        assert_eq!(Some(Type::U16), Type::try_from_str(TYPE_STR_U16));
+        assert_eq!(Some(Type::I32), Type::try_from_str(TYPE_STR_I32));
+        assert_eq!(Some(Type::U32), Type::try_from_str(TYPE_STR_U32));
+        assert_eq!(Some(Type::F32), Type::try_from_str(TYPE_STR_F32));
+        assert_eq!(Some(Type::I64), Type::try_from_str(TYPE_STR_I64));
+        assert_eq!(Some(Type::U64), Type::try_from_str(TYPE_STR_U64));
+        assert_eq!(Some(Type::F64), Type::try_from_str(TYPE_STR_F64));
     }
 }

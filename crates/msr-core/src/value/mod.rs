@@ -20,6 +20,7 @@ pub enum ValueType {
     Bytes,
 }
 
+// TODO: Use short identifiers?
 const TYPE_STR_DURATION: &str = "duration";
 const TYPE_STR_STRING: &str = "string";
 const TYPE_STR_BYTES: &str = "bytes";
@@ -47,6 +48,17 @@ impl ValueType {
             Self::String => TYPE_STR_STRING,
             Self::Bytes => TYPE_STR_BYTES,
         }
+    }
+
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        ScalarType::try_from_str(s)
+            .map(Into::into)
+            .or_else(|| match s {
+                TYPE_STR_DURATION => Some(Self::Duration),
+                TYPE_STR_STRING => Some(Self::String),
+                TYPE_STR_BYTES => Some(Self::Bytes),
+                _ => None,
+            })
     }
 }
 
