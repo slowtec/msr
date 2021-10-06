@@ -10,6 +10,7 @@ pub use self::{
 
 pub mod audit;
 pub mod io;
+pub mod register;
 pub mod storage;
 pub mod time;
 
