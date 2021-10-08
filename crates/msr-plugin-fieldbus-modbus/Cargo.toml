@@ -1,0 +1,12 @@
+[package]
+name = "msr-plugin-fieldbus-modbus"
+version = "0.0.0"
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+msr-core = { path = "../msr-core" }
+msr-plugin = { path = "../msr-plugin" }
+thiserror = "1"
+tokio = { version = "1", default_features = false, features = ["sync", "macros"] }
+tokio-modbus = "0.5"
