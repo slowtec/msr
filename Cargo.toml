@@ -3,7 +3,8 @@ members = [
   "crates/msr",
   "crates/msr-core",
   "crates/msr-legacy",
-  "crates/msr-plugin"
+  "crates/msr-plugin",
+  "plugins/csv-event-journal-msr-plugin",
 ]
 
 [patch.crates-io]
@@ -11,3 +12,4 @@ msr = { path = "crates/msr" }
 msr-core = { path = "crates/msr-core" }
 msr-legacy = { path = "crates/msr-legacy" }
 msr-plugin = { path = "crates/msr-plugin" }
+csv-event-journal-msr-plugin = { path = "plugins/csv-event-journal-msr-plugin" }

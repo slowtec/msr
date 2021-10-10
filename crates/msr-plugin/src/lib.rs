@@ -1,6 +1,11 @@
 use msr_core::audit::Activity;
-use std::{fmt, future::Future, pin::Pin};
-use tokio::sync::{broadcast, mpsc, oneshot};
+use std::{error::Error as StdError, fmt, future::Future, pin::Pin};
+use thiserror::Error;
+use tokio::sync::{
+    broadcast,
+    mpsc::{self, error::SendError},
+    oneshot,
+};
 
 // ------ -------
 //  Plugin shape
@@ -41,6 +46,17 @@ pub struct PluginPorts<M, P, E> {
     pub message_tx: MessageSender<M>,
     pub event_subscriber: EventSubscriber<P, E>,
 }
+
+#[derive(Error, Debug)]
+pub enum PluginError<E: StdError> {
+    #[error("communication error")]
+    Communication,
+
+    #[error("internal error: {0}")]
+    Internal(E),
+}
+
+pub type PluginResult<T, E> = Result<T, PluginError<E>>;
 
 // ------ -------
 //   Messages
@@ -167,4 +183,74 @@ where
             log::debug!("No subscribers for published event {:?}", event);
         }
     }
+}
+
+pub fn send_message<M, E>(
+    message: impl Into<M>,
+    message_tx: &MessageSender<M>,
+) -> PluginResult<(), E>
+where
+    M: fmt::Debug,
+    E: StdError,
+{
+    message_tx.send(message.into()).map_err(|send_error| {
+        let SendError(message) = send_error;
+        log::error!("Unexpected send error: Dropping message {:?}", message);
+        PluginError::Communication
+    })
+}
+
+pub fn send_reply<R>(reply_tx: ReplySender<R>, reply: impl Into<R>)
+where
+    R: fmt::Debug,
+{
+    if let Err(reply) = reply_tx.send(reply.into()) {
+        // Not an error, may occur if the receiver side has already been dropped
+        log::info!("Unexpected send error: Dropping reply {:?}", reply);
+    }
+}
+
+pub async fn receive_reply<R, E>(reply_rx: ReplyReceiver<R>) -> PluginResult<R, E>
+where
+    E: StdError,
+{
+    reply_rx.await.map_err(|receive_error| {
+        log::error!("No reply received: {}", receive_error);
+        PluginError::Communication
+    })
+}
+
+pub async fn send_message_receive_reply<M, R, E>(
+    message: impl Into<M>,
+    message_tx: &MessageSender<M>,
+    reply_rx: ReplyReceiver<R>,
+) -> PluginResult<R, E>
+where
+    M: fmt::Debug,
+    E: StdError,
+{
+    send_message(message, message_tx)?;
+    receive_reply(reply_rx).await
+}
+
+pub async fn receive_result<R, E>(result_rx: ResultReceiver<R, E>) -> PluginResult<R, E>
+where
+    E: StdError,
+{
+    receive_reply(result_rx)
+        .await?
+        .map_err(PluginError::Internal)
+}
+
+pub async fn send_message_receive_result<M, R, E>(
+    message: impl Into<M>,
+    message_tx: &MessageSender<M>,
+    result_rx: ResultReceiver<R, E>,
+) -> PluginResult<R, E>
+where
+    M: fmt::Debug,
+    E: StdError,
+{
+    send_message(message, message_tx)?;
+    receive_result(result_rx).await
 }

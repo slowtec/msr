@@ -1,6 +1,6 @@
 [package]
 name = "msr-plugin"
-description = "Industrial Automation Toolbox - Plugins"
+description = "Industrial Automation Toolbox - Plugin Foundation"
 license = "MIT/Apache-2.0"
 edition = "2018"
 version = "0.3.0"
@@ -11,4 +11,5 @@ msr-core = "*"
 
 # Other
 log = "0.4"
+thiserror = "1"
 tokio = { version = "1", default_features = false, features = ["sync"] }

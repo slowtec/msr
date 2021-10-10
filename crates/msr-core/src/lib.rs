@@ -10,5 +10,5 @@ pub mod register;
 pub mod storage;
 pub mod time;
 
-#[cfg(feature = "csv-journaling")]
-pub mod journal;
+#[cfg(feature = "csv-event-journal")]
+pub mod csv_event_journal;

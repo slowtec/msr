@@ -1,6 +1,6 @@
 [package]
 name = "msr-core"
-description = "Industrial Automation Toolbox - Core"
+description = "Industrial Automation Toolbox - Core Components"
 license = "MIT/Apache-2.0"
 edition = "2018"
 version = "0.3.0"
@@ -24,7 +24,7 @@ tempfile = "3"
 [features]
 # FIXME: Disable all default features before release!
 # Keeping all top-level features enabled by default is convenient during development.
-default = ["csv-journaling", "csv-register-recording"]
+default = ["csv-event-journal", "csv-register-recording"]
 csv-storage = ["csv"]
-csv-journaling = ["anyhow", "bs58", "chrono/serde", "csv-storage", "serde", "uuid/v4"]
+csv-event-journal = ["anyhow", "bs58", "chrono/serde", "csv-storage", "serde", "uuid/v4"]
 csv-register-recording = ["csv-storage", "serde", "serde_json"]
