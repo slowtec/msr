@@ -5,6 +5,7 @@ members = [
   "crates/msr-legacy",
   "crates/msr-plugin",
   "plugins/csv-event-journal-msr-plugin",
+  "plugins/csv-register-recorder-msr-plugin",
 ]
 
 [patch.crates-io]
@@ -13,3 +14,4 @@ msr-core = { path = "crates/msr-core" }
 msr-legacy = { path = "crates/msr-legacy" }
 msr-plugin = { path = "crates/msr-plugin" }
 csv-event-journal-msr-plugin = { path = "plugins/csv-event-journal-msr-plugin" }
+csv-register-recorder-msr-plugin = { path = "plugins/csv-register-recorder-msr-plugin" }

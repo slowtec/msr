@@ -1,0 +1,18 @@
+[package]
+name = "csv-register-recorder-msr-plugin"
+version = "0.0.0"
+description = "slowtec Industrial Automation Runtime - CSV Register Recorder Plugins"
+authors = ["slowtec GmbH <post@slowtec.de>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+anyhow = "*"
+bs58 = "*"
+log = "*"
+thiserror = "*"
+tokio = { version = "*", default_features = false, features = ["rt-multi-thread"] }
+
+# Workspace dependencies
+msr-core = "*"
+msr-plugin = "*"
