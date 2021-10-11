@@ -1,6 +1,16 @@
+use tokio::task;
+
 use msr_plugin::send_reply;
 
-use super::*;
+use crate::{
+    api::{
+        event::LifecycleEvent, query, Config, Event, ObservedRegisterValues, RegisterGroupConfig,
+        RegisterGroupId, State, Status, StoredRegisterRecord,
+    },
+    EventPubSub, ResultSender,
+};
+
+use super::context::Context;
 
 pub fn command_replace_config(
     context: &mut Context,
@@ -108,10 +118,10 @@ pub fn query_register_group_config(
 pub fn query_status(
     context: &mut Context,
     reply_tx: ResultSender<Status>,
-    request: QueryStatusRequest,
+    request: query::StatusRequest,
 ) {
     let response = task::block_in_place(|| {
-        let QueryStatusRequest {
+        let query::StatusRequest {
             with_register_groups,
             with_storage_statistics,
         } = request;
@@ -127,12 +137,12 @@ pub fn query_status(
 
 pub fn query_recent_records(
     context: &mut Context,
-    reply_tx: ResultSender<Vec<StoredRecord>>,
+    reply_tx: ResultSender<Vec<StoredRegisterRecord>>,
     register_group_id: &RegisterGroupId,
-    request: RecentRecordsRequest,
+    request: query::RecentRecordsRequest,
 ) {
     let response = task::block_in_place(|| {
-        let RecentRecordsRequest { limit } = request;
+        let query::RecentRecordsRequest { limit } = request;
         context
             .recent_records(register_group_id, limit)
             .map_err(|err| {
@@ -145,12 +155,12 @@ pub fn query_recent_records(
 
 pub fn query_filter_records(
     context: &mut Context,
-    reply_tx: ResultSender<Vec<StoredRecord>>,
+    reply_tx: ResultSender<Vec<StoredRegisterRecord>>,
     register_group_id: &RegisterGroupId,
-    request: FilterRecordsRequest,
+    request: query::FilterRecordsRequest,
 ) {
     let response = task::block_in_place(|| {
-        let FilterRecordsRequest { limit, filter } = request;
+        let query::FilterRecordsRequest { limit, filter } = request;
         context
             .filter_records(register_group_id, limit, &filter)
             .map_err(|err| {

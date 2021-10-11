@@ -1,21 +1,21 @@
+use std::path::PathBuf;
+
 use msr_plugin::{message_channel, MessageLoop};
 
 use crate::{
     api::{event::LifecycleEvent, Command, Config, Event, Message, Query, State},
-    Environment, EventPubSub, Result,
+    EventPubSub, MessageSender, Result,
 };
 
-use super::{context::Context, invoke_context_from_plugin, MessageSender};
+use super::{context::Context, invoke_context_from_message_loop};
 
 pub fn create_message_loop(
-    environment: Environment,
+    data_dir: PathBuf,
+    event_pubsub: EventPubSub,
     initial_config: Config,
     initial_state: State,
-    journal_scope: String,
-    event_pubsub: EventPubSub,
 ) -> Result<(MessageLoop, MessageSender)> {
     let (message_tx, mut message_rx) = message_channel();
-    let Environment { data_dir } = environment;
     let mut context = Context::try_new(data_dir, initial_config, initial_state)?;
     let message_loop = async move {
         let mut exit_message_loop = false;
@@ -27,7 +27,7 @@ pub fn create_message_loop(
                     log::trace!("Received command {:?}", command);
                     match command {
                         Command::ReplaceConfig(reply_tx, new_config) => {
-                            invoke_context_from_plugin::command_replace_config(
+                            invoke_context_from_message_loop::command_replace_config(
                                 &mut context,
                                 &event_pubsub,
                                 reply_tx,
@@ -35,7 +35,7 @@ pub fn create_message_loop(
                             );
                         }
                         Command::SwitchState(reply_tx, new_state) => {
-                            invoke_context_from_plugin::command_switch_state(
+                            invoke_context_from_message_loop::command_switch_state(
                                 &mut context,
                                 &event_pubsub,
                                 reply_tx,
@@ -43,7 +43,7 @@ pub fn create_message_loop(
                             );
                         }
                         Command::RecordEntry(reply_tx, new_entry) => {
-                            invoke_context_from_plugin::command_record_entry(
+                            invoke_context_from_message_loop::command_record_entry(
                                 &mut context,
                                 &event_pubsub,
                                 reply_tx,
@@ -51,10 +51,9 @@ pub fn create_message_loop(
                             );
                         }
                         Command::Shutdown(reply_tx) => {
-                            invoke_context_from_plugin::command_shutdown(
+                            invoke_context_from_message_loop::command_shutdown(
                                 &mut context,
                                 reply_tx,
-                                &journal_scope,
                             );
                             exit_message_loop = true;
                         }
@@ -64,24 +63,24 @@ pub fn create_message_loop(
                     log::debug!("Received query {:?}", query);
                     match query {
                         Query::Config(reply_tx) => {
-                            invoke_context_from_plugin::query_config(&context, reply_tx);
+                            invoke_context_from_message_loop::query_config(&context, reply_tx);
                         }
                         Query::Status(reply_tx, request) => {
-                            invoke_context_from_plugin::query_status(
+                            invoke_context_from_message_loop::query_status(
                                 &mut context,
                                 reply_tx,
                                 request,
                             );
                         }
                         Query::RecentRecords(reply_tx, request) => {
-                            invoke_context_from_plugin::query_recent_records(
+                            invoke_context_from_message_loop::query_recent_records(
                                 &mut context,
                                 reply_tx,
                                 request,
                             );
                         }
                         Query::FilterRecords(reply_tx, request) => {
-                            invoke_context_from_plugin::query_filter_records(
+                            invoke_context_from_message_loop::query_filter_records(
                                 &mut context,
                                 reply_tx,
                                 request,

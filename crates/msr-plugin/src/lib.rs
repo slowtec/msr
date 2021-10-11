@@ -1,11 +1,13 @@
-use msr_core::audit::Activity;
 use std::{error::Error as StdError, fmt, future::Future, pin::Pin};
+
 use thiserror::Error;
 use tokio::sync::{
     broadcast,
     mpsc::{self, error::SendError},
     oneshot,
 };
+
+use msr_core::audit::Activity;
 
 // ------ -------
 //  Plugin shape
@@ -14,24 +16,25 @@ use tokio::sync::{
 pub trait Plugin {
     type Message;
     type Event;
-    fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message>;
-    fn subscribe_events(&self) -> broadcast::Receiver<Self::Event>;
+    fn message_sender(&self) -> MessageSender<Self::Message>;
+    fn subscribe_events(&self) -> BroadcastReceiver<Self::Event>;
     fn run(self) -> MessageLoop;
 }
 
 #[allow(missing_debug_implementations)]
-pub struct PluginContainer<M, P, E> {
-    pub ports: PluginPorts<M, P, E>,
+pub struct PluginContainer<M, E> {
+    pub ports: PluginPorts<M, E>,
     pub message_loop: MessageLoop,
 }
 
-impl<M, P, E> Plugin for PluginContainer<M, P, E> {
+impl<M, E> Plugin for PluginContainer<M, E> {
     type Message = M;
-    type Event = PublishedEvent<P, E>;
-    fn message_sender(&self) -> mpsc::UnboundedSender<Self::Message> {
+    type Event = PublishedEvent<E>;
+
+    fn message_sender(&self) -> MessageSender<Self::Message> {
         self.ports.message_tx.clone()
     }
-    fn subscribe_events(&self) -> broadcast::Receiver<Self::Event> {
+    fn subscribe_events(&self) -> BroadcastReceiver<Self::Event> {
         self.ports.event_subscriber.subscribe()
     }
     fn run(self) -> MessageLoop {
@@ -42,9 +45,9 @@ impl<M, P, E> Plugin for PluginContainer<M, P, E> {
 pub type MessageLoop = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 #[allow(missing_debug_implementations)]
-pub struct PluginPorts<M, P, E> {
+pub struct PluginPorts<M, E> {
     pub message_tx: MessageSender<M>,
-    pub event_subscriber: EventSubscriber<P, E>,
+    pub event_subscriber: EventSubscriber<E>,
 }
 
 #[derive(Error, Debug)]
@@ -63,8 +66,8 @@ pub type PluginResult<T, E> = Result<T, PluginError<E>>;
 // ------ -------
 
 // TODO: Use bounded channels for backpressure?
-type MessageSender<T> = mpsc::UnboundedSender<T>;
-type MessageReceiver<T> = mpsc::UnboundedReceiver<T>;
+pub type MessageSender<T> = mpsc::UnboundedSender<T>;
+pub type MessageReceiver<T> = mpsc::UnboundedReceiver<T>;
 
 pub fn message_channel<T>() -> (MessageSender<T>, MessageReceiver<T>) {
     mpsc::unbounded_channel()
@@ -119,49 +122,84 @@ where
 //    Events
 // ----- ------
 
-#[derive(Debug, Clone)]
-pub struct PublishedEvent<P, T> {
-    pub published: Activity<P>,
-    pub payload: T,
+/// Internal index into a lookup table with event publisher metadata
+pub type EventPublisherIndexValue = usize;
+
+/// Numeric identifier of an event publisher control cycle
+///
+/// Uniquely identifies an event publisher in the system at runtime.
+///
+/// The value is supposed to be used as a key or index to retrieve
+/// extended metadata for an event publisher that does not need to
+/// be sent with every event. This metadata is probably immutable.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct EventPublisherIndex(EventPublisherIndexValue);
+
+impl EventPublisherIndex {
+    pub const fn from_value(value: EventPublisherIndexValue) -> Self {
+        Self(value)
+    }
+
+    pub const fn to_value(self) -> EventPublisherIndexValue {
+        self.0
+    }
 }
 
-pub type EventSender<P, T> = broadcast::Sender<PublishedEvent<P, T>>;
-pub type EventReceiver<P, T> = broadcast::Receiver<PublishedEvent<P, T>>;
-pub type EventSubscriber<P, T> = BroadcastSubscriber<PublishedEvent<P, T>>;
+impl From<EventPublisherIndexValue> for EventPublisherIndex {
+    fn from(from: EventPublisherIndexValue) -> Self {
+        Self::from_value(from)
+    }
+}
 
-pub fn event_channel<P, T>(channel_capacity: usize) -> (EventSender<P, T>, EventSubscriber<P, T>)
+impl From<EventPublisherIndex> for EventPublisherIndexValue {
+    fn from(from: EventPublisherIndex) -> Self {
+        from.to_value()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PublishedEvent<E> {
+    pub published: Activity<EventPublisherIndex>,
+    pub payload: E,
+}
+
+pub type EventSender<E> = broadcast::Sender<PublishedEvent<E>>;
+pub type EventReceiver<E> = broadcast::Receiver<PublishedEvent<E>>;
+pub type EventSubscriber<E> = BroadcastSubscriber<PublishedEvent<E>>;
+
+pub fn event_channel<E>(channel_capacity: usize) -> (EventSender<E>, EventSubscriber<E>)
 where
-    P: Clone,
-    T: Clone,
+    E: Clone,
 {
     broadcast_channel(channel_capacity)
 }
 
 #[derive(Debug, Clone)]
-pub struct EventPubSub<P, E> {
-    publisher: P,
-    event_tx: EventSender<P, E>,
+pub struct EventPubSub<E> {
+    publisher_index: EventPublisherIndex,
+    event_tx: EventSender<E>,
 }
 
-impl<P, T> EventPubSub<P, T>
+impl<E> EventPubSub<E>
 where
-    P: fmt::Debug + Clone,
-    T: fmt::Debug + Clone,
+    E: fmt::Debug + Clone,
 {
-    pub fn new(publisher: impl Into<P>, channel_capacity: usize) -> (Self, EventSubscriber<P, T>) {
+    pub fn new(
+        publisher_index: impl Into<EventPublisherIndex>,
+        channel_capacity: usize,
+    ) -> (Self, EventSubscriber<E>) {
         let (event_tx, event_subscriber) = event_channel(channel_capacity);
         (
             Self {
+                publisher_index: publisher_index.into(),
                 event_tx,
-                publisher: publisher.into(),
             },
             event_subscriber,
         )
     }
 
-    pub fn publish_event(&self, payload: T) {
-        let publisher = self.publisher.clone();
-        let published = Activity::now(publisher);
+    pub fn publish_event(&self, payload: E) {
+        let published = Activity::now(self.publisher_index);
         let event = PublishedEvent { published, payload };
         self.dispatch_event(event);
     }
@@ -171,12 +209,11 @@ pub trait EventDispatcher<E> {
     fn dispatch_event(&self, event: E);
 }
 
-impl<P, T> EventDispatcher<PublishedEvent<P, T>> for EventPubSub<P, T>
+impl<E> EventDispatcher<PublishedEvent<E>> for EventPubSub<E>
 where
-    P: fmt::Debug + Clone,
-    T: fmt::Debug + Clone,
+    E: fmt::Debug + Clone,
 {
-    fn dispatch_event(&self, event: PublishedEvent<P, T>) {
+    fn dispatch_event(&self, event: PublishedEvent<E>) {
         if let Err(event) = self.event_tx.send(event) {
             // Ignore all send errors that are expected if no subscribers
             // are connected.
@@ -184,6 +221,10 @@ where
         }
     }
 }
+
+// --------- -----------
+//   Utility functions
+// --------- -----------
 
 pub fn send_message<M, E>(
     message: impl Into<M>,

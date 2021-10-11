@@ -1,61 +1,33 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt, fs,
-    io::Error as IoError,
     num::NonZeroUsize,
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
-use thiserror::Error;
-
 use msr_core::{
-    register::recording::{
-        CsvFileRecordStorage, Error as RecordError, RecordPrelude, RecordStorage as _,
-        StoredRecordPrelude,
+    register::{
+        recording::{
+            CsvFileRecordStorage, RecordPrelude, RecordStorage as _,
+            StoredRecordPrelude as StoredRegisterRecordPrelude,
+        },
+        Index as RegisterIndex,
     },
-    storage::RecordStorageBase,
-    time::SystemTimeInstant,
-};
-
-pub use msr_core::{
-    csv_event_journal::Severity,
-    register::Index as RegisterIndex,
     storage::{
-        CreatedAtOffset, Error as StorageError, MemorySize, RecordPreludeFilter,
-        Result as StorageResult, StorageConfig, StorageSegmentConfig, StorageStatus, TimeInterval,
-        WritableRecordPrelude,
+        RecordPreludeFilter, RecordStorageBase, Result as StorageResult, StorageConfig,
+        StorageStatus,
     },
+    time::SystemTimeInstant,
     ScalarType, ScalarValue,
 };
 
-pub use crate::register::{
-    GroupId as RegisterGroupId, ObservedRegisterValues, Record, StoredRecord, Type as RegisterType,
-    Value as RegisterValue,
+use crate::{
+    api::{
+        ObservedRegisterValues, RegisterGroupId, RegisterRecord, RegisterType, StoredRegisterRecord,
+    },
+    Error, Result,
 };
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("register group not configured")]
-    RegisterGroupUnknown,
-
-    #[error("invalid data format")]
-    DataFormatInvalid,
-
-    #[error(transparent)]
-    Io(#[from] IoError),
-
-    #[error(transparent)]
-    Record(#[from] RecordError),
-
-    #[error(transparent)]
-    Storage(#[from] StorageError),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct PartitionId(String);
@@ -186,15 +158,15 @@ impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
 }
 
 pub trait RecordRepo {
-    fn append_record(&mut self, record: Record) -> Result<()>;
+    fn append_record(&mut self, record: RegisterRecord) -> Result<()>;
 
-    fn recent_records(&self, limit: NonZeroUsize) -> Result<Vec<StoredRecord>>;
+    fn recent_records(&self, limit: NonZeroUsize) -> Result<Vec<StoredRegisterRecord>>;
 
     fn filter_records(
         &self,
         limit: NonZeroUsize,
         filter: RecordPreludeFilter,
-    ) -> Result<Vec<StoredRecord>>;
+    ) -> Result<Vec<StoredRegisterRecord>>;
 
     fn total_record_count(&self) -> usize;
 }
@@ -261,7 +233,7 @@ impl Context {
             for (id, context) in &mut self.register_groups {
                 let status = context
                     .status(with_storage_statistics)
-                    .map_err(Error::Storage)?;
+                    .map_err(Error::MsrStorage)?;
                 register_groups.insert(id.clone(), status);
             }
             Some(register_groups)
@@ -278,7 +250,7 @@ impl Context {
         &mut self,
         register_group_id: &RegisterGroupId,
         limit: NonZeroUsize,
-    ) -> Result<Vec<StoredRecord>> {
+    ) -> Result<Vec<StoredRegisterRecord>> {
         let context = self
             .register_groups
             .get_mut(register_group_id)
@@ -291,7 +263,7 @@ impl Context {
         register_group_id: &RegisterGroupId,
         limit: NonZeroUsize,
         filter: &RecordPreludeFilter,
-    ) -> Result<Vec<StoredRecord>> {
+    ) -> Result<Vec<StoredRegisterRecord>> {
         let context = self
             .register_groups
             .get_mut(register_group_id)
@@ -389,7 +361,7 @@ impl Context {
         &mut self,
         register_group_id: &RegisterGroupId,
         observed_register_values: ObservedRegisterValues,
-    ) -> Result<Option<StoredRecordPrelude>> {
+    ) -> Result<Option<StoredRegisterRecordPrelude>> {
         match self.state {
             State::Inactive => {
                 log::debug!(
@@ -443,7 +415,7 @@ impl Context {
                     .ok_or(Error::RegisterGroupUnknown)?;
                 DefaultRecordPreludeGenerator.generate_prelude().and_then(
                     |(created_at, prelude)| {
-                        let new_record = Record {
+                        let new_record = RegisterRecord {
                             prelude,
                             observation: observed_register_values,
                         };
@@ -496,7 +468,7 @@ impl Context {
                     Some(ScalarValue::I64(-1).into()),
                     Some(ScalarValue::U64(1).into()),
                     Some(ScalarValue::F64(-1.125).into()),
-                    Some(RegisterValue::String("Hello".to_string())),
+                    Some("Hello".to_owned().into()),
                 ],
             },
             ObservedRegisterValues {
@@ -506,7 +478,7 @@ impl Context {
                     Some(ScalarValue::I64(1).into()),
                     None,
                     Some(ScalarValue::F64(1.125).into()),
-                    Some(RegisterValue::String(", world!".to_string())),
+                    Some(", world!".to_owned().into()),
                 ],
             },
             ObservedRegisterValues {

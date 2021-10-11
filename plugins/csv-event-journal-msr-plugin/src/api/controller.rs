@@ -1,9 +1,10 @@
 use msr_core::csv_event_journal::{Entry, StoredRecord};
+
 use msr_plugin::{reply_channel, send_message_receive_result};
 
-use crate::internal::MessageSender;
+use crate::{MessageSender, PluginResult};
 
-use super::{query, Command, Config, PluginResult, Query, RecordEntryOutcome, State, Status};
+use super::{query, Command, Config, Query, RecordEntryOutcome, State, Status};
 
 /// Remote controller for the plugin
 ///

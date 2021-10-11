@@ -2,6 +2,7 @@
 
 use std::{
     convert::{TryFrom, TryInto},
+    fmt,
     num::NonZeroUsize,
     path::PathBuf,
     time::SystemTime,
@@ -157,6 +158,19 @@ impl From<Scope> for ScopeValue {
     fn from(from: Scope) -> Self {
         let Scope(inner) = from;
         inner
+    }
+}
+
+impl AsRef<ScopeValue> for Scope {
+    fn as_ref(&self) -> &ScopeValue {
+        let Self(inner) = self;
+        inner
+    }
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

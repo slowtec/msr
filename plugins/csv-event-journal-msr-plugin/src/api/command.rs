@@ -1,6 +1,8 @@
 use msr_core::csv_event_journal::Entry;
 
-use super::{Config, RecordEntryOutcome, ResultSender, State};
+use crate::ResultSender;
+
+use super::{Config, RecordEntryOutcome, State};
 
 #[derive(Debug)]
 pub enum Command {

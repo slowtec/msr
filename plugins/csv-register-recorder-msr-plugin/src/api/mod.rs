@@ -1,6 +1,10 @@
 // Re-export internal types that are used in the public API
-pub use crate::internal::context::{
-    Config, EntryNotRecorded, EntryRecorded, RecordEntryOutcome, State, Status,
+pub use crate::internal::{
+    context::{Config, RegisterGroupConfig, RegisterGroupStatus, State, Status},
+    register::{
+        GroupId as RegisterGroupId, GroupIdValue as RegisterGroupIdValue, ObservedRegisterValues, Record as RegisterRecord,
+        StoredRecord as StoredRegisterRecord, Type as RegisterType, Value as RegisterValue,
+    },
 };
 
 pub mod controller;

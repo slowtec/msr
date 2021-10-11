@@ -1,8 +1,6 @@
-use std::time::SystemTime;
-
 use tokio::task;
 
-use msr_core::csv_event_journal::{Entry, Error, Scope, Severity, StoredRecord};
+use msr_core::csv_event_journal::{Entry, Error, StoredRecord};
 
 use msr_plugin::send_reply;
 
@@ -11,7 +9,7 @@ use crate::{
         event::{IncidentEvent, LifecycleEvent},
         query, Config, Event, RecordEntryOutcome, State, Status,
     },
-    EventPubSub, JournalCodes, ResultSender,
+    EventPubSub, ResultSender,
 };
 
 use super::context::Context;
@@ -79,20 +77,7 @@ pub fn command_record_entry(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
-pub fn command_shutdown(context: &mut Context, reply_tx: ResultSender<()>, journal_scope: &str) {
-    let _ = task::block_in_place(|| {
-        let new_entry = Entry {
-            occurred_at: SystemTime::now(),
-            scope: Scope(journal_scope.to_string()),
-            code: JournalCodes::STOPPING,
-            severity: Severity::Information,
-            text: Some("Stopping".to_string()),
-            json: None,
-        };
-        context.record_entry(new_entry).map_err(|err| {
-            log::warn!("Failed to record entry about stopping: {}", err);
-        })
-    });
+pub fn command_shutdown(_context: &mut Context, reply_tx: ResultSender<()>) {
     send_reply(reply_tx, Ok(()));
 }
 

@@ -1,15 +1,7 @@
 use std::fmt;
 
-use msr_core::Measurement;
-
 // Re-exports
 pub use msr_core::{register::Index, Value, ValueType as Type};
-
-// Generic re-exports of msr-core, specialized with concrete value type
-pub type ValueMeasurement = Measurement<Value>;
-pub type IndexedValueMeasurement = msr_core::register::IndexedMeasurement<Value>;
-pub type ObservedValue = msr_core::register::ObservedValue<Value>;
-pub type ObservedValues = msr_core::register::ObservedValues<Value>;
 
 pub type ObservedRegisterValues = msr_core::register::recording::ObservedRegisterValues<Value>;
 pub type Record = msr_core::register::recording::Record<Value>;

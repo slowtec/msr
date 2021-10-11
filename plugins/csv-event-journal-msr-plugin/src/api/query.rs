@@ -2,7 +2,9 @@ use std::num::NonZeroUsize;
 
 use msr_core::csv_event_journal::{RecordFilter, StoredRecord};
 
-use super::{Config, ResultSender, Status};
+use crate::ResultSender;
+
+use super::{Config, Status};
 
 #[derive(Debug)]
 pub enum Query {

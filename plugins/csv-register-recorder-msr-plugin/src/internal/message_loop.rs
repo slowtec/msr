@@ -2,38 +2,20 @@ use std::path::{Path, PathBuf};
 
 use tokio::task;
 
-use msr_plugin::{message_channel, send_reply};
+use msr_plugin::{message_channel, send_reply, MessageLoop};
 
-use crate::register::GroupId as RegisterGroupId;
+use crate::{
+    api::{
+        event::{LifecycleEvent, NotificationEvent},
+        Command, Config, Event, Message, Query, RegisterGroupId, State,
+    },
+    EventPubSub, MessageSender, Result,
+};
 
-use super::{context::Context, *};
-
-mod handlers;
-
-pub const DEFAULT_JOURNAL_SCOPE: &str = "slowrt.plugin.msr.recorder";
-
-pub const DEFAULT_EVENT_PUBLISHER_ID: &str = DEFAULT_JOURNAL_SCOPE;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PluginConfig {
-    pub initial_config: Config,
-    pub event_publisher_id: EventPublisherId,
-}
-
-impl Default for PluginConfig {
-    fn default() -> Self {
-        Self {
-            initial_config: Config {
-                default_storage: default_storage_config(),
-                register_groups: Default::default(),
-            },
-            event_publisher_id: DEFAULT_EVENT_PUBLISHER_ID.to_owned(),
-        }
-    }
-}
-
-pub type Plugin = msr_plugin::PluginContainer<Message, EventPublisherId, Event>;
-pub type PluginPorts = msr_plugin::PluginPorts<Message, EventPublisherId, Event>;
+use super::{
+    context::{self, Context},
+    invoke_context_from_message_loop,
+};
 
 struct ContextEventCallback {
     event_pubsub: EventPubSub,
@@ -49,24 +31,18 @@ impl context::ContextEventCallback for ContextEventCallback {
     }
 }
 
-pub fn create_plugin(
-    data_path: PathBuf,
-    initial_config: PluginConfig,
+pub fn create_message_loop(
+    data_dir: PathBuf,
+    event_pubsub: EventPubSub,
+    initial_config: Config,
     initial_state: State,
-    event_channel_capacity: usize,
-) -> NewResult<Plugin> {
-    let PluginConfig {
-        event_publisher_id,
-        initial_config,
-    } = initial_config;
+) -> Result<(MessageLoop, MessageSender)> {
     let (message_tx, mut message_rx) = message_channel();
-    let (event_pubsub, event_subscriber) =
-        EventPubSub::new(event_publisher_id, event_channel_capacity);
     let context_events = ContextEventCallback {
         event_pubsub: event_pubsub.clone(),
     };
     let mut context = Context::try_new(
-        data_path,
+        data_dir,
         initial_config,
         initial_state,
         Box::new(context_events) as _,
@@ -81,7 +57,7 @@ pub fn create_plugin(
                     log::trace!("Received command {:?}", command);
                     match command {
                         Command::ReplaceConfig(reply_tx, new_config) => {
-                            handlers::command_replace_config(
+                            invoke_context_from_message_loop::command_replace_config(
                                 &mut context,
                                 &event_pubsub,
                                 reply_tx,
@@ -93,7 +69,7 @@ pub fn create_plugin(
                             register_group_id,
                             new_config,
                         ) => {
-                            handlers::command_replace_register_group_config(
+                            invoke_context_from_message_loop::command_replace_register_group_config(
                                 &mut context,
                                 &event_pubsub,
                                 reply_tx,
@@ -102,7 +78,7 @@ pub fn create_plugin(
                             );
                         }
                         Command::SwitchState(reply_tx, new_state) => {
-                            handlers::command_switch_state(
+                            invoke_context_from_message_loop::command_switch_state(
                                 &mut context,
                                 &event_pubsub,
                                 reply_tx,
@@ -114,7 +90,7 @@ pub fn create_plugin(
                             register_group_id,
                             observed_register_values,
                         ) => {
-                            handlers::command_record_observed_register_group_values(
+                            invoke_context_from_message_loop::command_record_observed_register_group_values(
                                 &mut context,
                                 reply_tx,
                                 register_group_id,
@@ -122,7 +98,7 @@ pub fn create_plugin(
                             );
                         }
                         Command::Shutdown(reply_tx) => {
-                            handlers::command_shutdown(reply_tx);
+                            invoke_context_from_message_loop::command_shutdown(reply_tx);
                             exit_message_loop = true;
                         }
                         Command::SmokeTest(reply_tx) => {
@@ -136,20 +112,24 @@ pub fn create_plugin(
                     log::debug!("Received query {:?}", query);
                     match query {
                         Query::Config(reply_tx) => {
-                            handlers::query_config(&context, reply_tx);
+                            invoke_context_from_message_loop::query_config(&context, reply_tx);
                         }
                         Query::RegisterGroupConfig(reply_tx, register_group_id) => {
-                            handlers::query_register_group_config(
+                            invoke_context_from_message_loop::query_register_group_config(
                                 &context,
                                 reply_tx,
                                 &register_group_id,
                             );
                         }
                         Query::Status(reply_tx, request) => {
-                            handlers::query_status(&mut context, reply_tx, request);
+                            invoke_context_from_message_loop::query_status(
+                                &mut context,
+                                reply_tx,
+                                request,
+                            );
                         }
                         Query::RecentRecords(reply_tx, register_group_id, request) => {
-                            handlers::query_recent_records(
+                            invoke_context_from_message_loop::query_recent_records(
                                 &mut context,
                                 reply_tx,
                                 &register_group_id,
@@ -157,7 +137,7 @@ pub fn create_plugin(
                             );
                         }
                         Query::FilterRecords(reply_tx, register_group_id, request) => {
-                            handlers::query_filter_records(
+                            invoke_context_from_message_loop::query_filter_records(
                                 &mut context,
                                 reply_tx,
                                 &register_group_id,
@@ -175,11 +155,5 @@ pub fn create_plugin(
         log::info!("Message loop terminated");
         event_pubsub.publish_event(Event::Lifecycle(LifecycleEvent::Stopped));
     };
-    Ok(Plugin {
-        ports: PluginPorts {
-            message_tx,
-            event_subscriber,
-        },
-        message_loop: Box::pin(message_loop),
-    })
+    Ok((Box::pin(message_loop), message_tx))
 }
