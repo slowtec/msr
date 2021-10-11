@@ -8,8 +8,8 @@ use std::{
 
 use msr_core::{
     register::{
-        recording::{
-            CsvFileRecordStorage, RecordPrelude, RecordStorage as _,
+        recorder::{
+            csv::FileRecordStorage as CsvFileRecordStorage, RecordPrelude, RecordStorage as _,
             StoredRecordPrelude as StoredRegisterRecordPrelude,
         },
         Index as RegisterIndex,

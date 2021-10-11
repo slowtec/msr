@@ -24,7 +24,9 @@ tempfile = "3"
 [features]
 # FIXME: Disable all default features before release!
 # Keeping all top-level features enabled by default is convenient during development.
-default = ["csv-event-journal", "csv-register-recording"]
+default = ["csv-event-journal", "csv-register-recorder"]
+event-journal = ["anyhow", "bs58", "chrono/serde", "serde", "uuid/v4"]
+register-recorder = ["serde", "serde_json"]
 csv-storage = ["csv"]
-csv-event-journal = ["anyhow", "bs58", "chrono/serde", "csv-storage", "serde", "uuid/v4"]
-csv-register-recording = ["csv-storage", "serde", "serde_json"]
+csv-event-journal = ["event-journal", "csv-storage"]
+csv-register-recorder = ["register-recorder", "csv-storage"]

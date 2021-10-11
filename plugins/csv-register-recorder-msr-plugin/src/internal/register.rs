@@ -3,9 +3,9 @@ use std::fmt;
 // Re-exports
 pub use msr_core::{register::Index, Value, ValueType as Type};
 
-pub type ObservedRegisterValues = msr_core::register::recording::ObservedRegisterValues<Value>;
-pub type Record = msr_core::register::recording::Record<Value>;
-pub type StoredRecord = msr_core::register::recording::StoredRecord<Value>;
+pub type ObservedRegisterValues = msr_core::register::recorder::ObservedRegisterValues<Value>;
+pub type Record = msr_core::register::recorder::Record<Value>;
+pub type StoredRecord = msr_core::register::recorder::StoredRecord<Value>;
 
 pub type GroupIdValue = String;
 

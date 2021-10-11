@@ -1,4 +1,4 @@
-use msr_core::csv_event_journal::Entry;
+use msr_core::event_journal::Entry;
 
 use crate::ResultSender;
 

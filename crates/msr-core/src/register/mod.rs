@@ -2,8 +2,8 @@ use std::fmt;
 
 use crate::{time::SystemTimeInstant, Measurement};
 
-#[cfg(feature = "csv-register-recording")]
-pub mod recording;
+#[cfg(feature = "register-recorder")]
+pub mod recorder;
 
 /// Address of a register
 ///

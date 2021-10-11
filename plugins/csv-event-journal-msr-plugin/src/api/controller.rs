@@ -1,4 +1,4 @@
-use msr_core::csv_event_journal::{Entry, StoredRecord};
+use msr_core::event_journal::{Entry, StoredRecord};
 
 use msr_plugin::{reply_channel, send_message_receive_result};
 

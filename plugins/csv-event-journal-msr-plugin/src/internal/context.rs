@@ -1,9 +1,10 @@
 use std::{num::NonZeroUsize, path::PathBuf, result::Result as StdResult};
 
 use msr_core::{
-    csv_event_journal::{
-        CsvFileRecordStorage, DefaultRecordPreludeGenerator, Entry, Record, RecordFilter,
-        RecordPreludeGenerator, RecordStorage, Result, Severity, StoredRecord, StoredRecordPrelude,
+    event_journal::{
+        csv::FileRecordStorage as CsvFileRecordStorage, DefaultRecordPreludeGenerator, Entry,
+        Record, RecordFilter, RecordPreludeGenerator, RecordStorage, Result, Severity,
+        StoredRecord, StoredRecordPrelude,
     },
     storage::{RecordStorageBase as _, RecordStorageWrite as _, StorageConfig, StorageStatus},
 };
@@ -152,7 +153,7 @@ impl Context {
                         self.storage
                             .append_record(&created_at, recorded_entry)
                             .map(|_created_at_offset| Ok(EntryRecorded(prelude)))
-                            .map_err(msr_core::csv_event_journal::Error::Storage)
+                            .map_err(msr_core::event_journal::Error::Storage)
                     })
             }
         }

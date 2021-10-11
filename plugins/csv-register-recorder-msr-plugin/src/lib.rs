@@ -10,7 +10,7 @@ use std::{
 use thiserror::Error;
 
 use msr_core::{
-    register::recording::Error as MsrRecordError,
+    register::recorder::Error as MsrRecordError,
     storage::{
         Error as MsrStorageError, MemorySize, StorageConfig, StorageSegmentConfig, TimeInterval,
     },

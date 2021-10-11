@@ -1,6 +1,6 @@
 use tokio::task;
 
-use msr_core::csv_event_journal::{Entry, Error, StoredRecord};
+use msr_core::event_journal::{Entry, Error, StoredRecord};
 
 use msr_plugin::send_reply;
 

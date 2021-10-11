@@ -2,8 +2,9 @@
 pub use crate::internal::{
     context::{Config, RegisterGroupConfig, RegisterGroupStatus, State, Status},
     register::{
-        GroupId as RegisterGroupId, GroupIdValue as RegisterGroupIdValue, ObservedRegisterValues, Record as RegisterRecord,
-        StoredRecord as StoredRegisterRecord, Type as RegisterType, Value as RegisterValue,
+        GroupId as RegisterGroupId, GroupIdValue as RegisterGroupIdValue, ObservedRegisterValues,
+        Record as RegisterRecord, StoredRecord as StoredRegisterRecord, Type as RegisterType,
+        Value as RegisterValue,
     },
 };
 

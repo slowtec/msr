@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use msr_core::csv_event_journal::{RecordFilter, StoredRecord};
+use msr_core::event_journal::{RecordFilter, StoredRecord};
 
 use crate::ResultSender;
 

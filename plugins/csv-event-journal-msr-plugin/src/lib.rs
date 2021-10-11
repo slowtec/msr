@@ -10,7 +10,7 @@ use std::{
 use thiserror::Error;
 
 use msr_core::{
-    csv_event_journal::Severity,
+    event_journal::Severity,
     storage::{MemorySize, StorageConfig, StorageSegmentConfig, TimeInterval},
 };
 
@@ -71,7 +71,7 @@ pub enum Error {
 
     // TODO: Rename this variant?
     #[error(transparent)]
-    MsrCore(#[from] msr_core::csv_event_journal::Error),
+    MsrCore(#[from] msr_core::event_journal::Error),
 
     #[error(transparent)]
     Io(#[from] IoError),
