@@ -30,6 +30,8 @@ pub struct Environment {
 
     /// Directory for storing CSV data
     pub data_dir: PathBuf,
+
+    pub custom_file_name_prefix: Option<String>,
 }
 
 pub fn default_storage_config() -> StorageConfig {
@@ -108,14 +110,20 @@ pub fn create_plugin(
     plugin_setup: PluginSetup,
     event_channel_capacity: usize,
 ) -> Result<Plugin> {
+    let Environment {
+        event_publisher_index,
+        data_dir,
+        custom_file_name_prefix,
+    } = environment;
     let PluginSetup {
         initial_config,
         initial_state,
     } = plugin_setup;
     let (event_pubsub, event_subscriber) =
-        EventPubSub::new(environment.event_publisher_index, event_channel_capacity);
+        EventPubSub::new(event_publisher_index, event_channel_capacity);
     let (message_loop, message_tx) = create_message_loop(
-        environment.data_dir,
+        data_dir,
+        custom_file_name_prefix,
         event_pubsub,
         initial_config,
         initial_state,

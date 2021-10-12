@@ -126,19 +126,29 @@ pub struct FileRecordStorage {
     inner: csv::FileRecordStorageWithDeserializer<StorageRecordDeserializer, StorageRecord>,
 }
 
+const FILE_NAME_SUFFIX: &str = ".csv";
+
+const CREATED_AT_COLUMN_HEADER: &str = "created_at";
+const OBSERVED_AT_COLUMN_HEADER: &str = "observed_at";
+
 impl FileRecordStorage {
-    pub fn try_new<I>(config: StorageConfig, base_path: PathBuf, registers_iter: I) -> Result<Self>
+    pub fn try_new<I>(
+        config: StorageConfig,
+        base_path: PathBuf,
+        file_name_prefix: String,
+        registers_iter: I,
+    ) -> Result<Self>
     where
         I: IntoIterator<Item = (register::Index, ValueType)>,
     {
         let file_name_template = RollingFileNameTemplate {
-            prefix: "record_".to_string(),
-            suffix: ".csv".to_string(),
+            prefix: file_name_prefix,
+            suffix: FILE_NAME_SUFFIX.to_owned(),
         };
         let mut register_types = Vec::new();
         let mut registers = Vec::new();
-        let custom_headers = iter::once("created_at".to_string())
-            .chain(iter::once("observed_at".to_string()))
+        let custom_headers = iter::once(CREATED_AT_COLUMN_HEADER.to_owned())
+            .chain(iter::once(OBSERVED_AT_COLUMN_HEADER.to_owned()))
             .chain(
                 registers_iter
                     .into_iter()

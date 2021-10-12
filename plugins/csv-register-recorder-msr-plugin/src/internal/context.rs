@@ -78,6 +78,8 @@ pub struct Config {
 pub struct Context {
     data_path: PathBuf, // immutable
 
+    file_name_prefix: String,
+
     config: Config,
 
     state: State,
@@ -112,6 +114,7 @@ impl RegisterGroupContext {
     fn try_new(
         register_group_id: &RegisterGroupId,
         data_path: &Path,
+        file_name_prefix: String,
         config: RegisterGroupConfig,
         event_cb: &dyn ContextEventCallback,
     ) -> Result<Self> {
@@ -124,8 +127,13 @@ impl RegisterGroupContext {
             fs::create_dir_all(&data_path)?;
             event_cb.data_directory_created(register_group_id, &data_path);
         }
-        let storage = CsvFileRecordStorage::try_new(config.storage, data_path, config.registers)
-            .map_err(anyhow::Error::from)?;
+        let storage = CsvFileRecordStorage::try_new(
+            config.storage,
+            data_path,
+            file_name_prefix,
+            config.registers,
+        )
+        .map_err(anyhow::Error::from)?;
         let context = Self { storage };
         Ok(context)
     }
@@ -173,6 +181,7 @@ pub trait RecordRepo {
 
 fn create_register_group_contexts(
     data_path: &Path,
+    file_name_prefix: String,
     register_group_configs: HashMap<RegisterGroupId, RegisterGroupConfig>,
     event_cb: &dyn ContextEventCallback,
 ) -> Result<HashMap<RegisterGroupId, RegisterGroupContext>> {
@@ -181,6 +190,7 @@ fn create_register_group_contexts(
         let register_group_context = RegisterGroupContext::try_new(
             &register_group_id,
             data_path,
+            file_name_prefix.clone(),
             register_group_config.clone(),
             event_cb,
         )?;
@@ -189,20 +199,28 @@ fn create_register_group_contexts(
     Ok(register_group_contexts)
 }
 
+const DEFAULT_FILE_NAME_PREFIX: &str = "register_records_";
+
 impl Context {
     pub fn try_new(
         data_path: PathBuf,
+        custom_file_name_prefix: impl Into<Option<String>>,
         initial_config: Config,
         initial_state: State,
         event_cb: Box<dyn ContextEventCallback + Send>,
     ) -> Result<Self> {
+        let file_name_prefix = custom_file_name_prefix
+            .into()
+            .unwrap_or_else(|| DEFAULT_FILE_NAME_PREFIX.to_owned());
         let register_groups = create_register_group_contexts(
             &data_path,
+            file_name_prefix.clone(),
             initial_config.register_groups.clone(),
             &*event_cb,
         )?;
         Ok(Self {
             data_path,
+            file_name_prefix,
             config: initial_config,
             state: initial_state,
             register_groups,
@@ -285,6 +303,7 @@ impl Context {
         );
         let new_register_groups = create_register_group_contexts(
             &self.data_path,
+            self.file_name_prefix.clone(),
             new_config.register_groups.clone(),
             &*self.event_cb,
         )?;
@@ -313,6 +332,7 @@ impl Context {
                 let register_group_context = RegisterGroupContext::try_new(
                     &register_group_id,
                     &self.data_path,
+                    self.file_name_prefix.clone(),
                     new_config.clone(),
                     &*self.event_cb,
                 )?;
@@ -335,6 +355,7 @@ impl Context {
                 let register_group_context = RegisterGroupContext::try_new(
                     &register_group_id,
                     &self.data_path,
+                    self.file_name_prefix.clone(),
                     new_config.clone(),
                     &*self.event_cb,
                 )?;
