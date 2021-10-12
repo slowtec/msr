@@ -22,9 +22,7 @@ uuid = { version = "0.8", optional = true }
 tempfile = "3"
 
 [features]
-# FIXME: Disable all default features before release!
-# Keeping all top-level features enabled by default is convenient during development.
-default = ["csv-event-journal", "csv-register-recorder"]
+default = []
 event-journal = ["anyhow", "bs58", "chrono/serde", "serde", "uuid/v4"]
 register-recorder = ["serde", "serde_json"]
 csv-storage = ["csv"]
