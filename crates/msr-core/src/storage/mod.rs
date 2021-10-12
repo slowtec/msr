@@ -14,6 +14,7 @@ use thiserror::Error;
 
 use crate::{io::file::WriteResult, time::SystemTimeInstant};
 
+// TODO: Currently unused
 pub mod field;
 
 #[cfg(feature = "csv-storage")]

@@ -1,6 +1,4 @@
-use std::{fmt, str::FromStr};
-
-use thiserror::Error;
+use std::fmt;
 
 use crate::ScalarType;
 
@@ -15,32 +13,29 @@ const FIELD_UNIT_PREFIX: &str = "[";
 const FIELD_UNIT_SUFFIX: &str = "]";
 const FIELD_TYPE_SEPARATOR: &str = ".";
 
-// Format: "<name>[<type>].<unit>"
 impl fmt::Display for ScalarField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { name, unit, r#type } = self;
-        let type_part = r#type
-            .as_ref()
-            .map(|t| format!("{}{}", FIELD_TYPE_SEPARATOR, t))
-            .unwrap_or_default();
-        let unit_part = unit
-            .as_ref()
-            .map(|u| format!("{}{}{}", FIELD_UNIT_PREFIX, u, FIELD_UNIT_SUFFIX))
-            .unwrap_or_default();
-        write!(f, "{}{}{}", name, unit_part, type_part)
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum ScalarFieldParseError {
-    //#[error("unknown error")]
-//Unknown,
-}
-
-impl FromStr for ScalarField {
-    type Err = ScalarFieldParseError;
-
-    fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        unimplemented!("TODO: impl FromStr for ScalarField")
+        debug_assert!(
+            r#type.is_none() || !r#type.unwrap().to_string().contains(FIELD_TYPE_SEPARATOR)
+        );
+        match (unit, r#type) {
+            // "<name>"
+            (None, None) => f.write_str(name),
+            // "<name>[<unit>]"
+            (Some(unit), None) => write!(
+                f,
+                "{}{}{}{}",
+                name, FIELD_UNIT_PREFIX, unit, FIELD_UNIT_SUFFIX
+            ),
+            // "<name>.<type>"
+            (None, Some(r#type)) => write!(f, "{}{}{}", name, FIELD_TYPE_SEPARATOR, r#type),
+            // "<name>[<unit>].<type>"
+            (Some(unit), Some(r#type)) => write!(
+                f,
+                "{}{}{}{}{}{}",
+                name, FIELD_UNIT_PREFIX, unit, FIELD_UNIT_SUFFIX, FIELD_TYPE_SEPARATOR, r#type
+            ),
+        }
     }
 }
