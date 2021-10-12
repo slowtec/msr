@@ -42,6 +42,3 @@ pub enum WriteError {
 }
 
 pub type WriteResult = StdResult<(), WriteError>;
-
-#[cfg(test)]
-mod tests {}
