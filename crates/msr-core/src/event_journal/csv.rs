@@ -22,12 +22,17 @@ pub struct FileRecordStorage {
 }
 
 impl FileRecordStorage {
-    pub fn try_new(config: StorageConfig, base_path: PathBuf) -> Result<Self> {
+    pub fn try_new(
+        base_path: PathBuf,
+        file_name_prefix: String,
+        initial_config: StorageConfig,
+    ) -> Result<Self> {
         let file_name_template = RollingFileNameTemplate {
-            prefix: "journal_".to_string(),
+            prefix: file_name_prefix,
             suffix: ".csv".to_string(),
         };
-        let inner = csv::FileRecordStorage::try_new(config, base_path, file_name_template, None)?;
+        let inner =
+            csv::FileRecordStorage::try_new(initial_config, base_path, file_name_template, None)?;
         Ok(Self { inner })
     }
 }

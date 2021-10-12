@@ -105,6 +105,8 @@ type EventPubSub = msr_plugin::EventPubSub<api::Event>;
 pub type Plugin = msr_plugin::PluginContainer<api::Message, api::Event>;
 pub type PluginPorts = msr_plugin::PluginPorts<api::Message, api::Event>;
 
+pub const DEFAULT_FILE_NAME_PREFIX: &str = "register_group_records_";
+
 pub fn create_plugin(
     environment: Environment,
     plugin_setup: PluginSetup,
@@ -121,9 +123,11 @@ pub fn create_plugin(
     } = plugin_setup;
     let (event_pubsub, event_subscriber) =
         EventPubSub::new(event_publisher_index, event_channel_capacity);
+    let file_name_prefix =
+        custom_file_name_prefix.unwrap_or_else(|| DEFAULT_FILE_NAME_PREFIX.to_owned());
     let (message_loop, message_tx) = create_message_loop(
         data_dir,
-        custom_file_name_prefix,
+        file_name_prefix,
         event_pubsub,
         initial_config,
         initial_state,

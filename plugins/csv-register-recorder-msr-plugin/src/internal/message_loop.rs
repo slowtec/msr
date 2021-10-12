@@ -33,7 +33,7 @@ impl context::ContextEventCallback for ContextEventCallback {
 
 pub fn create_message_loop(
     data_dir: PathBuf,
-    custom_file_name_prefix: impl Into<Option<String>>,
+    file_name_prefix: String,
     event_pubsub: EventPubSub,
     initial_config: Config,
     initial_state: State,
@@ -44,7 +44,7 @@ pub fn create_message_loop(
     };
     let mut context = Context::try_new(
         data_dir,
-        custom_file_name_prefix,
+        file_name_prefix,
         initial_config,
         initial_state,
         Box::new(context_events) as _,

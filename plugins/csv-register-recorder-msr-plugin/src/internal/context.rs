@@ -199,19 +199,14 @@ fn create_register_group_contexts(
     Ok(register_group_contexts)
 }
 
-const DEFAULT_FILE_NAME_PREFIX: &str = "register_records_";
-
 impl Context {
     pub fn try_new(
         data_path: PathBuf,
-        custom_file_name_prefix: impl Into<Option<String>>,
+        file_name_prefix: String,
         initial_config: Config,
         initial_state: State,
         event_cb: Box<dyn ContextEventCallback + Send>,
     ) -> Result<Self> {
-        let file_name_prefix = custom_file_name_prefix
-            .into()
-            .unwrap_or_else(|| DEFAULT_FILE_NAME_PREFIX.to_owned());
         let register_groups = create_register_group_contexts(
             &data_path,
             file_name_prefix.clone(),

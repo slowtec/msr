@@ -49,10 +49,15 @@ pub type RecordEntryOutcome = StdResult<EntryRecorded, EntryNotRecorded>;
 impl Context {
     pub fn try_new(
         data_dir: PathBuf,
+        file_name_prefix: String,
         initial_config: Config,
         initial_state: State,
     ) -> Result<Self> {
-        let storage = CsvFileRecordStorage::try_new(initial_config.storage.clone(), data_dir)?;
+        let storage = CsvFileRecordStorage::try_new(
+            data_dir,
+            file_name_prefix,
+            initial_config.storage.clone(),
+        )?;
         Ok(Self {
             config: initial_config,
             state: initial_state,
