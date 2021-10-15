@@ -1,10 +1,13 @@
+use std::time::Duration;
+
+#[cfg(feature = "serde")]
+use std::fmt;
+
 #[cfg(feature = "serde")]
 use serde::{
     de::{Error, MapAccess, SeqAccess, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
-#[cfg(feature = "serde")]
-use std::{fmt, time::Duration};
 
 /// A value representation within a MSR system.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]

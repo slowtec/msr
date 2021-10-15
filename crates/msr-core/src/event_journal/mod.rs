@@ -380,6 +380,8 @@ pub struct StoredRecord {
 }
 
 impl StoredRecord {
+    // Only used when a storage backend like CSV is enabled
+    #[allow(dead_code)]
     fn try_restore(created_at_origin: SystemTime, record: StorageRecord) -> Result<Self> {
         let StorageRecord {
             created_at_offset_ns,

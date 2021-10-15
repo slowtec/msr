@@ -107,10 +107,14 @@ pub struct StoredRecordPrelude {
 }
 
 impl StoredRecordPrelude {
+    // Only used when a storage backend like CSV is enabled
+    #[allow(dead_code)]
     fn create(created_at: SystemTime) -> Self {
         Self { created_at }
     }
 
+    // Only used when a storage backend like CSV is enabled
+    #[allow(dead_code)]
     fn restore(created_at_origin: SystemTime, prelude: RecordPrelude) -> Self {
         let created_at = created_at_origin + prelude.created_at_offset.into();
         Self { created_at }
@@ -229,6 +233,8 @@ pub struct StoredRecord<RegisterValue> {
 }
 
 impl<RegisterValue> StoredRecord<RegisterValue> {
+    // Only used when a storage backend like CSV is enabled
+    #[allow(dead_code)]
     fn restore(created_at_origin: SystemTime, record: Record<RegisterValue>) -> Self {
         let Record {
             prelude,
@@ -267,6 +273,8 @@ impl WritableRecordPrelude for StorageRecord {
     }
 }
 
+// Only used when a storage backend like CSV is enabled
+#[allow(dead_code)]
 struct StorageRecordDeserializer {
     registers: Vec<(register::Index, ValueType)>,
 }
