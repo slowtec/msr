@@ -11,7 +11,7 @@ pub trait Environment {
     fn progress_hint(&self) -> ProgressHint;
 }
 
-pub trait Processor {
+pub trait Processor<E: Environment> {
     /// Start processing
     ///
     /// Invoked once before the first call to `Processor::process()` to
@@ -32,7 +32,7 @@ pub trait Processor {
     /// Returning `Progress::Suspended` ensures that this function is invoked
     /// at least once again, allowing the processor to finish any pending
     /// tasks before finally terminating.
-    fn process(&mut self, env: &dyn Environment) -> Progress;
+    fn process(&mut self, env: &E) -> Progress;
 
     /// Finish processing
     ///
@@ -43,7 +43,7 @@ pub trait Processor {
     fn finish_processing(&mut self) -> Result<()>;
 }
 
-pub type ProcessorBoxed = Box<dyn Processor + Send + 'static>;
+pub type ProcessorBoxed<E> = Box<dyn Processor<E> + Send + 'static>;
 
 pub trait ProcessingInterceptor {
     /// Request to abort processing asap

@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use thread_priority::ThreadPriority;
 
 use super::{
-    processor::{ProcessingInterceptorBoxed, Processor, ProcessorBoxed},
+    processor::{Environment, ProcessingInterceptorBoxed, Processor, ProcessorBoxed},
     AtomicProgressHint, Progress, ProgressHint,
 };
 
@@ -52,19 +52,15 @@ impl Context {
     }
 }
 
-struct ProcessorEnvironment {
-    progress_hint: Arc<AtomicProgressHint>,
-}
-
-impl super::processor::Environment for ProcessorEnvironment {
+impl super::processor::Environment for Context {
     fn progress_hint(&self) -> ProgressHint {
         self.progress_hint.load()
     }
 }
 
 /// Spawn parameters
-pub struct Params {
-    pub reusable: ReusableParams,
+pub struct Params<E> {
+    pub reusable: ReusableParams<E>,
     pub processing_interceptor: ProcessingInterceptorBoxed,
 }
 
@@ -76,15 +72,16 @@ pub struct Params {
 ///
 /// If joining the work thread fails the parameters will be lost
 /// inevitably!
-pub struct ReusableParams {
+pub struct ReusableParams<E> {
+    pub environment: E,
     pub notifications: NotificationsBoxed,
-    pub processor: ProcessorBoxed,
+    pub processor: ProcessorBoxed<E>,
 }
 
-pub struct Thread {
+pub struct Thread<E> {
     context: Context,
     suspender: Arc<Suspender>,
-    join_handle: JoinHandle<(ReusableParams, Result<()>)>,
+    join_handle: JoinHandle<(ReusableParams<E>, Result<()>)>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -161,11 +158,11 @@ impl Suspender {
     }
 }
 
-fn thread_fn(
-    processor_environment: &ProcessorEnvironment,
+fn thread_fn<E: Environment>(
+    environment: &E,
     suspender: &Arc<Suspender>,
     notifications: &mut dyn Notifications,
-    processor: &mut dyn Processor,
+    processor: &mut dyn Processor<E>,
 ) -> Result<()> {
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
@@ -176,7 +173,7 @@ fn thread_fn(
     notifications.notify_state_changed(State::Running);
 
     loop {
-        match processor.process(processor_environment) {
+        match processor.process(environment) {
             Progress::Suspended => {
                 // The processor might decide to implicitly suspend processing
                 // at any time. Therefore we need to explicitly suspend ourselves
@@ -209,8 +206,11 @@ fn thread_fn(
     Ok(())
 }
 
-impl Thread {
-    pub fn start(params: Params) -> Self {
+impl<E> Thread<E>
+where
+    E: Environment + Send + 'static,
+{
+    pub fn start(params: Params<E>) -> Self {
         let Params {
             reusable: reusable_params,
             processing_interceptor,
@@ -218,20 +218,18 @@ impl Thread {
         let context = Context::new(processing_interceptor);
         let suspender = Arc::new(Suspender::default());
         let join_handle = {
-            let processor_environment = ProcessorEnvironment {
-                progress_hint: context.progress_hint.clone(),
-            };
             let suspender = suspender.clone();
             let mut reusable_params = reusable_params;
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
                     let ReusableParams {
+                        environment,
                         notifications,
                         processor,
                     } = &mut reusable_params;
                     let res = thread_fn(
-                        &processor_environment,
+                        environment,
                         &suspender,
                         &mut **notifications,
                         &mut **processor,
@@ -287,7 +285,7 @@ impl Thread {
         self.suspender.resume();
     }
 
-    pub fn join(self) -> (Option<ReusableParams>, Result<()>) {
+    pub fn join(self) -> (Option<ReusableParams<E>>, Result<()>) {
         let Self {
             join_handle,
             context: _,
