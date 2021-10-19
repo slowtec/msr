@@ -159,7 +159,7 @@ impl Suspender {
 }
 
 fn thread_fn<E: Environment>(
-    environment: &E,
+    environment: &mut E,
     suspender: &Arc<Suspender>,
     notifications: &mut dyn Notifications,
     processor: &mut dyn Processor<E>,
@@ -167,7 +167,7 @@ fn thread_fn<E: Environment>(
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
 
-    processor.start_processing()?;
+    processor.start_processing(environment)?;
 
     log::info!("Running");
     notifications.notify_state_changed(State::Running);
@@ -198,7 +198,7 @@ fn thread_fn<E: Environment>(
     log::info!("Stopping");
     notifications.notify_state_changed(State::Stopping);
 
-    processor.finish_processing()?;
+    processor.finish_processing(environment)?;
 
     log::info!("Terminating");
     notifications.notify_state_changed(State::Terminating);

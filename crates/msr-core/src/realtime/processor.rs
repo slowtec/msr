@@ -18,7 +18,15 @@ pub trait Processor<E: Environment> {
     /// acquire resources and to perform initialization.
     ///
     /// Might be invoked again after processing has been finished successfully.
-    fn start_processing(&mut self) -> Result<()>;
+    fn start_processing(&mut self, env: &mut E) -> Result<()>;
+
+    /// Finish processing
+    ///
+    /// Invoked once after the last call to `Processor::process()` to
+    /// perform cleanup and to release resources.
+    ///
+    /// Might be invoked again after processing has been restarted successfully.
+    fn finish_processing(&mut self, env: &mut E) -> Result<()>;
 
     /// Start or resume processing
     ///
@@ -32,15 +40,10 @@ pub trait Processor<E: Environment> {
     /// Returning `Progress::Suspended` ensures that this function is invoked
     /// at least once again, allowing the processor to finish any pending
     /// tasks before finally terminating.
+    ///
+    /// This function is not supposed to mutate the environment in contrast
+    /// to starting/finishing processing.
     fn process(&mut self, env: &E) -> Progress;
-
-    /// Finish processing
-    ///
-    /// Invoked once after the last call to `Processor::process()` to
-    /// perform cleanup and to release resources.
-    ///
-    /// Might be invoked again after processing has been restarted successfully.
-    fn finish_processing(&mut self) -> Result<()>;
 }
 
 pub type ProcessorBoxed<E> = Box<dyn Processor<E> + Send + 'static>;
