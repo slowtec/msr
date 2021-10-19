@@ -23,16 +23,11 @@ pub enum State {
     Terminating,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Status {
-    pub state: State,
+pub trait Notifications {
+    fn notify_state_changed(&mut self, state: State);
 }
 
-pub trait StatusReporter {
-    fn report_status(&mut self, status: &Status);
-}
-
-pub type StatusReporterBoxed = Box<dyn StatusReporter + Send + 'static>;
+pub type NotificationsBoxed = Box<dyn Notifications + Send + 'static>;
 
 const PROGRESS_HINT_RUNNING: u8 = 0;
 const PROGRESS_HINT_SUSPENDING: u8 = 1;
@@ -133,7 +128,7 @@ pub struct Params {
 /// If joining the work thread fails the parameters will be lost
 /// inevitably!
 pub struct ReusableParams {
-    pub status_reporter: StatusReporterBoxed,
+    pub notifications: NotificationsBoxed,
     pub processor: ProcessorBoxed,
 }
 
@@ -217,26 +212,19 @@ impl Suspender {
     }
 }
 
-fn report_state(status_reporter: &mut dyn StatusReporter, state: State) {
-    // TODO: We do not need to store the status, because currently
-    // it only contains the control state and nothing else.
-    let status = Status { state };
-    status_reporter.report_status(&status);
-}
-
 fn thread_fn(
     processor_environment: &ProcessorEnvironment,
     suspender: &Arc<Suspender>,
-    status_reporter: &mut dyn StatusReporter,
+    notifications: &mut dyn Notifications,
     processor: &mut dyn Processor,
 ) -> Result<()> {
     log::info!("Starting");
-    report_state(status_reporter, State::Starting);
+    notifications.notify_state_changed(State::Starting);
 
     processor.start_processing()?;
 
     log::info!("Running");
-    report_state(status_reporter, State::Running);
+    notifications.notify_state_changed(State::Running);
 
     loop {
         match processor.process(processor_environment) {
@@ -247,12 +235,12 @@ fn thread_fn(
                 suspender.suspend();
 
                 log::debug!("Processing suspended");
-                report_state(status_reporter, State::Suspended);
+                notifications.notify_state_changed(State::Suspended);
 
                 suspender.wait_while_suspended();
 
                 log::debug!("Resuming processing");
-                report_state(status_reporter, State::Running);
+                notifications.notify_state_changed(State::Running);
             }
             Progress::Terminated => {
                 log::debug!("Processing terminated");
@@ -262,12 +250,12 @@ fn thread_fn(
     }
 
     log::info!("Stopping");
-    report_state(status_reporter, State::Stopping);
+    notifications.notify_state_changed(State::Stopping);
 
     processor.finish_processing()?;
 
     log::info!("Terminating");
-    report_state(status_reporter, State::Terminating);
+    notifications.notify_state_changed(State::Terminating);
 
     Ok(())
 }
@@ -290,13 +278,13 @@ impl Thread {
                 move || {
                     adjust_current_thread_priority();
                     let ReusableParams {
-                        status_reporter,
+                        notifications,
                         processor,
                     } = &mut reusable_params;
                     let res = thread_fn(
                         &processor_environment,
                         &suspender,
-                        &mut **status_reporter,
+                        &mut **notifications,
                         &mut **processor,
                     );
                     (reusable_params, res)
