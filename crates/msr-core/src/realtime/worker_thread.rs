@@ -1,8 +1,5 @@
 use std::{
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc, Condvar, Mutex,
-    },
+    sync::{Arc, Condvar, Mutex},
     thread::JoinHandle,
 };
 
@@ -11,7 +8,7 @@ use thread_priority::ThreadPriority;
 
 use super::{
     processor::{ProcessingInterceptorBoxed, Processor, ProcessorBoxed},
-    Progress, ProgressHint,
+    AtomicProgressHint, Progress, ProgressHint,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,54 +25,6 @@ pub trait Notifications {
 }
 
 pub type NotificationsBoxed = Box<dyn Notifications + Send + 'static>;
-
-const PROGRESS_HINT_RUNNING: u8 = 0;
-const PROGRESS_HINT_SUSPENDING: u8 = 1;
-const PROGRESS_HINT_TERMINATING: u8 = 2;
-
-#[derive(Debug)]
-struct AtomicProgressHint(AtomicU8);
-
-impl AtomicProgressHint {
-    pub const fn new() -> Self {
-        Self(AtomicU8::new(PROGRESS_HINT_RUNNING))
-    }
-
-    pub fn load(&self) -> ProgressHint {
-        match self.0.load(Ordering::Acquire) {
-            PROGRESS_HINT_RUNNING => ProgressHint::Running,
-            PROGRESS_HINT_SUSPENDING => ProgressHint::Suspending,
-            PROGRESS_HINT_TERMINATING => ProgressHint::Terminating,
-            progress_hint => unreachable!("unexpected progress hint value: {}", progress_hint),
-        }
-    }
-
-    pub fn suspend(&self) -> bool {
-        self.0
-            .compare_exchange(
-                PROGRESS_HINT_RUNNING,
-                PROGRESS_HINT_SUSPENDING,
-                Ordering::Acquire,
-                Ordering::Acquire,
-            )
-            .is_ok()
-    }
-
-    pub fn resume(&self) -> bool {
-        self.0
-            .compare_exchange(
-                PROGRESS_HINT_SUSPENDING,
-                PROGRESS_HINT_RUNNING,
-                Ordering::Acquire,
-                Ordering::Acquire,
-            )
-            .is_ok()
-    }
-
-    pub fn terminate(&self) {
-        self.0.store(PROGRESS_HINT_TERMINATING, Ordering::Release);
-    }
-}
 
 pub struct Context {
     progress_hint: Arc<AtomicProgressHint>,
