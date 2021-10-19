@@ -45,7 +45,7 @@ pub trait Processor {
 
 pub type ProcessorBoxed = Box<dyn Processor + Send + 'static>;
 
-pub trait ProcessController {
+pub trait ProcessingInterceptor {
     /// Request to abort processing asap
     ///
     /// Requests the processor to return from `Processor::process()` early
@@ -53,4 +53,4 @@ pub trait ProcessController {
     fn abort_processing(&self);
 }
 
-pub type ProcessControllerBoxed = Box<dyn ProcessController + Send + 'static>;
+pub type ProcessingInterceptorBoxed = Box<dyn ProcessingInterceptor + Send + 'static>;

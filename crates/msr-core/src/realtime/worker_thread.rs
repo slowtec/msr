@@ -10,7 +10,7 @@ use anyhow::{anyhow, Result};
 use thread_priority::ThreadPriority;
 
 use super::{
-    processor::{ProcessControllerBoxed, Processor, ProcessorBoxed},
+    processor::{ProcessingInterceptorBoxed, Processor, ProcessorBoxed},
     Progress, ProgressHint,
 };
 
@@ -84,14 +84,14 @@ impl AtomicProgressHint {
 
 pub struct Context {
     progress_hint: Arc<AtomicProgressHint>,
-    process_controller: ProcessControllerBoxed,
+    processing_interceptor: ProcessingInterceptorBoxed,
 }
 
 impl Context {
-    pub fn new(process_controller: ProcessControllerBoxed) -> Self {
+    pub fn new(processing_interceptor: ProcessingInterceptorBoxed) -> Self {
         Self {
             progress_hint: Arc::new(AtomicProgressHint::new()),
-            process_controller,
+            processing_interceptor,
         }
     }
 
@@ -121,7 +121,7 @@ impl super::processor::Environment for ProcessorEnvironment {
 /// Spawn parameters
 pub struct Params {
     pub reusable: ReusableParams,
-    pub process_controller: ProcessControllerBoxed,
+    pub processing_interceptor: ProcessingInterceptorBoxed,
 }
 
 /// Reusable spawn parameters
@@ -276,9 +276,9 @@ impl Thread {
     pub fn start(params: Params) -> Self {
         let Params {
             reusable: reusable_params,
-            process_controller,
+            processing_interceptor,
         } = params;
-        let context = Context::new(process_controller);
+        let context = Context::new(processing_interceptor);
         let suspender = Arc::new(Suspender::default());
         let join_handle = {
             let processor_environment = ProcessorEnvironment {
@@ -321,7 +321,7 @@ impl Thread {
         self.context.suspend();
         // 3rd step: Abort any processing if requested
         if abort_processing {
-            self.context.process_controller.abort_processing();
+            self.context.processing_interceptor.abort_processing();
         }
         true
     }
@@ -344,7 +344,7 @@ impl Thread {
         self.context.terminate();
         // 2nd step: Abort any processing if requested
         if abort_processing {
-            self.context.process_controller.abort_processing();
+            self.context.processing_interceptor.abort_processing();
         }
         // 3rd step: Wake up the thread in case it is still suspended
         self.suspender.resume();
