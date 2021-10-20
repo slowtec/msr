@@ -24,9 +24,9 @@ tempfile = "3"
 
 [features]
 default = []
-event-journal = ["anyhow", "bs58", "chrono/serde", "serde", "uuid/v4"]
-register-recorder = ["anyhow", "chrono/serde", "serde", "serde_json"]
+event-journal = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "uuid/v4"]
+register-recorder = ["anyhow/std", "chrono/serde", "serde/derive", "serde_json/std"]
 csv-storage = ["csv", "serde"]
 csv-event-journal = ["event-journal", "csv-storage"]
 csv-register-recorder = ["register-recorder", "csv-storage"]
-realtime-worker-thread = ["anyhow", "thread-priority"]
+realtime-worker-thread = ["anyhow/std", "thread-priority"]
