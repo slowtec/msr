@@ -8,7 +8,7 @@ use thread_priority::ThreadPriority;
 
 use super::{
     processor::{Environment, ProcessingInterceptorBoxed, Processor, ProcessorBoxed},
-    AtomicProgressHint, Progress, ProgressHint,
+    AtomicProgressHint, Progress,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +26,7 @@ pub trait Notifications {
 
 pub type NotificationsBoxed = Box<dyn Notifications + Send + 'static>;
 
-pub struct Context {
+struct Context {
     progress_hint: Arc<AtomicProgressHint>,
     processing_interceptor: ProcessingInterceptorBoxed,
 }
@@ -52,36 +52,32 @@ impl Context {
     }
 }
 
-impl super::processor::Environment for Context {
-    fn progress_hint(&self) -> ProgressHint {
-        self.progress_hint.load()
-    }
-}
-
 /// Spawn parameters
-pub struct Params<E> {
-    pub reusable: ReusableParams<E>,
-    pub processing_interceptor: ProcessingInterceptorBoxed,
-}
-
-/// Reusable spawn parameters
 ///
 /// The parameters are passed into the worker thread when spawned
-/// and partially recovered after joining the worker thread for
-/// later reuse.
+/// and are recovered after joining the worker thread for later reuse.
 ///
-/// If joining the work thread fails the parameters will be lost
+/// If joining the work thread fails these parameters will be lost
 /// inevitably!
-pub struct ReusableParams<E> {
+pub struct Params<E> {
     pub environment: E,
     pub notifications: NotificationsBoxed,
     pub processor: ProcessorBoxed<E>,
+    pub processing_interceptor: ProcessingInterceptorBoxed,
+}
+
+// Subset of parameters that are passed into the worker thread
+// and recovered after joining the thread successfully.
+struct ThreadParams<E> {
+    environment: E,
+    notifications: NotificationsBoxed,
+    processor: ProcessorBoxed<E>,
 }
 
 pub struct Thread<E> {
     context: Context,
     suspender: Arc<Suspender>,
-    join_handle: JoinHandle<(ReusableParams<E>, Result<()>)>,
+    join_handle: JoinHandle<(ThreadParams<E>, Result<()>)>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -213,7 +209,9 @@ where
 {
     pub fn start(params: Params<E>) -> Self {
         let Params {
-            reusable: reusable_params,
+            mut environment,
+            mut notifications,
+            mut processor,
             processing_interceptor,
         } = params;
         let context = Context::new(processing_interceptor);
@@ -221,23 +219,22 @@ where
         let join_handle = {
             let progress_hint = context.progress_hint.clone();
             let suspender = suspender.clone();
-            let mut reusable_params = reusable_params;
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
-                    let ReusableParams {
+                    let res = thread_fn(
+                        progress_hint,
+                        &mut environment,
+                        &suspender,
+                        &mut *notifications,
+                        &mut *processor,
+                    );
+                    let thread_params = ThreadParams {
                         environment,
                         notifications,
                         processor,
-                    } = &mut reusable_params;
-                    let res = thread_fn(
-                        progress_hint,
-                        environment,
-                        &suspender,
-                        &mut **notifications,
-                        &mut **processor,
-                    );
-                    (reusable_params, res)
+                    };
+                    (thread_params, res)
                 }
             })
         };
@@ -288,16 +285,33 @@ where
         self.suspender.resume();
     }
 
-    pub fn join(self) -> (Option<ReusableParams<E>>, Result<()>) {
+    pub fn join(self) -> (Option<Params<E>>, Result<()>) {
         let Self {
             join_handle,
-            context: _,
+            context,
             suspender: _,
         } = self;
+        let Context {
+            processing_interceptor,
+            progress_hint: _,
+        } = context;
         match join_handle.join() {
-            Ok((reusable_params, res)) => (Some(reusable_params), res),
+            Ok((thread_params, res)) => {
+                let ThreadParams {
+                    environment,
+                    notifications,
+                    processor,
+                } = thread_params;
+                let params = Params {
+                    environment,
+                    notifications,
+                    processor,
+                    processing_interceptor,
+                };
+                (Some(params), res)
+            }
             Err(err) => (
-                None, // the status sender is lost inevitably if joining failed
+                None, // the parameters are lost inevitably if joining failed
                 Err(anyhow!("Failed to join thread: {:?}", err)),
             ),
         }
