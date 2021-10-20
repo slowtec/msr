@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use thread_priority::ThreadPriority;
 
 use super::{
-    processor::{Environment, ProcessingInterceptorBoxed, Processor, ProcessorBoxed},
+    processor::{Environment, ProcessingInterceptorBoxed, Processor},
     AtomicProgressHint, Progress,
 };
 
@@ -59,25 +59,25 @@ impl Context {
 ///
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
-pub struct Params<E> {
+pub struct Params<E, P> {
     pub environment: E,
+    pub processor: P,
     pub notifications: NotificationsBoxed,
-    pub processor: ProcessorBoxed<E>,
     pub processing_interceptor: ProcessingInterceptorBoxed,
 }
 
 // Subset of parameters that are passed into the worker thread
 // and recovered after joining the thread successfully.
-struct ThreadParams<E> {
+struct ThreadParams<E, P> {
     environment: E,
+    processor: P,
     notifications: NotificationsBoxed,
-    processor: ProcessorBoxed<E>,
 }
 
-pub struct Thread<E> {
+pub struct Thread<E, P> {
     context: Context,
     suspender: Arc<Suspender>,
-    join_handle: JoinHandle<(ThreadParams<E>, Result<()>)>,
+    join_handle: JoinHandle<(ThreadParams<E, P>, Result<()>)>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -154,12 +154,12 @@ impl Suspender {
     }
 }
 
-fn thread_fn<E: Environment>(
+fn thread_fn<E: Environment, P: Processor<E>>(
     progress_hint: Arc<AtomicProgressHint>,
     environment: &mut E,
     suspender: &Arc<Suspender>,
     notifications: &mut dyn Notifications,
-    processor: &mut dyn Processor<E>,
+    processor: &mut P,
 ) -> Result<()> {
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
@@ -203,11 +203,12 @@ fn thread_fn<E: Environment>(
     Ok(())
 }
 
-impl<E> Thread<E>
+impl<E, P> Thread<E, P>
 where
     E: Environment + Send + 'static,
+    P: Processor<E> + Send + 'static,
 {
-    pub fn start(params: Params<E>) -> Self {
+    pub fn start(params: Params<E, P>) -> Self {
         let Params {
             mut environment,
             mut notifications,
@@ -227,7 +228,7 @@ where
                         &mut environment,
                         &suspender,
                         &mut *notifications,
-                        &mut *processor,
+                        &mut processor,
                     );
                     let thread_params = ThreadParams {
                         environment,
@@ -285,7 +286,7 @@ where
         self.suspender.resume();
     }
 
-    pub fn join(self) -> (Option<Params<E>>, Result<()>) {
+    pub fn join(self) -> (Option<Params<E, P>>, Result<()>) {
         let Self {
             join_handle,
             context,

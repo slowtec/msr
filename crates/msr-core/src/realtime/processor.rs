@@ -54,6 +54,27 @@ pub trait Processor<E: Environment> {
 
 pub type ProcessorBoxed<E> = Box<dyn Processor<E> + Send + 'static>;
 
+impl<E> Processor<E> for ProcessorBoxed<E>
+where
+    E: Environment,
+{
+    fn start_processing(
+        &mut self,
+        env: &mut E,
+        progress_hint: Arc<AtomicProgressHint>,
+    ) -> Result<()> {
+        (&mut **self).start_processing(env, progress_hint)
+    }
+
+    fn finish_processing(&mut self, env: &mut E) -> Result<()> {
+        (&mut **self).finish_processing(env)
+    }
+
+    fn process(&mut self, env: &E) -> Progress {
+        (&mut **self).process(env)
+    }
+}
+
 pub trait ProcessingInterceptor {
     /// Request to abort processing asap
     ///
