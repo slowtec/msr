@@ -26,6 +26,12 @@ pub trait Notifications {
 
 pub type NotificationsBoxed = Box<dyn Notifications + Send + 'static>;
 
+impl Notifications for NotificationsBoxed {
+    fn notify_state_changed(&mut self, state: State) {
+        (&mut **self).notify_state_changed(state)
+    }
+}
+
 struct Context {
     progress_hint: Arc<AtomicProgressHint>,
     processing_interceptor: ProcessingInterceptorBoxed,
@@ -59,25 +65,25 @@ impl Context {
 ///
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
-pub struct Params<E, P> {
+pub struct Params<E, P, N> {
     pub environment: E,
     pub processor: P,
-    pub notifications: NotificationsBoxed,
+    pub notifications: N,
     pub processing_interceptor: ProcessingInterceptorBoxed,
 }
 
 // Subset of parameters that are passed into the worker thread
 // and recovered after joining the thread successfully.
-struct ThreadParams<E, P> {
+struct ThreadParams<E, P, N> {
     environment: E,
     processor: P,
-    notifications: NotificationsBoxed,
+    notifications: N,
 }
 
-pub struct Thread<E, P> {
+pub struct Thread<E, P, N> {
     context: Context,
     suspender: Arc<Suspender>,
-    join_handle: JoinHandle<(ThreadParams<E, P>, Result<()>)>,
+    join_handle: JoinHandle<(ThreadParams<E, P, N>, Result<()>)>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -154,12 +160,12 @@ impl Suspender {
     }
 }
 
-fn thread_fn<E: Environment, P: Processor<E>>(
+fn thread_fn<E: Environment, P: Processor<E>, N: Notifications>(
     progress_hint: Arc<AtomicProgressHint>,
-    environment: &mut E,
     suspender: &Arc<Suspender>,
-    notifications: &mut dyn Notifications,
+    environment: &mut E,
     processor: &mut P,
+    notifications: &mut N,
 ) -> Result<()> {
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
@@ -203,12 +209,13 @@ fn thread_fn<E: Environment, P: Processor<E>>(
     Ok(())
 }
 
-impl<E, P> Thread<E, P>
+impl<E, P, N> Thread<E, P, N>
 where
     E: Environment + Send + 'static,
     P: Processor<E> + Send + 'static,
+    N: Notifications + Send + 'static,
 {
-    pub fn start(params: Params<E, P>) -> Self {
+    pub fn start(params: Params<E, P, N>) -> Self {
         let Params {
             mut environment,
             mut notifications,
@@ -225,10 +232,10 @@ where
                     adjust_current_thread_priority();
                     let res = thread_fn(
                         progress_hint,
-                        &mut environment,
                         &suspender,
-                        &mut *notifications,
+                        &mut environment,
                         &mut processor,
+                        &mut notifications,
                     );
                     let thread_params = ThreadParams {
                         environment,
@@ -286,7 +293,7 @@ where
         self.suspender.resume();
     }
 
-    pub fn join(self) -> (Option<Params<E, P>>, Result<()>) {
+    pub fn join(self) -> (Option<Params<E, P, N>>, Result<()>) {
         let Self {
             join_handle,
             context,
