@@ -12,8 +12,6 @@ pub enum Progress {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressHint {
     /// Processing should continue
-    ///
-    /// This is the default unless contrary information is available.
     Running,
 
     /// Processing should be suspended
@@ -23,9 +21,19 @@ pub enum ProgressHint {
     Terminating,
 }
 
+impl ProgressHint {
+    /// Default value
+    ///
+    /// The default should be used when no other information is available,
+    /// i.e. processing should continue running uninterrupted.
+    pub const fn default() -> Self {
+        Self::Running
+    }
+}
+
 impl Default for ProgressHint {
     fn default() -> Self {
-        Self::Running
+        Self::default()
     }
 }
 
