@@ -12,6 +12,8 @@ pub enum Progress {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressHint {
     /// Processing should continue
+    ///
+    /// This is the default unless contrary information is available.
     Running,
 
     /// Processing should be suspended
@@ -19,6 +21,12 @@ pub enum ProgressHint {
 
     /// Processing should be terminated
     Terminating,
+}
+
+impl Default for ProgressHint {
+    fn default() -> Self {
+        Self::Running
+    }
 }
 
 const PROGRESS_HINT_RUNNING: u8 = 0;
@@ -75,3 +83,6 @@ impl AtomicProgressHint {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
