@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 
-use super::{Progress, ProgressHint};
+use super::{AtomicProgressHint, Progress, ProgressHint};
 
 pub trait Environment {
     /// Indicates how to make progress
@@ -18,7 +20,11 @@ pub trait Processor<E: Environment> {
     /// acquire resources and to perform initialization.
     ///
     /// Might be invoked again after processing has been finished successfully.
-    fn start_processing(&mut self, env: &mut E) -> Result<()>;
+    fn start_processing(
+        &mut self,
+        env: &mut E,
+        progress_hint: Arc<AtomicProgressHint>,
+    ) -> Result<()>;
 
     /// Finish processing
     ///

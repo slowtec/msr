@@ -1,7 +1,4 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Default)]
 pub struct AtomicFlag(AtomicBool);
@@ -21,5 +18,3 @@ impl AtomicFlag {
             .is_ok()
     }
 }
-
-pub type SharedAtomicFlag = Arc<AtomicFlag>;

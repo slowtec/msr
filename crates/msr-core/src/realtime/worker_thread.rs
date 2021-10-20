@@ -159,6 +159,7 @@ impl Suspender {
 }
 
 fn thread_fn<E: Environment>(
+    progress_hint: Arc<AtomicProgressHint>,
     environment: &mut E,
     suspender: &Arc<Suspender>,
     notifications: &mut dyn Notifications,
@@ -167,7 +168,7 @@ fn thread_fn<E: Environment>(
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
 
-    processor.start_processing(environment)?;
+    processor.start_processing(environment, progress_hint)?;
 
     log::info!("Running");
     notifications.notify_state_changed(State::Running);
@@ -218,6 +219,7 @@ where
         let context = Context::new(processing_interceptor);
         let suspender = Arc::new(Suspender::default());
         let join_handle = {
+            let progress_hint = context.progress_hint.clone();
             let suspender = suspender.clone();
             let mut reusable_params = reusable_params;
             std::thread::spawn({
@@ -229,6 +231,7 @@ where
                         processor,
                     } = &mut reusable_params;
                     let res = thread_fn(
+                        progress_hint,
                         environment,
                         &suspender,
                         &mut **notifications,
