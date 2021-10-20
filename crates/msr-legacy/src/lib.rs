@@ -1,9 +1,9 @@
-#[cfg(feature = "serde")]
-#[macro_use]
-extern crate serde;
-
-#[cfg(test)]
-extern crate serde_json;
+// FIXME: Enable all warnings before the release
+//#![deny(missing_docs)]
+#![deny(missing_debug_implementations)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![cfg_attr(test, deny(warnings))]
+#![warn(rust_2018_idioms)]
 
 use std::{
     collections::HashMap,
@@ -74,7 +74,7 @@ pub enum ControllerType {
 
 /// Controller configuration
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ControllerConfig {
     Pid(pid::PidConfig),
     BangBang(bang_bang::BangBangConfig),

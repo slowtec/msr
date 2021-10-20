@@ -98,7 +98,7 @@ struct ValueVisitor;
 impl<'de> Visitor<'de> for ValueVisitor {
     type Value = Value;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a boolean, a number, a string, an array of bytes or an timeout.")
     }
     fn visit_bool<E>(self, value: bool) -> Result<Value, E> {

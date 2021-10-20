@@ -65,6 +65,7 @@ impl Context {
 ///
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
+#[allow(missing_debug_implementations)]
 pub struct Params<E, P, N> {
     pub environment: E,
     pub processor: P,
@@ -80,6 +81,7 @@ struct ThreadParams<E, P, N> {
     notifications: N,
 }
 
+#[allow(missing_debug_implementations)]
 pub struct Thread<E, P, N> {
     context: Context,
     suspender: Arc<Suspender>,
