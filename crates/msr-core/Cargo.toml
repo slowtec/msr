@@ -2,7 +2,7 @@
 name = "msr-core"
 description = "Industrial Automation Toolbox - Core Components"
 license = "MIT/Apache-2.0"
-edition = "2018"
+edition = "2021"
 version = "0.3.0"
 
 [dependencies]
@@ -23,7 +23,8 @@ uuid = { version = "0.8", optional = true, default_features = false }
 tempfile = "3"
 
 [features]
-default = []
+default = ["realtime-worker-thread", "csv-event-journal", "csv-register-recorder"]
+#default = []
 event-journal = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "uuid/v4"]
 register-recorder = ["anyhow/std", "chrono/serde", "serde/derive", "serde_json/std"]
 csv-storage = ["csv", "serde"]
