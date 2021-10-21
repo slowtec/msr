@@ -1,9 +1,11 @@
-// FIXME: Enable all warnings before the release
-//#![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
+// FIXME: Enable and switch `missing_docs` from `warn` to `deny` before release
+//#![warn(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(test, deny(warnings))]
 #![warn(rust_2018_idioms)]
+
+//! Industrial Automation Toolbox - Plugin Foundation
 
 use std::{error::Error as StdError, fmt, future::Future, pin::Pin};
 
@@ -16,15 +18,25 @@ use tokio::sync::{
 
 use msr_core::audit::Activity;
 
-// ------ -------
-//  Plugin shape
-// ------ -------
-
+/// Message-driven plugin
 pub trait Plugin {
+    /// The message type
     type Message;
+
+    /// The event type
     type Event;
+
+    /// Endpoint for submitting messages
+    ///
+    /// Returns an endpoint for sending request messages to the plugin.
     fn message_sender(&self) -> MessageSender<Self::Message>;
+
+    /// Subscribe to plugin events
+    ///
+    /// Returns an endpoint for receiving events published by the plugin.
     fn subscribe_events(&self) -> BroadcastReceiver<Self::Event>;
+
+    /// Run the message loop
     fn run(self) -> MessageLoop;
 }
 

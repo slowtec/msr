@@ -1,14 +1,15 @@
 use std::{
+    any::Any,
     sync::{Arc, Condvar, Mutex},
     thread::JoinHandle,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use thread_priority::ThreadPriority;
 
 use super::{
-    processor::{Environment, ProcessingInterceptorBoxed, Processor},
-    AtomicProgressHint, Progress,
+    processor::{Environment, Processor, Progress},
+    AtomicProgressHint,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,16 +33,15 @@ impl Notifications for NotificationsBoxed {
     }
 }
 
+#[derive(Debug)]
 struct Context {
     progress_hint: Arc<AtomicProgressHint>,
-    processing_interceptor: ProcessingInterceptorBoxed,
 }
 
 impl Context {
-    pub fn new(processing_interceptor: ProcessingInterceptorBoxed) -> Self {
+    pub fn new() -> Self {
         Self {
-            progress_hint: Arc::new(AtomicProgressHint::new()),
-            processing_interceptor,
+            progress_hint: Arc::new(AtomicProgressHint::default()),
         }
     }
 
@@ -65,27 +65,18 @@ impl Context {
 ///
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
-#[allow(missing_debug_implementations)]
-pub struct Params<E, P, N> {
+#[derive(Debug)]
+pub struct Params<N, E, P> {
+    pub notifications: N,
     pub environment: E,
     pub processor: P,
-    pub notifications: N,
-    pub processing_interceptor: ProcessingInterceptorBoxed,
 }
 
-// Subset of parameters that are passed into the worker thread
-// and recovered after joining the thread successfully.
-struct ThreadParams<E, P, N> {
-    environment: E,
-    processor: P,
-    notifications: N,
-}
-
-#[allow(missing_debug_implementations)]
-pub struct Thread<E, P, N> {
+#[derive(Debug)]
+pub struct Thread<N, E, P> {
     context: Context,
     suspender: Arc<Suspender>,
-    join_handle: JoinHandle<(ThreadParams<E, P, N>, Result<()>)>,
+    join_handle: JoinHandle<TerminatedThread<N, E, P>>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -162,13 +153,17 @@ impl Suspender {
     }
 }
 
-fn thread_fn<E: Environment, P: Processor<E>, N: Notifications>(
+fn thread_fn<N: Notifications, E: Environment, P: Processor<E>>(
     progress_hint: Arc<AtomicProgressHint>,
     suspender: &Arc<Suspender>,
-    environment: &mut E,
-    processor: &mut P,
-    notifications: &mut N,
+    mut params: &mut Params<N, E, P>,
 ) -> Result<()> {
+    let Params {
+        notifications,
+        environment,
+        processor,
+    } = &mut params;
+
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
 
@@ -211,20 +206,31 @@ fn thread_fn<E: Environment, P: Processor<E>, N: Notifications>(
     Ok(())
 }
 
-impl<E, P, N> Thread<E, P, N>
+/// Outcome of [`Thread::join()`]
+#[derive(Debug)]
+pub struct TerminatedThread<N, E, P> {
+    /// The result of the thread function
+    pub result: Result<()>,
+
+    /// The recovered parameters
+    pub recovered_params: Params<N, E, P>,
+}
+
+/// Outcome of [`Thread::join()`]
+#[derive(Debug)]
+pub enum JoinedThread<N, E, P> {
+    Terminated(TerminatedThread<N, E, P>),
+    JoinError(Box<dyn Any + Send + 'static>),
+}
+
+impl<N, E, P> Thread<N, E, P>
 where
+    N: Notifications + Send + 'static,
     E: Environment + Send + 'static,
     P: Processor<E> + Send + 'static,
-    N: Notifications + Send + 'static,
 {
-    pub fn start(params: Params<E, P, N>) -> Self {
-        let Params {
-            mut environment,
-            mut notifications,
-            mut processor,
-            processing_interceptor,
-        } = params;
-        let context = Context::new(processing_interceptor);
+    pub fn start(params: Params<N, E, P>) -> Self {
+        let context = Context::new();
         let suspender = Arc::new(Suspender::default());
         let join_handle = {
             let progress_hint = context.progress_hint.clone();
@@ -232,19 +238,14 @@ where
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
-                    let res = thread_fn(
-                        progress_hint,
-                        &suspender,
-                        &mut environment,
-                        &mut processor,
-                        &mut notifications,
-                    );
-                    let thread_params = ThreadParams {
-                        environment,
-                        notifications,
-                        processor,
-                    };
-                    (thread_params, res)
+                    // The parameters are mutable within the real-time thread
+                    let mut params = params;
+                    let result = thread_fn(progress_hint, &suspender, &mut params);
+                    let recovered_params = params;
+                    TerminatedThread {
+                        result,
+                        recovered_params,
+                    }
                 }
             })
         };
@@ -255,7 +256,7 @@ where
         }
     }
 
-    pub fn suspend(&self, abort_processing: bool) -> bool {
+    pub fn suspend(&self) -> bool {
         // 1st step: Ensure that the thread will block and suspend itself
         // after processing has been suspended
         if !self.suspender.suspend() {
@@ -264,10 +265,6 @@ where
         }
         // 2nd step: Request processing to suspend
         self.context.suspend();
-        // 3rd step: Abort any processing if requested
-        if abort_processing {
-            self.context.processing_interceptor.abort_processing();
-        }
         true
     }
 
@@ -284,46 +281,39 @@ where
         true
     }
 
-    pub fn stop(&self, abort_processing: bool) {
+    /// Stop the thread
+    ///
+    /// The thread is stopped after the processor has returned
+    /// from the last processing step without interruption.
+    pub fn stop(&self) {
+        self.abort(|| {});
+    }
+
+    /// Stop the thread by aborting processing
+    ///
+    /// Processing could be interrupted by a side-effect that
+    /// intercepts the termination.
+    pub fn abort(&self, on_abort: impl FnOnce()) {
         // 1st step: Ensure that processing will terminate
         self.context.terminate();
-        // 2nd step: Abort any processing if requested
-        if abort_processing {
-            self.context.processing_interceptor.abort_processing();
-        }
-        // 3rd step: Wake up the thread in case it is still suspended
+        // 2nd step: Abort processing through a side-effect controlled
+        // by the caller. This must intercept the 1st and 3rd step to
+        // avoid race conditions!
+        on_abort();
+        // 3rd step: Finally wake up the thread in case it is suspended.
+        // Otherwise it might stay suspended forever.
         self.suspender.resume();
     }
 
-    pub fn join(self) -> (Option<Params<E, P, N>>, Result<()>) {
+    pub fn join(self) -> JoinedThread<N, E, P> {
         let Self {
             join_handle,
-            context,
+            context: _,
             suspender: _,
         } = self;
-        let Context {
-            processing_interceptor,
-            progress_hint: _,
-        } = context;
-        match join_handle.join() {
-            Ok((thread_params, res)) => {
-                let ThreadParams {
-                    environment,
-                    notifications,
-                    processor,
-                } = thread_params;
-                let params = Params {
-                    environment,
-                    notifications,
-                    processor,
-                    processing_interceptor,
-                };
-                (Some(params), res)
-            }
-            Err(err) => (
-                None, // the parameters are lost inevitably if joining failed
-                Err(anyhow!("Failed to join thread: {:?}", err)),
-            ),
-        }
+        join_handle
+            .join()
+            .map(JoinedThread::Terminated)
+            .unwrap_or_else(JoinedThread::JoinError)
     }
 }

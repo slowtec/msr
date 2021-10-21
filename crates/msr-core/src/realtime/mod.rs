@@ -1,13 +1,8 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 
 pub mod processor;
-pub mod worker_thread;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Progress {
-    Suspended,
-    Terminated,
-}
+pub mod worker_thread;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressHint {
@@ -41,17 +36,21 @@ const PROGRESS_HINT_RUNNING: u8 = 0;
 const PROGRESS_HINT_SUSPENDING: u8 = 1;
 const PROGRESS_HINT_TERMINATING: u8 = 2;
 
-/// !!!DO NOT USE!!!
-///
-/// This type is only public for migrating legacy code.
+/// Atomic [`ProgressHint`]
 #[derive(Debug)]
 pub struct AtomicProgressHint(AtomicU8);
 
 impl AtomicProgressHint {
-    pub const fn new() -> Self {
+    /// Default value
+    ///
+    /// Creates a new value in accordance to `ProgressHint::default()`.
+    pub const fn default() -> Self {
         Self(AtomicU8::new(PROGRESS_HINT_RUNNING))
     }
 
+    /// Switch from [`ProgressHint::Running`] to [`ProgressHint::Suspending`]
+    ///
+    /// Returns `true` if successful and `false` otherwise.
     pub fn suspend(&self) -> bool {
         self.0
             .compare_exchange(
@@ -63,6 +62,9 @@ impl AtomicProgressHint {
             .is_ok()
     }
 
+    /// Switch from [`ProgressHint::Suspending`] to [`ProgressHint::Running`]
+    ///
+    /// Returns `true` if successful and `false` otherwise.
     pub fn resume(&self) -> bool {
         self.0
             .compare_exchange(
@@ -74,14 +76,22 @@ impl AtomicProgressHint {
             .is_ok()
     }
 
+    /// Reset to [`ProgressHint::default()`]
+    ///
+    /// Returns `true` if successful and `false` otherwise.
     pub fn reset(&self) {
         self.0.store(PROGRESS_HINT_RUNNING, Ordering::Release);
     }
 
+    /// Set to [`ProgressHint::Terminating`]
     pub fn terminate(&self) {
         self.0.store(PROGRESS_HINT_TERMINATING, Ordering::Release);
     }
 
+    /// Load the current value
+    ///
+    /// The memory ordering *acquire* ensures that all subsequent operations
+    /// are executed *after* the corresponding *store* operation.
     pub fn load(&self) -> ProgressHint {
         match self.0.load(Ordering::Acquire) {
             PROGRESS_HINT_RUNNING => ProgressHint::Running,
@@ -89,6 +99,12 @@ impl AtomicProgressHint {
             PROGRESS_HINT_TERMINATING => ProgressHint::Terminating,
             progress_hint => unreachable!("unexpected progress hint value: {}", progress_hint),
         }
+    }
+}
+
+impl Default for AtomicProgressHint {
+    fn default() -> Self {
+        Self::default()
     }
 }
 

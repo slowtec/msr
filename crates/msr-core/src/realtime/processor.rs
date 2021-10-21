@@ -2,8 +2,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use super::{AtomicProgressHint, Progress, ProgressHint};
+use super::{AtomicProgressHint, ProgressHint};
 
+/// Environment for processing
+///
+/// The processor may consult the environment for retrieving results of
+/// side-effects that might occur in the outer context.
 pub trait Environment {
     /// Indicates how to make progress
     ///
@@ -13,6 +17,23 @@ pub trait Environment {
     fn progress_hint(&self) -> ProgressHint;
 }
 
+/// Outcome of processing step
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Progress {
+    /// Processing has been suspended
+    ///
+    /// All available work has been finished and processing has been
+    /// suspended. The processor might be invoked again after more
+    /// work is available
+    Suspended,
+
+    /// Processing has terminated
+    ///
+    /// The processor has terminated and must not be invoked again.
+    Terminated,
+}
+
+/// Callback interface for real-time processing
 pub trait Processor<E: Environment> {
     /// Start processing
     ///
@@ -52,6 +73,7 @@ pub trait Processor<E: Environment> {
     fn process(&mut self, env: &E) -> Progress;
 }
 
+/// Wraps a [`Processor`] as a boxed trait object
 pub type ProcessorBoxed<E> = Box<dyn Processor<E> + Send + 'static>;
 
 impl<E> Processor<E> for ProcessorBoxed<E>
@@ -74,13 +96,3 @@ where
         (&mut **self).process(env)
     }
 }
-
-pub trait ProcessingInterceptor {
-    /// Request to abort processing asap
-    ///
-    /// Requests the processor to return from `Processor::process()` early
-    /// without finishing the pending work.
-    fn abort_processing(&self);
-}
-
-pub type ProcessingInterceptorBoxed = Box<dyn ProcessingInterceptor + Send + 'static>;

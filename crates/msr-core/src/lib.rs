@@ -1,9 +1,11 @@
-// FIXME: Enable all warnings before the release
-//#![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
+// FIXME: Enable and switch `missing_docs` from `warn` to `deny` before release
+//#![warn(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(test, deny(warnings))]
 #![warn(rust_2018_idioms)]
+
+//! Industrial Automation Toolbox - Core Components
 
 mod measure;
 mod value;
