@@ -3,7 +3,9 @@
 A [Rust](https://www.rust-lang.org) library for industrial automation.
 
 [![Crates.io version](https://img.shields.io/crates/v/msr.svg)](https://crates.io/crates/msr)
-[![Docs](https://docs.rs/msr/badge.svg)](https://docs.rs/msr/)
+[![Docs.rs](https://docs.rs/msr/badge.svg)](https://docs.rs/msr/)
+[![Security audit](https://github.com/slowtec/msr/actions/workflows/security-audit.yaml/badge.svg)](https://github.com/slowtec/msr/actions/workflows/security-audit.yaml)
+[![Continuous integration](https://github.com/slowtec/msr/actions/workflows/continuous-integration.yaml/badge.svg)](https://github.com/slowtec/msr/actions/workflows/continuous-integration.yaml)
 
 ## Installation
 
