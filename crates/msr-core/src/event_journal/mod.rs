@@ -1,10 +1,6 @@
 //! Journaling features
 
-use std::{
-    fmt,
-    num::NonZeroUsize,
-    time::SystemTime,
-};
+use std::{fmt, num::NonZeroUsize, time::SystemTime};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
