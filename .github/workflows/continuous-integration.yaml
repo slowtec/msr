@@ -28,50 +28,55 @@ jobs:
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v1
 
+      - name: Generate Cargo.lock
+        uses: actions-rs/cargo@v1
+        with:
+          command: generate-lockfile
+
       - name: Check crates/msr-core
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path crates/msr-core/Cargo.toml
+          args: --locked --manifest-path crates/msr-core/Cargo.toml
 
       - name: Check crates/msr-plugin
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path crates/msr-plugin/Cargo.toml
+          args: --locked --manifest-path crates/msr-plugin/Cargo.toml
 
       - name: Check crates/msr-legacy
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path crates/msr-legacy/Cargo.toml
+          args: --locked --manifest-path crates/msr-legacy/Cargo.toml
 
       - name: Check plugins/csv-event-journal-msr-plugin
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path plugins/csv-event-journal-msr-plugin/Cargo.toml
+          args: --locked --manifest-path plugins/csv-event-journal-msr-plugin/Cargo.toml
 
       - name: Check plugins/csv-register-recorder-msr-plugin
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path plugins/csv-register-recorder-msr-plugin/Cargo.toml
+          args: --locked --manifest-path plugins/csv-register-recorder-msr-plugin/Cargo.toml
 
       - name: Build tests with all features enabled
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-features --no-run
+          args: --locked --workspace --all-features --no-run
 
       - name: Run tests with all features enabled
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-features --locked -- --nocapture --quiet
+          args: --locked --workspace --all-features -- --nocapture --quiet
 
       - name: Build release with default features
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --locked
+          args: --locked --release
