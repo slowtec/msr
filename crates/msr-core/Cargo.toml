@@ -6,7 +6,7 @@ edition = "2021"
 version = "0.3.0"
 
 [dependencies]
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false }
 clokwerk = "0.3"
 log = "0.4"
 thiserror = "1"
