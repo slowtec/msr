@@ -11,8 +11,8 @@ anyhow = "*"
 bs58 = "*"
 log = "*"
 thiserror = "*"
-tokio = { version = "*", default_features = false, features = ["rt-multi-thread"] }
+tokio = { version = "*", default-features = false, features = ["rt-multi-thread"] }
 
 # Workspace dependencies
-msr-core = { version = "*", default_features = false, features = ["csv-register-recorder"] }
+msr-core = { version = "*", default-features = false, features = ["csv-register-recorder"] }
 msr-plugin = "*"
