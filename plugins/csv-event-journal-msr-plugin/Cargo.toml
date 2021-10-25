@@ -10,7 +10,7 @@ publish = false
 anyhow = "1"
 log = "0.4"
 thiserror = "1"
-tokio = { version = "*", default-features = false, features = ["rt-multi-thread", "sync"] }
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
 msr-core = { version = "*", default-features = false, features = ["csv-event-journal"] }
