@@ -9,7 +9,7 @@ use thread_priority::ThreadPriority;
 
 use super::{
     new_progress_hint_channel,
-    processor::{Environment, Processor, Progress},
+    processor::{Processor, Progress},
     ProgressHintReceiver, ProgressHintSender,
 };
 
@@ -61,17 +61,17 @@ impl Context {
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
 #[derive(Debug)]
-pub struct Params<N, E, P> {
-    pub notifications: N,
+pub struct Params<E, N, P> {
     pub environment: E,
+    pub notifications: N,
     pub processor: P,
 }
 
 #[derive(Debug)]
-pub struct Thread<N, E, P> {
+pub struct Thread<E, N, P> {
     context: Context,
     suspender: Arc<Suspender>,
-    join_handle: JoinHandle<TerminatedThread<N, E, P>>,
+    join_handle: JoinHandle<TerminatedThread<E, N, P>>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -148,14 +148,14 @@ impl Suspender {
     }
 }
 
-fn thread_fn<N: Notifications, E: Environment, P: Processor<E>>(
+fn thread_fn<N: Notifications, E, P: Processor<E>>(
     progress_hint_rx: ProgressHintReceiver,
     suspender: &Arc<Suspender>,
-    mut params: &mut Params<N, E, P>,
+    mut params: &mut Params<E, N, P>,
 ) -> Result<()> {
     let Params {
-        notifications,
         environment,
+        notifications,
         processor,
     } = &mut params;
 
@@ -203,28 +203,28 @@ fn thread_fn<N: Notifications, E: Environment, P: Processor<E>>(
 
 /// Outcome of [`Thread::join()`]
 #[derive(Debug)]
-pub struct TerminatedThread<N, E, P> {
+pub struct TerminatedThread<E, N, P> {
     /// The result of the thread function
     pub result: Result<()>,
 
     /// The recovered parameters
-    pub recovered_params: Params<N, E, P>,
+    pub recovered_params: Params<E, N, P>,
 }
 
 /// Outcome of [`Thread::join()`]
 #[derive(Debug)]
-pub enum JoinedThread<N, E, P> {
-    Terminated(TerminatedThread<N, E, P>),
+pub enum JoinedThread<E, N, P> {
+    Terminated(TerminatedThread<E, N, P>),
     JoinError(Box<dyn Any + Send + 'static>),
 }
 
-impl<N, E, P> Thread<N, E, P>
+impl<E, N, P> Thread<E, N, P>
 where
+    E: Send + 'static,
     N: Notifications + Send + 'static,
-    E: Environment + Send + 'static,
     P: Processor<E> + Send + 'static,
 {
-    pub fn start(params: Params<N, E, P>) -> Self {
+    pub fn start(params: Params<E, N, P>) -> Self {
         let (progress_hint_tx, progress_hint_rx) = new_progress_hint_channel();
         let context = Context { progress_hint_tx };
         let suspender = Arc::new(Suspender::default());
@@ -300,7 +300,7 @@ where
         self.suspender.resume();
     }
 
-    pub fn join(self) -> JoinedThread<N, E, P> {
+    pub fn join(self) -> JoinedThread<E, N, P> {
         let Self {
             join_handle,
             context: _,

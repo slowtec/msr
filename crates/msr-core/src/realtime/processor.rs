@@ -1,19 +1,6 @@
 use anyhow::Result;
 
-use super::{ProgressHint, ProgressHintReceiver};
-
-/// Environment for processing
-///
-/// The processor may consult the environment for retrieving results of
-/// side-effects that might occur in the outer context.
-pub trait Environment {
-    /// Indicates how to make progress
-    ///
-    /// The progress hint should be checked every now and then. In
-    /// particular before/after long running operations during
-    /// processing.
-    fn progress_hint(&self) -> ProgressHint;
-}
+use super::ProgressHintReceiver;
 
 /// Outcome of processing step
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +19,7 @@ pub enum Progress {
 }
 
 /// Callback interface for real-time processing
-pub trait Processor<E: Environment> {
+pub trait Processor<E> {
     /// Start processing
     ///
     /// Invoked once before the first call to `Processor::process()` to
@@ -74,10 +61,7 @@ pub trait Processor<E: Environment> {
 /// Wraps a [`Processor`] as a boxed trait object
 pub type ProcessorBoxed<E> = Box<dyn Processor<E> + Send + 'static>;
 
-impl<E> Processor<E> for ProcessorBoxed<E>
-where
-    E: Environment,
-{
+impl<E> Processor<E> for ProcessorBoxed<E> {
     fn start_processing(
         &mut self,
         env: &mut E,
