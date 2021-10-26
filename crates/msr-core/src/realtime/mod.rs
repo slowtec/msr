@@ -192,6 +192,9 @@ impl ProgressHintReceiver {
 }
 
 pub(crate) fn new_progress_hint_channel() -> (ProgressHintSender, ProgressHintReceiver) {
+    // TODO: Is there a simpler and more efficient solution than a
+    // synchronous MPSC channel on the unit type and a capacity of 1
+    // for implementing the handshake synchronization?
     let (handshake_tx, handshake_rx) = mpsc::sync_channel(1);
     let latest_progress_hint = Arc::new(AtomicProgressHint::default());
     let progress_hint_tx = ProgressHintSender {
