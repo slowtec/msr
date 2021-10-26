@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 
-use super::{AtomicProgressHint, ProgressHint};
+use super::{ProgressHint, ProgressHintReceiver};
 
 /// Environment for processing
 ///
@@ -44,7 +42,7 @@ pub trait Processor<E: Environment> {
     fn start_processing(
         &mut self,
         env: &mut E,
-        progress_hint: Arc<AtomicProgressHint>,
+        progress_hint_rx: ProgressHintReceiver,
     ) -> Result<()>;
 
     /// Finish processing
@@ -83,9 +81,9 @@ where
     fn start_processing(
         &mut self,
         env: &mut E,
-        progress_hint: Arc<AtomicProgressHint>,
+        progress_hint_rx: ProgressHintReceiver,
     ) -> Result<()> {
-        (&mut **self).start_processing(env, progress_hint)
+        (&mut **self).start_processing(env, progress_hint_rx)
     }
 
     fn finish_processing(&mut self, env: &mut E) -> Result<()> {

@@ -8,8 +8,9 @@ use anyhow::Result;
 use thread_priority::ThreadPriority;
 
 use super::{
+    new_progress_hint_channel,
     processor::{Environment, Processor, Progress},
-    AtomicProgressHint,
+    ProgressHintReceiver, ProgressHintSender,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,26 +36,20 @@ impl Notifications for NotificationsBoxed {
 
 #[derive(Debug)]
 struct Context {
-    progress_hint: Arc<AtomicProgressHint>,
+    progress_hint_tx: ProgressHintSender,
 }
 
 impl Context {
-    pub fn new() -> Self {
-        Self {
-            progress_hint: Arc::new(AtomicProgressHint::default()),
-        }
-    }
-
     pub fn suspend(&self) -> bool {
-        self.progress_hint.suspend()
+        self.progress_hint_tx.suspend()
     }
 
     pub fn resume(&self) -> bool {
-        self.progress_hint.resume()
+        self.progress_hint_tx.resume()
     }
 
     pub fn terminate(&self) {
-        self.progress_hint.terminate()
+        self.progress_hint_tx.terminate()
     }
 }
 
@@ -154,7 +149,7 @@ impl Suspender {
 }
 
 fn thread_fn<N: Notifications, E: Environment, P: Processor<E>>(
-    progress_hint: Arc<AtomicProgressHint>,
+    progress_hint_rx: ProgressHintReceiver,
     suspender: &Arc<Suspender>,
     mut params: &mut Params<N, E, P>,
 ) -> Result<()> {
@@ -167,7 +162,7 @@ fn thread_fn<N: Notifications, E: Environment, P: Processor<E>>(
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
 
-    processor.start_processing(environment, progress_hint)?;
+    processor.start_processing(environment, progress_hint_rx)?;
 
     log::info!("Running");
     notifications.notify_state_changed(State::Running);
@@ -230,17 +225,17 @@ where
     P: Processor<E> + Send + 'static,
 {
     pub fn start(params: Params<N, E, P>) -> Self {
-        let context = Context::new();
+        let (progress_hint_tx, progress_hint_rx) = new_progress_hint_channel();
+        let context = Context { progress_hint_tx };
         let suspender = Arc::new(Suspender::default());
         let join_handle = {
-            let progress_hint = context.progress_hint.clone();
             let suspender = suspender.clone();
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
                     // The parameters are mutable within the real-time thread
                     let mut params = params;
-                    let result = thread_fn(progress_hint, &suspender, &mut params);
+                    let result = thread_fn(progress_hint_rx, &suspender, &mut params);
                     let recovered_params = params;
                     TerminatedThread {
                         result,
