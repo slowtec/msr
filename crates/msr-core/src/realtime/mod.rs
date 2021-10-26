@@ -3,7 +3,7 @@ use std::{
         atomic::{AtomicU8, Ordering},
         mpsc, Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub mod processor;
@@ -177,18 +177,23 @@ impl ProgressHintReceiver {
         self.load()
     }
 
-    // Receive a new progress hint with blocking
-    //
-    // Blocks until a new handshake signal has been received
-    // or the deadline has expired and then reads the latest
-    // value.
-    //
-    // TODO: Enable when available
-    // https://doc.rust-lang.org/std/sync/mpsc/struct.Receiver.html#method.recv_deadline
-    // pub fn recv_deadline(&self, deadline: Instant) -> ProgressHint {
-    //     let _ = self.handshake_rx.recv_deadline(deadline);
-    //     self.load()
-    // }
+    /// Receive a new progress hint with blocking
+    ///
+    /// Blocks until a new handshake signal has been received
+    /// or the deadline has expired and then reads the latest
+    /// value.
+
+    pub fn recv_deadline(&self, deadline: Instant) -> ProgressHint {
+        // TODO: Replace temporariy workaround with the dedicated
+        // function when available an update the minimum Rust version
+        // in Cargo.toml.
+        let now = Instant::now();
+        let timeout = deadline.duration_since(deadline.min(now));
+        let _ = self.handshake_rx.recv_timeout(timeout);
+        // https://doc.rust-lang.org/std/sync/mpsc/struct.Receiver.html#method.recv_deadline
+        //let _ = self.handshake_rx.recv_deadline(deadline);
+        self.load()
+    }
 }
 
 pub(crate) fn new_progress_hint_channel() -> (ProgressHintSender, ProgressHintReceiver) {
