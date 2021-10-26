@@ -168,7 +168,7 @@ fn thread_fn<N: Notifications, E, P: Processor<E>>(
     notifications.notify_state_changed(State::Running);
 
     loop {
-        match processor.process(environment) {
+        match processor.process(environment)? {
             Progress::Suspended => {
                 // The processor might decide to implicitly suspend processing
                 // at any time. Therefore we need to explicitly suspend ourselves

@@ -55,7 +55,7 @@ pub trait Processor<E> {
     ///
     /// This function is not supposed to mutate the environment in contrast
     /// to starting/finishing processing.
-    fn process(&mut self, env: &E) -> Progress;
+    fn process(&mut self, env: &E) -> Result<Progress>;
 }
 
 /// Wraps a [`Processor`] as a boxed trait object
@@ -74,7 +74,7 @@ impl<E> Processor<E> for ProcessorBoxed<E> {
         (&mut **self).finish_processing(env)
     }
 
-    fn process(&mut self, env: &E) -> Progress {
+    fn process(&mut self, env: &E) -> Result<Progress> {
         (&mut **self).process(env)
     }
 }
