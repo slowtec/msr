@@ -26,11 +26,7 @@ pub trait Processor<E> {
     /// acquire resources and to perform initialization.
     ///
     /// Might be invoked again after processing has been finished successfully.
-    fn start_processing(
-        &mut self,
-        env: &mut E,
-        progress_hint_rx: ProgressHintReceiver,
-    ) -> Result<()>;
+    fn start_processing(&mut self, env: &mut E) -> Result<()>;
 
     /// Finish processing
     ///
@@ -40,7 +36,7 @@ pub trait Processor<E> {
     /// Might be invoked again after processing has been restarted successfully.
     fn finish_processing(&mut self, env: &mut E) -> Result<()>;
 
-    /// Start or resume processing
+    /// Perform a processing step
     ///
     /// The first invocation starts the processing. On return execution
     /// has either been suspended or terminated.
@@ -55,26 +51,22 @@ pub trait Processor<E> {
     ///
     /// This function is not supposed to mutate the environment in contrast
     /// to starting/finishing processing.
-    fn process(&mut self, env: &E) -> Result<Progress>;
+    fn process(&mut self, env: &E, progress_hint_rx: &ProgressHintReceiver) -> Result<Progress>;
 }
 
 /// Wraps a [`Processor`] as a boxed trait object
 pub type ProcessorBoxed<E> = Box<dyn Processor<E> + Send + 'static>;
 
 impl<E> Processor<E> for ProcessorBoxed<E> {
-    fn start_processing(
-        &mut self,
-        env: &mut E,
-        progress_hint_rx: ProgressHintReceiver,
-    ) -> Result<()> {
-        (&mut **self).start_processing(env, progress_hint_rx)
+    fn start_processing(&mut self, env: &mut E) -> Result<()> {
+        (&mut **self).start_processing(env)
     }
 
     fn finish_processing(&mut self, env: &mut E) -> Result<()> {
         (&mut **self).finish_processing(env)
     }
 
-    fn process(&mut self, env: &E) -> Result<Progress> {
-        (&mut **self).process(env)
+    fn process(&mut self, env: &E, progress_hint_rx: &ProgressHintReceiver) -> Result<Progress> {
+        (&mut **self).process(env, progress_hint_rx)
     }
 }

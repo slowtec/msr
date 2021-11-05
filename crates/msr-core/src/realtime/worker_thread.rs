@@ -149,7 +149,7 @@ impl Suspender {
 }
 
 fn thread_fn<N: Notifications, E, P: Processor<E>>(
-    progress_hint_rx: ProgressHintReceiver,
+    progress_hint_rx: &ProgressHintReceiver,
     suspender: &Arc<Suspender>,
     mut params: &mut Params<E, N, P>,
 ) -> Result<()> {
@@ -162,13 +162,13 @@ fn thread_fn<N: Notifications, E, P: Processor<E>>(
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
 
-    processor.start_processing(environment, progress_hint_rx)?;
+    processor.start_processing(environment)?;
 
     log::info!("Running");
     notifications.notify_state_changed(State::Running);
 
     loop {
-        match processor.process(environment)? {
+        match processor.process(environment, progress_hint_rx)? {
             Progress::Suspended => {
                 // The processor might decide to implicitly suspend processing
                 // at any time. Therefore we need to explicitly suspend ourselves
@@ -235,7 +235,7 @@ where
                     adjust_current_thread_priority();
                     // The parameters are mutable within the real-time thread
                     let mut params = params;
-                    let result = thread_fn(progress_hint_rx, &suspender, &mut params);
+                    let result = thread_fn(&progress_hint_rx, &suspender, &mut params);
                     let recovered_params = params;
                     TerminatedThread {
                         result,
