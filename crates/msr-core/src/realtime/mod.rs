@@ -54,32 +54,28 @@ impl AtomicProgressHint {
         Self(AtomicU8::new(PROGRESS_HINT_RUNNING))
     }
 
+    fn switch_from_current_to_desired(&self, current: u8, desired: u8) -> bool {
+        match self
+            .0
+            .compare_exchange(current, desired, Ordering::Acquire, Ordering::Acquire)
+        {
+            Ok(_previous) => true,
+            Err(current) => current == desired,
+        }
+    }
+
     /// Switch from [`ProgressHint::Running`] to [`ProgressHint::Suspending`]
     ///
-    /// Returns `true` if successful and `false` otherwise.
+    /// Returns `true` if successful or already suspending and `false` otherwise.
     pub fn suspend(&self) -> bool {
-        self.0
-            .compare_exchange(
-                PROGRESS_HINT_RUNNING,
-                PROGRESS_HINT_SUSPENDING,
-                Ordering::Acquire,
-                Ordering::Acquire,
-            )
-            .is_ok()
+        self.switch_from_current_to_desired(PROGRESS_HINT_RUNNING, PROGRESS_HINT_SUSPENDING)
     }
 
     /// Switch from [`ProgressHint::Suspending`] to [`ProgressHint::Running`]
     ///
-    /// Returns `true` if successful and `false` otherwise.
+    /// Returns `true` if successful or already running and `false` otherwise.
     pub fn resume(&self) -> bool {
-        self.0
-            .compare_exchange(
-                PROGRESS_HINT_SUSPENDING,
-                PROGRESS_HINT_RUNNING,
-                Ordering::Acquire,
-                Ordering::Acquire,
-            )
-            .is_ok()
+        self.switch_from_current_to_desired(PROGRESS_HINT_SUSPENDING, PROGRESS_HINT_RUNNING)
     }
 
     /// Reset to [`ProgressHint::default()`]
