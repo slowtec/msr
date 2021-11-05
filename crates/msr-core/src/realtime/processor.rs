@@ -22,36 +22,28 @@ pub enum Progress {
 pub trait Processor<E> {
     /// Start processing
     ///
-    /// Invoked once before the first call to `Processor::process()` to
-    /// acquire resources and to perform initialization.
-    ///
-    /// Might be invoked again after processing has been finished successfully.
+    /// Invoked once before the first call to [`Processor::process()`] for
+    /// acquiring resources and to perform initialization.
     fn start_processing(&mut self, env: &mut E) -> Result<()>;
 
-    /// Finish processing
+    /// Perform the next processing turn
     ///
-    /// Invoked once after the last call to `Processor::process()` to
-    /// perform cleanup and to release resources.
+    /// This function is invoked at least once after [`Processor::start_processing()`]
+    /// has returned successfully.
     ///
-    /// Might be invoked again after processing has been restarted successfully.
-    fn finish_processing(&mut self, env: &mut E) -> Result<()>;
-
-    /// Perform a processing step
-    ///
-    /// The first invocation starts the processing. On return execution
-    /// has either been suspended or terminated.
-    ///
-    /// After processing has been suspended it might be resumed by invoking
-    /// this function repeatedly until eventually `Progress::Terminated`
-    /// is returned.
-    ///
-    /// Returning `Progress::Suspended` ensures that this function is invoked
-    /// at least once again, allowing the processor to finish any pending
-    /// tasks before finally terminating.
+    /// After returning it is guaranteed to be invoked one more time until finally
+    /// `Progress::Terminated` is returned. Then [`Processor::finish_processing()`]
+    /// will be invoked.
     ///
     /// This function is not supposed to mutate the environment in contrast
     /// to starting/finishing processing.
     fn process(&mut self, env: &E, progress_hint_rx: &ProgressHintReceiver) -> Result<Progress>;
+
+    /// Finish processing
+    ///
+    /// Invoked once after the last call to [`Processor::process()`] for updating
+    /// the environment, releasing resources, or performing cleanup.
+    fn finish_processing(&mut self, env: &mut E) -> Result<()>;
 }
 
 /// Wraps a [`Processor`] as a boxed trait object

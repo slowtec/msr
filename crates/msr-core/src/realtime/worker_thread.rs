@@ -8,7 +8,6 @@ use anyhow::Result;
 use thread_priority::ThreadPriority;
 
 use super::{
-    new_progress_hint_channel,
     processor::{Processor, Progress},
     ProgressHintReceiver, ProgressHintSender,
 };
@@ -40,15 +39,15 @@ struct Context {
 }
 
 impl Context {
-    pub fn suspend(&self) -> bool {
+    pub fn suspend(&self) -> anyhow::Result<bool> {
         self.progress_hint_tx.suspend()
     }
 
-    pub fn resume(&self) -> bool {
+    pub fn resume(&self) -> anyhow::Result<bool> {
         self.progress_hint_tx.resume()
     }
 
-    pub fn terminate(&self) {
+    pub fn terminate(&self) -> anyhow::Result<()> {
         self.progress_hint_tx.terminate()
     }
 }
@@ -225,7 +224,8 @@ where
     P: Processor<E> + Send + 'static,
 {
     pub fn start(params: Params<E, N, P>) -> Self {
-        let (progress_hint_tx, progress_hint_rx) = new_progress_hint_channel();
+        let progress_hint_rx = ProgressHintReceiver::default();
+        let progress_hint_tx = progress_hint_rx.new_sender();
         let context = Context { progress_hint_tx };
         let suspender = Arc::new(Suspender::default());
         let join_handle = {
@@ -251,46 +251,46 @@ where
         }
     }
 
-    pub fn suspend(&self) -> bool {
+    pub fn suspend(&self) -> anyhow::Result<bool> {
         // 1st step: Ensure that the thread will block and suspend itself
         // after processing has been suspended
         if !self.suspender.suspend() {
             log::debug!("Already suspending or suspended");
-            return false;
+            return Ok(false);
         }
         // 2nd step: Request processing to suspend
-        self.context.suspend();
-        true
+        self.context.suspend()?;
+        Ok(true)
     }
 
-    pub fn resume(&self) -> bool {
+    pub fn resume(&self) -> anyhow::Result<bool> {
         // 1st step: Ensure that processing either continues or
         // terminates after the thread has been woken up and
         // resumes running
-        self.context.resume();
+        self.context.resume()?;
         // 2nd step: Wake up the thread
         if !self.suspender.resume() {
             log::debug!("Not suspended yet");
-            return false;
+            return Ok(false);
         }
-        true
+        Ok(true)
     }
 
     /// Stop the thread
     ///
     /// The thread is stopped after the processor has returned
     /// from the last processing step without interruption.
-    pub fn stop(&self) {
-        self.abort(|| {});
+    pub fn stop(&self) -> anyhow::Result<()> {
+        self.abort(|| {})
     }
 
     /// Stop the thread by aborting processing
     ///
     /// Processing could be interrupted by a side-effect that
     /// intercepts the termination.
-    pub fn abort(&self, on_abort: impl FnOnce()) {
+    pub fn abort(&self, on_abort: impl FnOnce()) -> anyhow::Result<()> {
         // 1st step: Ensure that processing will terminate
-        self.context.terminate();
+        self.context.terminate()?;
         // 2nd step: Abort processing through a side-effect controlled
         // by the caller. This must intercept the 1st and 3rd step to
         // avoid race conditions!
@@ -298,6 +298,7 @@ where
         // 3rd step: Finally wake up the thread in case it is suspended.
         // Otherwise it might stay suspended forever.
         self.suspender.resume();
+        Ok(())
     }
 
     pub fn join(self) -> JoinedThread<E, N, P> {

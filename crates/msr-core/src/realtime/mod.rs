@@ -1,7 +1,7 @@
 use std::{
     sync::{
         atomic::{AtomicU8, Ordering},
-        mpsc, Arc,
+        Arc, Condvar, Mutex,
     },
     time::{Duration, Instant},
 };
@@ -115,102 +115,166 @@ impl Default for AtomicProgressHint {
     }
 }
 
+#[derive(Debug, Default)]
+#[allow(clippy::mutex_atomic)]
+struct ProgressHintHandshake {
+    atomic: AtomicProgressHint,
+    signal_mutex: Mutex<bool>,
+    signal_condvar: Condvar,
+}
+
+#[allow(clippy::mutex_atomic)]
+impl ProgressHintHandshake {
+    pub fn load(&self) -> ProgressHint {
+        self.atomic.load()
+    }
+
+    fn signal_one(&self) -> anyhow::Result<()> {
+        let mut signal_guard = self
+            .signal_mutex
+            .lock()
+            .map_err(|_| anyhow::anyhow!("signal poisened"))?;
+        *signal_guard = true;
+        self.signal_condvar.notify_one();
+        Ok(())
+    }
+
+    pub fn clear_signal(&self) -> anyhow::Result<()> {
+        let mut signal_guard = self
+            .signal_mutex
+            .lock()
+            .map_err(|_| anyhow::anyhow!("condvar/mutex poisened"))?;
+        *signal_guard = false;
+        Ok(())
+    }
+
+    pub fn suspend(&self) -> anyhow::Result<bool> {
+        if !self.atomic.suspend() {
+            return Ok(false);
+        }
+        self.signal_one()?;
+        Ok(true)
+    }
+
+    pub fn resume(&self) -> anyhow::Result<bool> {
+        if !self.atomic.resume() {
+            return Ok(false);
+        }
+        self.signal_one()?;
+        Ok(true)
+    }
+
+    pub fn terminate(&self) -> anyhow::Result<()> {
+        self.atomic.terminate();
+        self.signal_one()?;
+        Ok(())
+    }
+
+    pub fn wait_timeout(&self, timeout: Duration) -> anyhow::Result<()> {
+        if !timeout.is_zero() {
+            let signal_guard = self
+                .signal_mutex
+                .lock()
+                .map_err(|_| anyhow::anyhow!("condvar/mutex poisened"))?;
+            let _wait_result = self
+                .signal_condvar
+                .wait_timeout_while(signal_guard, timeout, |signal| {
+                    if *signal {
+                        // Clear signal and abort waiting
+                        *signal = false;
+                        return false;
+                    }
+                    // Continue waiting
+                    true
+                })
+                .map_err(|_| anyhow::anyhow!("condvar/mutex poisened"))?;
+        }
+        Ok(())
+    }
+
+    pub fn wait_deadline(&self, deadline: Instant) -> anyhow::Result<()> {
+        let now = Instant::now();
+        let timeout = deadline.duration_since(deadline.min(now));
+        self.wait_timeout(timeout)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProgressHintSender {
-    latest_progress_hint: Arc<AtomicProgressHint>,
-    handshake_tx: mpsc::SyncSender<()>,
+    handshake: Arc<ProgressHintHandshake>,
 }
 
 impl ProgressHintSender {
-    pub fn suspend(&self) -> bool {
-        if !self.latest_progress_hint.suspend() {
-            return false;
-        }
-        let _ = self.handshake_tx.try_send(());
-        true
+    pub fn suspend(&self) -> anyhow::Result<bool> {
+        self.handshake.suspend()
     }
 
-    pub fn resume(&self) -> bool {
-        if !self.latest_progress_hint.resume() {
-            return false;
-        }
-        let _ = self.handshake_tx.try_send(());
-        true
+    pub fn resume(&self) -> anyhow::Result<bool> {
+        self.handshake.resume()
     }
 
-    pub fn terminate(&self) {
-        self.latest_progress_hint.terminate();
-        let _ = self.handshake_tx.try_send(());
+    pub fn terminate(&self) -> anyhow::Result<()> {
+        self.handshake.terminate()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ProgressHintReceiver {
-    latest_progress_hint: Arc<AtomicProgressHint>,
-    handshake_rx: mpsc::Receiver<()>,
+    handshake: Arc<ProgressHintHandshake>,
 }
 
 impl ProgressHintReceiver {
+    pub fn new_sender(&self) -> ProgressHintSender {
+        let handshake = Arc::clone(&self.handshake);
+        ProgressHintSender { handshake }
+    }
+
     /// Load the latest value
     ///
     /// Leave any pending handshake signals untouched.
+    ///
+    /// This function does not block and thus could be
+    /// invoked safely in a real-time context.
     pub fn load(&self) -> ProgressHint {
-        self.latest_progress_hint.load()
+        self.handshake.load()
     }
 
-    /// Read the latest progress hint without blocking
+    /// Receive the latest progress hint
     ///
     /// Clears any pending handshake signals before reading
-    /// the latest value.
-    pub fn recv(&self) -> ProgressHint {
-        let _ = self.handshake_rx.try_recv();
+    ///
+    /// This function might block and thus should not be
+    /// invoked in a real-time context!
+    pub fn recv_clear(&self) -> ProgressHint {
+        let _ = self.handshake.clear_signal();
         self.load()
     }
 
-    /// Receive a new progress hint with blocking
+    /// Receive the latest progress hint, waiting for a signal
     ///
     /// Blocks until a new handshake signal has been received
     /// or the timeout has expired and then reads the latest
     /// value.
+    ///
+    /// This function might block and thus should not be
+    /// invoked in a real-time context!
     pub fn recv_timeout(&self, timeout: Duration) -> ProgressHint {
-        let _ = self.handshake_rx.recv_timeout(timeout);
+        let _ = self.handshake.wait_timeout(timeout);
         self.load()
     }
 
-    /// Receive a new progress hint with blocking
+    /// Receive the latest progress hint, waiting for a signal
     ///
     /// Blocks until a new handshake signal has been received
     /// or the deadline has expired and then reads the latest
     /// value.
-
+    ///
+    /// This function might block and thus should not be
+    /// invoked in a real-time context!
     pub fn recv_deadline(&self, deadline: Instant) -> ProgressHint {
-        // TODO: Replace temporariy workaround with the dedicated
-        // function when available an update the minimum Rust version
-        // in Cargo.toml.
-        let now = Instant::now();
-        let timeout = deadline.duration_since(deadline.min(now));
-        let _ = self.handshake_rx.recv_timeout(timeout);
-        // https://doc.rust-lang.org/std/sync/mpsc/struct.Receiver.html#method.recv_deadline
-        //let _ = self.handshake_rx.recv_deadline(deadline);
+        let _ = self.handshake.wait_deadline(deadline);
         self.load()
     }
-}
-
-pub(crate) fn new_progress_hint_channel() -> (ProgressHintSender, ProgressHintReceiver) {
-    // TODO: Is there a simpler and more efficient solution than a
-    // synchronous MPSC channel on the unit type and a capacity of 1
-    // for implementing the handshake synchronization?
-    let (handshake_tx, handshake_rx) = mpsc::sync_channel(1);
-    let latest_progress_hint = Arc::new(AtomicProgressHint::default());
-    let progress_hint_tx = ProgressHintSender {
-        latest_progress_hint: latest_progress_hint.clone(),
-        handshake_tx,
-    };
-    let progress_hint_rx = ProgressHintReceiver {
-        latest_progress_hint,
-        handshake_rx,
-    };
-    (progress_hint_tx, progress_hint_rx)
 }
 
 #[cfg(test)]
