@@ -37,9 +37,11 @@ impl Default for ProgressHint {
     }
 }
 
-const PROGRESS_HINT_RUNNING: u8 = 0;
-const PROGRESS_HINT_SUSPENDING: u8 = 1;
-const PROGRESS_HINT_TERMINATING: u8 = 2;
+type AtomicValue = u8;
+
+const PROGRESS_HINT_RUNNING: AtomicValue = 0;
+const PROGRESS_HINT_SUSPENDING: AtomicValue = 1;
+const PROGRESS_HINT_TERMINATING: AtomicValue = 2;
 
 /// Atomic [`ProgressHint`]
 #[derive(Debug)]
@@ -70,12 +72,15 @@ impl AtomicProgressHint {
     ///
     /// Creates a new value in accordance to `ProgressHint::default()`.
     pub const fn default() -> Self {
-        Self(AtomicU8::new(PROGRESS_HINT_RUNNING))
+        Self::new(ProgressHint::default())
     }
 
-    /// Load the current value
-    pub fn load(&self) -> ProgressHint {
-        match self.0.load(Ordering::Relaxed) {
+    const fn new(progress_hint: ProgressHint) -> Self {
+        Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
+    }
+
+    fn from_atomic_value(value: AtomicValue) -> ProgressHint {
+        match value {
             PROGRESS_HINT_RUNNING => ProgressHint::Running,
             PROGRESS_HINT_SUSPENDING => ProgressHint::Suspending,
             PROGRESS_HINT_TERMINATING => ProgressHint::Terminating,
@@ -83,10 +88,23 @@ impl AtomicProgressHint {
         }
     }
 
+    const fn to_atomic_value(progress_hint: ProgressHint) -> AtomicValue {
+        match progress_hint {
+            ProgressHint::Running => PROGRESS_HINT_RUNNING,
+            ProgressHint::Suspending => PROGRESS_HINT_SUSPENDING,
+            ProgressHint::Terminating => PROGRESS_HINT_TERMINATING,
+        }
+    }
+
+    /// Load the current value
+    pub fn load(&self) -> ProgressHint {
+        Self::from_atomic_value(self.0.load(Ordering::Relaxed))
+    }
+
     fn switch_from_expected_to_desired(
         &self,
-        expected: u8,
-        desired: u8,
+        expected: AtomicValue,
+        desired: AtomicValue,
     ) -> AtomicProgressHintSwitch {
         match self
             .0
@@ -106,7 +124,7 @@ impl AtomicProgressHint {
         }
     }
 
-    fn switch_to_desired(&self, desired: u8) -> AtomicProgressHintSwitch {
+    fn switch_to_desired(&self, desired: AtomicValue) -> AtomicProgressHintSwitch {
         if self.0.swap(desired, Ordering::Release) == desired {
             AtomicProgressHintSwitch::Ignored
         } else {
@@ -126,7 +144,7 @@ impl AtomicProgressHint {
 
     /// Reset to [`ProgressHint::default()`]
     pub fn reset(&self) -> AtomicProgressHintSwitch {
-        self.switch_to_desired(PROGRESS_HINT_RUNNING)
+        self.switch_to_desired(Self::to_atomic_value(ProgressHint::default()))
     }
 
     /// Set to [`ProgressHint::Terminating`]
