@@ -7,9 +7,9 @@ use super::progress::ProgressHintReceiver;
 pub enum Progress {
     /// Processing has been suspended
     ///
-    /// All available work has been finished and processing has been
-    /// suspended. The processor needs to be resumed to continue
-    /// processing.
+    /// All available work is done and processing has been
+    /// suspended. Processing will be invoked at least once
+    /// again when either resuming or terminating.
     Suspended,
 
     /// Processing has terminated
