@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use super::progress::ProgressHintReceiver;
+use super::progresshint::ProgressHintReceiver;
 
 /// Outcome of processing step
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

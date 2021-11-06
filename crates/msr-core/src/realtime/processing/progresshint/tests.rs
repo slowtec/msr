@@ -108,33 +108,33 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_max_signaled() -> anyhow
 }
 
 #[test]
-fn progress_hint_handshake_orphaned_sender() {
+fn progress_hint_handshake_sender_receiver() {
     let rx = ProgressHintReceiver::default();
 
     // 1st Sender: Success
-    let tx1 = rx.new_sender();
-    assert!(!tx1.is_orphaned());
+    let tx1 = ProgressHintSender::attach(&rx);
+    assert!(tx1.is_attached());
     assert!(matches!(tx1.suspend(), Ok(ProgressHintSwitchOk::Accepted)));
     assert_eq!(ProgressHint::Suspending, rx.load());
 
     // 2nd (cloned) Sender: Success
     let tx2 = tx1.clone();
-    assert!(!tx2.is_orphaned());
+    assert!(tx2.is_attached());
     assert!(matches!(tx2.resume(), Ok(ProgressHintSwitchOk::Accepted)));
     assert_eq!(ProgressHint::Running, rx.load());
 
     // Drop receiver
     drop(rx);
 
-    // Both senders orphaned now
-    assert!(tx1.is_orphaned());
+    // Both senders detached now
+    assert!(!tx1.is_attached());
     assert!(matches!(
         tx1.terminate(),
-        Err(ProgressHintSwitchError::Orphaned)
+        Err(ProgressHintSwitchError::Detached)
     ));
-    assert!(tx2.is_orphaned());
+    assert!(!tx2.is_attached());
     assert!(matches!(
         tx2.terminate(),
-        Err(ProgressHintSwitchError::Orphaned)
+        Err(ProgressHintSwitchError::Detached)
     ));
 }

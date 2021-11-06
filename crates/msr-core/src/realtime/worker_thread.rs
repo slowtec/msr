@@ -9,7 +9,7 @@ use thread_priority::ThreadPriority;
 
 use super::processing::{
     processor::{Processor, Progress},
-    progress::{ProgressHintReceiver, ProgressHintSender, ProgressHintSwitchResult},
+    progresshint::{ProgressHintReceiver, ProgressHintSender, ProgressHintSwitchResult},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -225,7 +225,7 @@ where
 {
     pub fn start(params: Params<E, N, P>) -> Self {
         let progress_hint_rx = ProgressHintReceiver::default();
-        let progress_hint_tx = progress_hint_rx.new_sender();
+        let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
         let context = Context { progress_hint_tx };
         let suspender = Arc::new(Suspender::default());
         let join_handle = {

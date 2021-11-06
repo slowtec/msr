@@ -188,8 +188,8 @@ pub enum ProgressHintSwitchError {
     /// The single receiver has disappeared
     ///
     /// Only occurs for the sender-side.
-    #[error("orphaned")]
-    Orphaned,
+    #[error("detached")]
+    Detached,
 
     /// The requested state transition is not permitted
     #[error("rejected")]
@@ -316,16 +316,21 @@ pub struct ProgressHintSender {
 }
 
 impl ProgressHintSender {
+    pub fn attach(rx: &ProgressHintReceiver) -> Self {
+        let handshake = Arc::downgrade(&rx.handshake);
+        ProgressHintSender { handshake }
+    }
+
+    pub fn is_attached(&self) -> bool {
+        self.handshake.strong_count() > 0
+    }
+
     fn upgrade_handshake(
         &self,
     ) -> std::result::Result<Arc<ProgressHintHandshake>, ProgressHintSwitchError> {
         self.handshake
             .upgrade()
-            .ok_or(ProgressHintSwitchError::Orphaned)
-    }
-
-    pub fn is_orphaned(&self) -> bool {
-        self.handshake.strong_count() == 0
+            .ok_or(ProgressHintSwitchError::Detached)
     }
 
     /// Ask the receiver to suspend itself while running
@@ -353,18 +358,6 @@ pub struct ProgressHintReceiver {
 }
 
 impl ProgressHintReceiver {
-    pub fn new_sender(&self) -> ProgressHintSender {
-        let handshake = Arc::downgrade(&self.handshake);
-        ProgressHintSender { handshake }
-    }
-
-    /// Reset the handshake
-    ///
-    /// Only the single receiver is allowed to reset the handshake.
-    pub fn reset(&self) -> anyhow::Result<()> {
-        self.handshake.reset()
-    }
-
     /// Load the latest value
     ///
     /// Leave any pending handshake signals untouched.
@@ -399,6 +392,13 @@ impl ProgressHintReceiver {
     pub fn recv_deadline(&self, deadline: Instant) -> anyhow::Result<ProgressHint> {
         let _outcome = self.handshake.wait_for_signal_with_deadline(deadline);
         Ok(self.load())
+    }
+
+    /// Reset the handshake
+    ///
+    /// Only the single receiver is allowed to reset the handshake.
+    pub fn reset(&self) -> anyhow::Result<()> {
+        self.handshake.reset()
     }
 }
 

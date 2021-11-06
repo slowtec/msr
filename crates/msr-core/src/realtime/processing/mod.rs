@@ -1,2 +1,2 @@
 pub mod processor;
-pub mod progress;
+pub mod progresshint;
