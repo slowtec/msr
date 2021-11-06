@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use super::ProgressHintReceiver;
+use super::progress::ProgressHintReceiver;
 
 /// Outcome of processing step
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8,13 +8,14 @@ pub enum Progress {
     /// Processing has been suspended
     ///
     /// All available work has been finished and processing has been
-    /// suspended. The processor might be invoked again after more
-    /// work is available
+    /// suspended. The processor needs to be resumed to continue
+    /// processing.
     Suspended,
 
     /// Processing has terminated
     ///
-    /// The processor has terminated and must not be invoked again.
+    /// The processor has terminated and will not be invoked again,
+    /// unless processing is restarted.
     Terminated,
 }
 

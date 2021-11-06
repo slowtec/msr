@@ -7,9 +7,9 @@ use std::{
 use anyhow::Result;
 use thread_priority::ThreadPriority;
 
-use super::{
+use super::processing::{
     processor::{Processor, Progress},
-    ProgressHintReceiver, ProgressHintSender,
+    progress::{ProgressHintReceiver, ProgressHintSender},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
