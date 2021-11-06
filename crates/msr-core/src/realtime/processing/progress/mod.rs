@@ -115,23 +115,16 @@ impl AtomicProgressHint {
     }
 
     /// Switch from [`ProgressHint::Running`] to [`ProgressHint::Suspending`]
-    ///
-    /// Returns `true` if successful or already [`ProgressHint::Suspending`] and `false` otherwise.
     pub fn suspend(&self) -> AtomicProgressHintSwitch {
         self.switch_from_expected_to_desired(PROGRESS_HINT_RUNNING, PROGRESS_HINT_SUSPENDING)
     }
 
     /// Switch from [`ProgressHint::Suspending`] to [`ProgressHint::Running`]
-    ///
-    /// Returns `true` if successful or already [`ProgressHint::Running`] and `false` otherwise.
     pub fn resume(&self) -> AtomicProgressHintSwitch {
         self.switch_from_expected_to_desired(PROGRESS_HINT_SUSPENDING, PROGRESS_HINT_RUNNING)
     }
 
     /// Reset to [`ProgressHint::default()`]
-    ///
-    /// Returns `true` if successful and `false` otherwise.
-    #[allow(dead_code)]
     pub fn reset(&self) -> AtomicProgressHintSwitch {
         self.switch_to_desired(PROGRESS_HINT_RUNNING)
     }
@@ -299,22 +292,16 @@ pub struct ProgressHintSender {
 
 impl ProgressHintSender {
     /// Ask the receiver to suspend itself while running
-    ///
-    /// Returns `true` if changed and `false` if unchanged (ignored or rejected)
     pub fn suspend(&self) -> ProgressHintSwitchResult {
         self.handshake.suspend()
     }
 
     /// Ask the receiver to resume itself while suspended
-    ///
-    /// Returns `true` if changed and `false` if unchanged (ignored or rejected)
     pub fn resume(&self) -> ProgressHintSwitchResult {
         self.handshake.resume()
     }
 
     /// Ask the receiver to terminate itself
-    ///
-    /// Returns `true` if changed and `false` if unchanged (ignored if already terminating)
     pub fn terminate(&self) -> ProgressHintSwitchResult {
         self.handshake.terminate()
     }
