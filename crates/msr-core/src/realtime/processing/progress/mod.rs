@@ -1,7 +1,7 @@
 use std::{
     sync::{
         atomic::{AtomicU8, Ordering},
-        Arc, Condvar, Mutex,
+        Arc, Condvar, Mutex, Weak,
     },
     time::{Duration, Instant},
 };
@@ -168,14 +168,14 @@ struct ProgressHintHandshake {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WaitForProgressHintSignalOutcome {
+enum WaitForProgressHintSignalOk {
     Signaled,
     TimedOut,
 }
 
 /// The observed effect of switching the progress hint
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProgressHintSwitchOutcome {
+pub enum ProgressHintSwitchOk {
     /// Changed as desired and signaled
     Accepted,
 
@@ -185,6 +185,13 @@ pub enum ProgressHintSwitchOutcome {
 
 #[derive(Debug, Error)]
 pub enum ProgressHintSwitchError {
+    /// The single receiver has disappeared
+    ///
+    /// Only occurs for the sender-side.
+    #[error("orphaned")]
+    Orphaned,
+
+    /// The requested state transition is not permitted
     #[error("rejected")]
     Rejected,
 
@@ -193,7 +200,7 @@ pub enum ProgressHintSwitchError {
 }
 
 pub type ProgressHintSwitchResult =
-    std::result::Result<ProgressHintSwitchOutcome, ProgressHintSwitchError>;
+    std::result::Result<ProgressHintSwitchOk, ProgressHintSwitchError>;
 
 #[allow(clippy::mutex_atomic)]
 impl ProgressHintHandshake {
@@ -227,9 +234,9 @@ impl ProgressHintHandshake {
         match switched {
             AtomicProgressHintSwitch::Accepted => {
                 self.raise_signal_latch()?;
-                Ok(ProgressHintSwitchOutcome::Accepted)
+                Ok(ProgressHintSwitchOk::Accepted)
             }
-            AtomicProgressHintSwitch::Ignored => Ok(ProgressHintSwitchOutcome::Ignored),
+            AtomicProgressHintSwitch::Ignored => Ok(ProgressHintSwitchOk::Ignored),
             AtomicProgressHintSwitch::Rejected => Err(ProgressHintSwitchError::Rejected),
         }
     }
@@ -254,10 +261,10 @@ impl ProgressHintHandshake {
     pub fn wait_for_signal_with_timeout(
         &self,
         timeout: Duration,
-    ) -> anyhow::Result<WaitForProgressHintSignalOutcome> {
+    ) -> anyhow::Result<WaitForProgressHintSignalOk> {
         if timeout.is_zero() {
             // Time out immediately
-            return Ok(WaitForProgressHintSignalOutcome::TimedOut);
+            return Ok(WaitForProgressHintSignalOk::TimedOut);
         }
         let mut signal_latch_guard = self
             .signal_latch_mutex
@@ -266,7 +273,7 @@ impl ProgressHintHandshake {
         if *signal_latch_guard {
             // Reset the latch and abort immediately
             *signal_latch_guard = false;
-            return Ok(WaitForProgressHintSignalOutcome::Signaled);
+            return Ok(WaitForProgressHintSignalOk::Signaled);
         }
         let (signal_latch_guard, wait_result) = self
             .signal_latch_condvar
@@ -286,9 +293,9 @@ impl ProgressHintHandshake {
         assert!(!*signal_latch_guard);
         drop(signal_latch_guard);
         let outcome = if wait_result.timed_out() {
-            WaitForProgressHintSignalOutcome::TimedOut
+            WaitForProgressHintSignalOk::TimedOut
         } else {
-            WaitForProgressHintSignalOutcome::Signaled
+            WaitForProgressHintSignalOk::Signaled
         };
         Ok(outcome)
     }
@@ -296,7 +303,7 @@ impl ProgressHintHandshake {
     pub fn wait_for_signal_with_deadline(
         &self,
         deadline: Instant,
-    ) -> anyhow::Result<WaitForProgressHintSignalOutcome> {
+    ) -> anyhow::Result<WaitForProgressHintSignalOk> {
         let now = Instant::now();
         let timeout = deadline.duration_since(deadline.min(now));
         self.wait_for_signal_with_timeout(timeout)
@@ -305,23 +312,38 @@ impl ProgressHintHandshake {
 
 #[derive(Debug, Clone)]
 pub struct ProgressHintSender {
-    handshake: Arc<ProgressHintHandshake>,
+    handshake: Weak<ProgressHintHandshake>,
 }
 
 impl ProgressHintSender {
+    fn upgrade_handshake(
+        &self,
+    ) -> std::result::Result<Arc<ProgressHintHandshake>, ProgressHintSwitchError> {
+        self.handshake
+            .upgrade()
+            .ok_or(ProgressHintSwitchError::Orphaned)
+    }
+
+    pub fn is_orphaned(&self) -> bool {
+        self.handshake.strong_count() == 0
+    }
+
     /// Ask the receiver to suspend itself while running
     pub fn suspend(&self) -> ProgressHintSwitchResult {
-        self.handshake.suspend()
+        self.upgrade_handshake()
+            .and_then(|handshake| handshake.suspend())
     }
 
     /// Ask the receiver to resume itself while suspended
     pub fn resume(&self) -> ProgressHintSwitchResult {
-        self.handshake.resume()
+        self.upgrade_handshake()
+            .and_then(|handshake| handshake.resume())
     }
 
     /// Ask the receiver to terminate itself
     pub fn terminate(&self) -> ProgressHintSwitchResult {
-        self.handshake.terminate()
+        self.upgrade_handshake()
+            .and_then(|handshake| handshake.terminate())
     }
 }
 
@@ -332,7 +354,7 @@ pub struct ProgressHintReceiver {
 
 impl ProgressHintReceiver {
     pub fn new_sender(&self) -> ProgressHintSender {
-        let handshake = Arc::clone(&self.handshake);
+        let handshake = Arc::downgrade(&self.handshake);
         ProgressHintSender { handshake }
     }
 

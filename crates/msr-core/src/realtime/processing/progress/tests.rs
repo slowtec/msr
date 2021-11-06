@@ -72,7 +72,7 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero() -> anyhow::Result
     let handshake = ProgressHintHandshake::default();
 
     assert_eq!(
-        WaitForProgressHintSignalOutcome::TimedOut,
+        WaitForProgressHintSignalOk::TimedOut,
         handshake.wait_for_signal_with_timeout(Duration::ZERO)?
     );
 
@@ -83,10 +83,10 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero() -> anyhow::Result
 fn progress_hint_handshake_wait_for_signal_with_timeout_zero_signaled() -> anyhow::Result<()> {
     let handshake = ProgressHintHandshake::default();
 
-    assert_eq!(ProgressHintSwitchOutcome::Accepted, handshake.suspend()?);
+    assert_eq!(ProgressHintSwitchOk::Accepted, handshake.suspend()?);
 
     assert_eq!(
-        WaitForProgressHintSignalOutcome::TimedOut,
+        WaitForProgressHintSignalOk::TimedOut,
         handshake.wait_for_signal_with_timeout(Duration::ZERO)?
     );
 
@@ -97,12 +97,44 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero_signaled() -> anyho
 fn progress_hint_handshake_wait_for_signal_with_timeout_max_signaled() -> anyhow::Result<()> {
     let handshake = ProgressHintHandshake::default();
 
-    assert_eq!(ProgressHintSwitchOutcome::Accepted, handshake.suspend()?);
+    assert_eq!(ProgressHintSwitchOk::Accepted, handshake.suspend()?);
 
     assert_eq!(
-        WaitForProgressHintSignalOutcome::Signaled,
+        WaitForProgressHintSignalOk::Signaled,
         handshake.wait_for_signal_with_timeout(Duration::MAX)?
     );
 
     Ok(())
+}
+
+#[test]
+fn progress_hint_handshake_orphaned_sender() {
+    let rx = ProgressHintReceiver::default();
+
+    // 1st Sender: Success
+    let tx1 = rx.new_sender();
+    assert!(!tx1.is_orphaned());
+    assert!(matches!(tx1.suspend(), Ok(ProgressHintSwitchOk::Accepted)));
+    assert_eq!(ProgressHint::Suspending, rx.load());
+
+    // 2nd (cloned) Sender: Success
+    let tx2 = tx1.clone();
+    assert!(!tx2.is_orphaned());
+    assert!(matches!(tx2.resume(), Ok(ProgressHintSwitchOk::Accepted)));
+    assert_eq!(ProgressHint::Running, rx.load());
+
+    // Drop receiver
+    drop(rx);
+
+    // Both senders orphaned now
+    assert!(tx1.is_orphaned());
+    assert!(matches!(
+        tx1.terminate(),
+        Err(ProgressHintSwitchError::Orphaned)
+    ));
+    assert!(tx2.is_orphaned());
+    assert!(matches!(
+        tx2.terminate(),
+        Err(ProgressHintSwitchError::Orphaned)
+    ));
 }
