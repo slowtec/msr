@@ -402,6 +402,13 @@ impl ProgressHintReceiver {
     pub fn reset(&self) -> anyhow::Result<()> {
         self.handshake.reset()
     }
+
+    /// Detach all senders
+    ///
+    /// This will also reset the handshake back to default.
+    pub fn detach(&mut self) {
+        self.handshake = Default::default();
+    }
 }
 
 #[cfg(test)]
