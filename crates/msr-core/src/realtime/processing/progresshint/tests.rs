@@ -15,55 +15,85 @@ fn atomic_progress_hint_sequence() {
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
     // Suspend
-    assert_eq!(AtomicProgressHintSwitch::Accepted, progress_hint.suspend());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Accepted,
+        progress_hint.suspend()
+    );
     assert_eq!(ProgressHint::Suspending, progress_hint.load());
 
     // Suspend again
-    assert_eq!(AtomicProgressHintSwitch::Ignored, progress_hint.suspend());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Ignored,
+        progress_hint.suspend()
+    );
     assert_eq!(ProgressHint::Suspending, progress_hint.load());
 
     // Resume
-    assert_eq!(AtomicProgressHintSwitch::Accepted, progress_hint.resume());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Accepted,
+        progress_hint.resume()
+    );
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
     // Resume again
-    assert_eq!(AtomicProgressHintSwitch::Ignored, progress_hint.resume());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Ignored,
+        progress_hint.resume()
+    );
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
     // Terminate while running
     assert_eq!(
-        AtomicProgressHintSwitch::Accepted,
+        SwitchAtomicProgressHintOutcome::Accepted,
         progress_hint.terminate()
     );
     assert_eq!(ProgressHint::Terminating, progress_hint.load());
 
     // Terminate again
-    assert_eq!(AtomicProgressHintSwitch::Ignored, progress_hint.terminate());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Ignored,
+        progress_hint.terminate()
+    );
     assert_eq!(ProgressHint::Terminating, progress_hint.load());
 
     // Reset after terminated
-    assert_eq!(AtomicProgressHintSwitch::Accepted, progress_hint.reset());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Accepted,
+        progress_hint.reset()
+    );
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
     // Reset again
-    assert_eq!(AtomicProgressHintSwitch::Ignored, progress_hint.reset());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Ignored,
+        progress_hint.reset()
+    );
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
     // Terminate while suspended
-    assert_eq!(AtomicProgressHintSwitch::Accepted, progress_hint.suspend());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Accepted,
+        progress_hint.suspend()
+    );
     assert_eq!(ProgressHint::Suspending, progress_hint.load());
     assert_eq!(
-        AtomicProgressHintSwitch::Accepted,
+        SwitchAtomicProgressHintOutcome::Accepted,
         progress_hint.terminate()
     );
     assert_eq!(ProgressHint::Terminating, progress_hint.load());
 
     // Reject suspend after terminated
-    assert_eq!(AtomicProgressHintSwitch::Rejected, progress_hint.suspend());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Rejected,
+        progress_hint.suspend()
+    );
     assert_eq!(ProgressHint::Terminating, progress_hint.load());
 
     // Reject resume after terminated
-    assert_eq!(AtomicProgressHintSwitch::Rejected, progress_hint.resume());
+    assert_eq!(
+        SwitchAtomicProgressHintOutcome::Rejected,
+        progress_hint.resume()
+    );
     assert_eq!(ProgressHint::Terminating, progress_hint.load());
 }
 
@@ -83,7 +113,7 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero() -> anyhow::Result
 fn progress_hint_handshake_wait_for_signal_with_timeout_zero_signaled() -> anyhow::Result<()> {
     let handshake = ProgressHintHandshake::default();
 
-    assert_eq!(ProgressHintSwitchOk::Accepted, handshake.suspend()?);
+    assert_eq!(SwitchProgressHintOk::Accepted, handshake.suspend()?);
 
     assert_eq!(
         WaitForProgressHintSignalOk::TimedOut,
@@ -97,7 +127,7 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero_signaled() -> anyho
 fn progress_hint_handshake_wait_for_signal_with_timeout_max_signaled() -> anyhow::Result<()> {
     let handshake = ProgressHintHandshake::default();
 
-    assert_eq!(ProgressHintSwitchOk::Accepted, handshake.suspend()?);
+    assert_eq!(SwitchProgressHintOk::Accepted, handshake.suspend()?);
 
     assert_eq!(
         WaitForProgressHintSignalOk::Signaled,
@@ -114,13 +144,13 @@ fn progress_hint_handshake_sender_receiver() {
     // 1st Sender: Success
     let tx1 = ProgressHintSender::attach(&rx);
     assert!(tx1.is_attached());
-    assert!(matches!(tx1.suspend(), Ok(ProgressHintSwitchOk::Accepted)));
+    assert!(matches!(tx1.suspend(), Ok(SwitchProgressHintOk::Accepted)));
     assert_eq!(ProgressHint::Suspending, rx.load());
 
     // 2nd (cloned) Sender: Success
     let tx2 = tx1.clone();
     assert!(tx2.is_attached());
-    assert!(matches!(tx2.resume(), Ok(ProgressHintSwitchOk::Accepted)));
+    assert!(matches!(tx2.resume(), Ok(SwitchProgressHintOk::Accepted)));
     assert_eq!(ProgressHint::Running, rx.load());
 
     // Drop receiver
@@ -130,11 +160,11 @@ fn progress_hint_handshake_sender_receiver() {
     assert!(!tx1.is_attached());
     assert!(matches!(
         tx1.terminate(),
-        Err(ProgressHintSwitchError::Detached)
+        Err(SwitchProgressHintError::Detached)
     ));
     assert!(!tx2.is_attached());
     assert!(matches!(
         tx2.terminate(),
-        Err(ProgressHintSwitchError::Detached)
+        Err(SwitchProgressHintError::Detached)
     ));
 }

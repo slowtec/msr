@@ -9,7 +9,7 @@ use thread_priority::ThreadPriority;
 
 use super::processing::{
     processor::{Processor, Progress},
-    progresshint::{ProgressHintReceiver, ProgressHintSender, ProgressHintSwitchResult},
+    progresshint::{ProgressHintReceiver, ProgressHintSender, SwitchProgressHintResult},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,15 +39,15 @@ struct Context {
 }
 
 impl Context {
-    pub fn suspend(&self) -> ProgressHintSwitchResult {
+    pub fn suspend(&self) -> SwitchProgressHintResult {
         self.progress_hint_tx.suspend()
     }
 
-    pub fn resume(&self) -> ProgressHintSwitchResult {
+    pub fn resume(&self) -> SwitchProgressHintResult {
         self.progress_hint_tx.resume()
     }
 
-    pub fn terminate(&self) -> ProgressHintSwitchResult {
+    pub fn terminate(&self) -> SwitchProgressHintResult {
         self.progress_hint_tx.terminate()
     }
 }

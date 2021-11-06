@@ -48,7 +48,7 @@ const PROGRESS_HINT_TERMINATING: AtomicValue = 2;
 struct AtomicProgressHint(AtomicU8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AtomicProgressHintSwitch {
+enum SwitchAtomicProgressHintOutcome {
     /// Changed
     Accepted,
 
@@ -105,50 +105,50 @@ impl AtomicProgressHint {
         &self,
         expected: AtomicValue,
         desired: AtomicValue,
-    ) -> AtomicProgressHintSwitch {
+    ) -> SwitchAtomicProgressHintOutcome {
         match self
             .0
             .compare_exchange(expected, desired, Ordering::AcqRel, Ordering::Relaxed)
         {
             Ok(_previous) => {
                 debug_assert_eq!(expected, _previous);
-                AtomicProgressHintSwitch::Accepted
+                SwitchAtomicProgressHintOutcome::Accepted
             }
             Err(current) => {
                 if current == desired {
-                    AtomicProgressHintSwitch::Ignored
+                    SwitchAtomicProgressHintOutcome::Ignored
                 } else {
-                    AtomicProgressHintSwitch::Rejected
+                    SwitchAtomicProgressHintOutcome::Rejected
                 }
             }
         }
     }
 
-    fn switch_to_desired(&self, desired: AtomicValue) -> AtomicProgressHintSwitch {
+    fn switch_to_desired(&self, desired: AtomicValue) -> SwitchAtomicProgressHintOutcome {
         if self.0.swap(desired, Ordering::Release) == desired {
-            AtomicProgressHintSwitch::Ignored
+            SwitchAtomicProgressHintOutcome::Ignored
         } else {
-            AtomicProgressHintSwitch::Accepted
+            SwitchAtomicProgressHintOutcome::Accepted
         }
     }
 
     /// Switch from [`ProgressHint::Running`] to [`ProgressHint::Suspending`]
-    pub fn suspend(&self) -> AtomicProgressHintSwitch {
+    pub fn suspend(&self) -> SwitchAtomicProgressHintOutcome {
         self.switch_from_expected_to_desired(PROGRESS_HINT_RUNNING, PROGRESS_HINT_SUSPENDING)
     }
 
     /// Switch from [`ProgressHint::Suspending`] to [`ProgressHint::Running`]
-    pub fn resume(&self) -> AtomicProgressHintSwitch {
+    pub fn resume(&self) -> SwitchAtomicProgressHintOutcome {
         self.switch_from_expected_to_desired(PROGRESS_HINT_SUSPENDING, PROGRESS_HINT_RUNNING)
     }
 
     /// Reset to [`ProgressHint::default()`]
-    pub fn reset(&self) -> AtomicProgressHintSwitch {
+    pub fn reset(&self) -> SwitchAtomicProgressHintOutcome {
         self.switch_to_desired(Self::to_atomic_value(ProgressHint::default()))
     }
 
     /// Set to [`ProgressHint::Terminating`]
-    pub fn terminate(&self) -> AtomicProgressHintSwitch {
+    pub fn terminate(&self) -> SwitchAtomicProgressHintOutcome {
         self.switch_to_desired(PROGRESS_HINT_TERMINATING)
     }
 }
@@ -175,7 +175,7 @@ enum WaitForProgressHintSignalOk {
 
 /// The observed effect of switching the progress hint
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProgressHintSwitchOk {
+pub enum SwitchProgressHintOk {
     /// Changed as desired and signaled
     Accepted,
 
@@ -184,8 +184,10 @@ pub enum ProgressHintSwitchOk {
 }
 
 #[derive(Debug, Error)]
-pub enum ProgressHintSwitchError {
-    /// The single receiver has disappeared
+pub enum SwitchProgressHintError {
+    /// No receiver is attached
+    ///
+    /// The previously attached receiver has been dropped.
     ///
     /// Only occurs for the sender-side.
     #[error("detached")]
@@ -199,8 +201,8 @@ pub enum ProgressHintSwitchError {
     Other(#[from] anyhow::Error),
 }
 
-pub type ProgressHintSwitchResult =
-    std::result::Result<ProgressHintSwitchOk, ProgressHintSwitchError>;
+pub type SwitchProgressHintResult =
+    std::result::Result<SwitchProgressHintOk, SwitchProgressHintError>;
 
 #[allow(clippy::mutex_atomic)]
 impl ProgressHintHandshake {
@@ -229,27 +231,27 @@ impl ProgressHintHandshake {
 
     fn after_atomic_switched(
         &self,
-        switched: AtomicProgressHintSwitch,
-    ) -> ProgressHintSwitchResult {
+        switched: SwitchAtomicProgressHintOutcome,
+    ) -> SwitchProgressHintResult {
         match switched {
-            AtomicProgressHintSwitch::Accepted => {
+            SwitchAtomicProgressHintOutcome::Accepted => {
                 self.raise_signal_latch()?;
-                Ok(ProgressHintSwitchOk::Accepted)
+                Ok(SwitchProgressHintOk::Accepted)
             }
-            AtomicProgressHintSwitch::Ignored => Ok(ProgressHintSwitchOk::Ignored),
-            AtomicProgressHintSwitch::Rejected => Err(ProgressHintSwitchError::Rejected),
+            SwitchAtomicProgressHintOutcome::Ignored => Ok(SwitchProgressHintOk::Ignored),
+            SwitchAtomicProgressHintOutcome::Rejected => Err(SwitchProgressHintError::Rejected),
         }
     }
 
-    pub fn suspend(&self) -> ProgressHintSwitchResult {
+    pub fn suspend(&self) -> SwitchProgressHintResult {
         self.after_atomic_switched(self.atomic.suspend())
     }
 
-    pub fn resume(&self) -> ProgressHintSwitchResult {
+    pub fn resume(&self) -> SwitchProgressHintResult {
         self.after_atomic_switched(self.atomic.resume())
     }
 
-    pub fn terminate(&self) -> ProgressHintSwitchResult {
+    pub fn terminate(&self) -> SwitchProgressHintResult {
         self.after_atomic_switched(self.atomic.terminate())
     }
 
@@ -327,26 +329,26 @@ impl ProgressHintSender {
 
     fn upgrade_handshake(
         &self,
-    ) -> std::result::Result<Arc<ProgressHintHandshake>, ProgressHintSwitchError> {
+    ) -> std::result::Result<Arc<ProgressHintHandshake>, SwitchProgressHintError> {
         self.handshake
             .upgrade()
-            .ok_or(ProgressHintSwitchError::Detached)
+            .ok_or(SwitchProgressHintError::Detached)
     }
 
     /// Ask the receiver to suspend itself while running
-    pub fn suspend(&self) -> ProgressHintSwitchResult {
+    pub fn suspend(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
             .and_then(|handshake| handshake.suspend())
     }
 
     /// Ask the receiver to resume itself while suspended
-    pub fn resume(&self) -> ProgressHintSwitchResult {
+    pub fn resume(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
             .and_then(|handshake| handshake.resume())
     }
 
     /// Ask the receiver to terminate itself
-    pub fn terminate(&self) -> ProgressHintSwitchResult {
+    pub fn terminate(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
             .and_then(|handshake| handshake.terminate())
     }
