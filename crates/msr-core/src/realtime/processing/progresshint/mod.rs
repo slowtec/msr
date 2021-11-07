@@ -301,11 +301,20 @@ impl ProgressHintHandshake {
     }
 
     pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
-        self.signal_latch.wait_with_timeout(timeout)
+        self.signal_latch.wait_for_signal_with_timeout(timeout)
     }
 
     pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
-        self.signal_latch.wait_until_deadline(deadline)
+        self.signal_latch.wait_for_signal_until_deadline(deadline)
+    }
+
+    pub fn wait_for_signal_while_suspending(&self) -> ProgressHint {
+        let mut latest_hint = self.atomic.load();
+        while latest_hint == ProgressHint::Suspending {
+            self.signal_latch.wait_for_signal();
+            latest_hint = self.atomic.load()
+        }
+        latest_hint
     }
 }
 
@@ -399,6 +408,14 @@ impl ProgressHintReceiver {
     /// could cause a priority inversion.
     pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
         self.handshake.wait_for_signal_until_deadline(deadline)
+    }
+
+    pub fn wait_for_signal_while_suspending(&self) -> ProgressHint {
+        self.handshake.wait_for_signal_while_suspending()
+    }
+
+    pub fn suspend(&self) -> SwitchProgressHintResult {
+        self.handshake.suspend()
     }
 
     /// Reset the handshake (blocking)

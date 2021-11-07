@@ -3,8 +3,6 @@ use std::{any::Any, thread::JoinHandle};
 use anyhow::Result;
 use thread_priority::ThreadPriority;
 
-use crate::sync::{const_mutex, Arc, Condvar, Mutex};
-
 use super::processing::{
     processor::{Processor, Progress},
     progresshint::{ProgressHintReceiver, ProgressHintSender},
@@ -48,7 +46,6 @@ pub struct Params<E, N, P> {
 #[derive(Debug)]
 pub struct Thread<E, N, P> {
     progress_hint_tx: ProgressHintSender,
-    suspender: Arc<Suspender>,
     join_handle: JoinHandle<TerminatedThread<E, N, P>>,
 }
 
@@ -82,62 +79,8 @@ pub fn adjust_current_thread_priority() {
     }
 }
 
-#[derive(Debug)]
-#[allow(clippy::mutex_atomic)]
-struct Suspender {
-    suspended: Mutex<bool>,
-    condvar: Condvar,
-}
-
-impl Suspender {
-    pub fn new() -> Self {
-        Self {
-            suspended: const_mutex(false),
-            condvar: Condvar::new(),
-        }
-    }
-}
-
-impl Default for Suspender {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[allow(clippy::mutex_atomic)]
-impl Suspender {
-    fn suspend(&self) -> bool {
-        let mut suspended = self.suspended.lock();
-        if *suspended {
-            // Already suspended
-            return false;
-        }
-        *suspended = true;
-        true
-    }
-
-    fn resume(&self) -> bool {
-        let mut suspended = self.suspended.lock();
-        if !*suspended {
-            // Not suspended yet
-            return false;
-        }
-        *suspended = false;
-        self.condvar.notify_all();
-        true
-    }
-
-    fn wait_while_suspended(&self) {
-        let mut suspended = self.suspended.lock();
-        while *suspended {
-            self.condvar.wait(&mut suspended);
-        }
-    }
-}
-
 fn thread_fn<N: Notifications, E, P: Processor<E>>(
     progress_hint_rx: &ProgressHintReceiver,
-    suspender: &Arc<Suspender>,
     mut params: &mut Params<E, N, P>,
 ) -> Result<()> {
     let Params {
@@ -151,27 +94,23 @@ fn thread_fn<N: Notifications, E, P: Processor<E>>(
 
     processor.start_processing(environment)?;
 
-    log::info!("Running");
-    notifications.notify_state_changed(State::Running);
-
     loop {
+        log::info!("Running");
+        notifications.notify_state_changed(State::Running);
         match processor.process(environment, progress_hint_rx)? {
             Progress::Suspended => {
-                // The processor might decide to implicitly suspend processing
-                // at any time. Therefore we need to explicitly suspend ourselves
-                // here, otherwise the thread would not be suspended (see below).
-                suspender.suspend();
-
-                log::debug!("Processing suspended");
+                // Try to suspend ourselves
+                let suspended = progress_hint_rx.suspend();
+                if suspended.is_err() {
+                    // Might have been terminated
+                    continue;
+                }
                 notifications.notify_state_changed(State::Suspended);
-
-                suspender.wait_while_suspended();
-
-                log::debug!("Resuming processing");
-                notifications.notify_state_changed(State::Running);
+                progress_hint_rx.wait_for_signal_while_suspending();
             }
             Progress::Terminated => {
                 log::debug!("Processing terminated");
+                // Exit loop
                 break;
             }
         }
@@ -211,18 +150,16 @@ where
     N: Notifications + Send + 'static,
     P: Processor<E> + Send + 'static,
 {
-    pub fn start(params: Params<E, N, P>) -> Self {
+    pub fn spawn(params: Params<E, N, P>) -> Self {
         let progress_hint_rx = ProgressHintReceiver::default();
         let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
-        let suspender = Arc::new(Suspender::new());
         let join_handle = {
-            let suspender = suspender.clone();
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
                     // The parameters are mutable within the real-time thread
                     let mut params = params;
-                    let result = thread_fn(&progress_hint_rx, &suspender, &mut params);
+                    let result = thread_fn(&progress_hint_rx, &mut params);
                     let recovered_params = params;
                     TerminatedThread {
                         result,
@@ -233,65 +170,17 @@ where
         };
         Self {
             progress_hint_tx,
-            suspender,
             join_handle,
         }
     }
 
-    pub fn suspend(&self) -> anyhow::Result<bool> {
-        // 1st step: Ensure that the thread will block and suspend itself
-        // after processing has been suspended
-        if !self.suspender.suspend() {
-            log::debug!("Already suspending or suspended");
-            return Ok(false);
-        }
-        // 2nd step: Request processing to suspend
-        self.progress_hint_tx.suspend()?;
-        Ok(true)
-    }
-
-    pub fn resume(&self) -> anyhow::Result<bool> {
-        // 1st step: Ensure that processing either continues or
-        // terminates after the thread has been woken up and
-        // resumes running
-        self.progress_hint_tx.resume()?;
-        // 2nd step: Wake up the thread
-        if !self.suspender.resume() {
-            log::debug!("Not suspended yet");
-            return Ok(false);
-        }
-        Ok(true)
-    }
-
-    /// Stop the thread
-    ///
-    /// The thread is stopped after the processor has returned
-    /// from the last processing step without interruption.
-    pub fn stop(&self) -> anyhow::Result<()> {
-        self.abort(|| {})
-    }
-
-    /// Stop the thread by aborting processing
-    ///
-    /// Processing could be interrupted by a side-effect that
-    /// intercepts the termination.
-    pub fn abort(&self, on_abort: impl FnOnce()) -> anyhow::Result<()> {
-        // 1st step: Ensure that processing will terminate
-        self.progress_hint_tx.terminate()?;
-        // 2nd step: Abort processing through a side-effect controlled
-        // by the caller. This must intercept the 1st and 3rd step to
-        // avoid race conditions!
-        on_abort();
-        // 3rd step: Finally wake up the thread in case it is suspended.
-        // Otherwise it might stay suspended forever.
-        self.suspender.resume();
-        Ok(())
+    pub fn progress_hint_sender(&self) -> &ProgressHintSender {
+        &self.progress_hint_tx
     }
 
     pub fn join(self) -> JoinedThread<E, N, P> {
         let Self {
             progress_hint_tx: _,
-            suspender: _,
             join_handle,
         } = self;
         join_handle

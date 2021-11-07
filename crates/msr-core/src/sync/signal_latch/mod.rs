@@ -106,7 +106,7 @@ impl SignalLatch {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
+    pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
         if timeout.is_zero() {
             // Time out immediately
             return WaitForSignalEvent::TimedOut;
@@ -137,7 +137,7 @@ impl SignalLatch {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
+    pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
         let now = Instant::now();
         if deadline <= now {
             // Time out immediately
@@ -159,6 +159,17 @@ impl SignalLatch {
         } else {
             WaitForSignalEvent::Raised
         }
+    }
+
+    pub fn wait_for_signal(&self) {
+        let mut signal_latch_guard = self.signal_latch_mutex.lock();
+        if signal_latch_guard.reset_if_raised() {
+            // Abort immediately after resetting the latch
+            return;
+        }
+        self.signal_latch_condvar.wait(&mut signal_latch_guard);
+        // Reset the signal latch
+        signal_latch_guard.reset();
     }
 }
 

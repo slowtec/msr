@@ -6,7 +6,7 @@ fn wait_with_timeout_zero() -> anyhow::Result<()> {
 
     assert_eq!(
         WaitForSignalEvent::TimedOut,
-        signal_latch.wait_with_timeout(Duration::ZERO)
+        signal_latch.wait_for_signal_with_timeout(Duration::ZERO)
     );
 
     Ok(())
@@ -20,7 +20,7 @@ fn wait_with_timeout_zero_signaled() -> anyhow::Result<()> {
 
     assert_eq!(
         WaitForSignalEvent::TimedOut,
-        signal_latch.wait_with_timeout(Duration::ZERO)
+        signal_latch.wait_for_signal_with_timeout(Duration::ZERO)
     );
 
     Ok(())
@@ -34,7 +34,7 @@ fn wait_with_timeout_max_signaled() -> anyhow::Result<()> {
 
     assert_eq!(
         WaitForSignalEvent::Raised,
-        signal_latch.wait_with_timeout(Duration::MAX)
+        signal_latch.wait_for_signal_with_timeout(Duration::MAX)
     );
 
     Ok(())
