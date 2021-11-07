@@ -186,7 +186,7 @@ struct ProgressHintHandshake {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WaitForProgressHintSignalOutcome {
+pub enum WaitForProgressHintSignalEvent {
     Signaled,
     TimedOut,
 }
@@ -277,16 +277,16 @@ impl ProgressHintHandshake {
     pub fn wait_for_signal_with_timeout(
         &self,
         timeout: Duration,
-    ) -> WaitForProgressHintSignalOutcome {
+    ) -> WaitForProgressHintSignalEvent {
         if timeout.is_zero() {
             // Time out immediately
-            return WaitForProgressHintSignalOutcome::TimedOut;
+            return WaitForProgressHintSignalEvent::TimedOut;
         }
         let mut signal_latch_guard = self.signal_latch_mutex.lock();
         if *signal_latch_guard {
             // Reset the latch and abort immediately
             *signal_latch_guard = false;
-            return WaitForProgressHintSignalOutcome::Signaled;
+            return WaitForProgressHintSignalEvent::Signaled;
         }
         let wait_result = self
             .signal_latch_condvar
@@ -295,26 +295,26 @@ impl ProgressHintHandshake {
         *signal_latch_guard = false;
         drop(signal_latch_guard);
         if wait_result.timed_out() {
-            WaitForProgressHintSignalOutcome::TimedOut
+            WaitForProgressHintSignalEvent::TimedOut
         } else {
-            WaitForProgressHintSignalOutcome::Signaled
+            WaitForProgressHintSignalEvent::Signaled
         }
     }
 
     pub fn wait_for_signal_until_deadline(
         &self,
         deadline: Instant,
-    ) -> WaitForProgressHintSignalOutcome {
+    ) -> WaitForProgressHintSignalEvent {
         let now = Instant::now();
         if deadline <= now {
             // Time out immediately
-            return WaitForProgressHintSignalOutcome::TimedOut;
+            return WaitForProgressHintSignalEvent::TimedOut;
         }
         let mut signal_latch_guard = self.signal_latch_mutex.lock();
         if *signal_latch_guard {
             // Reset the latch and abort immediately
             *signal_latch_guard = false;
-            return WaitForProgressHintSignalOutcome::Signaled;
+            return WaitForProgressHintSignalEvent::Signaled;
         }
         let wait_result = self
             .signal_latch_condvar
@@ -323,9 +323,9 @@ impl ProgressHintHandshake {
         *signal_latch_guard = false;
         drop(signal_latch_guard);
         if wait_result.timed_out() {
-            WaitForProgressHintSignalOutcome::TimedOut
+            WaitForProgressHintSignalEvent::TimedOut
         } else {
-            WaitForProgressHintSignalOutcome::Signaled
+            WaitForProgressHintSignalEvent::Signaled
         }
     }
 }
@@ -411,7 +411,7 @@ impl ProgressHintReceiver {
     pub fn wait_for_signal_with_timeout(
         &self,
         timeout: Duration,
-    ) -> WaitForProgressHintSignalOutcome {
+    ) -> WaitForProgressHintSignalEvent {
         self.handshake.wait_for_signal_with_timeout(timeout)
     }
 
@@ -426,7 +426,7 @@ impl ProgressHintReceiver {
     pub fn wait_for_signal_until_deadline(
         &self,
         deadline: Instant,
-    ) -> WaitForProgressHintSignalOutcome {
+    ) -> WaitForProgressHintSignalEvent {
         self.handshake.wait_for_signal_until_deadline(deadline)
     }
 
