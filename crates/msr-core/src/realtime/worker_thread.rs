@@ -7,7 +7,7 @@ use crate::sync::{const_mutex, Arc, Condvar, Mutex};
 
 use super::processing::{
     processor::{Processor, Progress},
-    progresshint::{ProgressHintReceiver, ProgressHintSender, SwitchProgressHintResult},
+    progresshint::{ProgressHintReceiver, ProgressHintSender},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,25 +31,6 @@ impl Notifications for NotificationsBoxed {
     }
 }
 
-#[derive(Debug)]
-struct Context {
-    progress_hint_tx: ProgressHintSender,
-}
-
-impl Context {
-    pub fn suspend(&self) -> SwitchProgressHintResult {
-        self.progress_hint_tx.suspend()
-    }
-
-    pub fn resume(&self) -> SwitchProgressHintResult {
-        self.progress_hint_tx.resume()
-    }
-
-    pub fn terminate(&self) -> SwitchProgressHintResult {
-        self.progress_hint_tx.terminate()
-    }
-}
-
 /// Spawn parameters
 ///
 /// The parameters are passed into the worker thread when spawned
@@ -66,7 +47,7 @@ pub struct Params<E, N, P> {
 
 #[derive(Debug)]
 pub struct Thread<E, N, P> {
-    context: Context,
+    progress_hint_tx: ProgressHintSender,
     suspender: Arc<Suspender>,
     join_handle: JoinHandle<TerminatedThread<E, N, P>>,
 }
@@ -233,7 +214,6 @@ where
     pub fn start(params: Params<E, N, P>) -> Self {
         let progress_hint_rx = ProgressHintReceiver::default();
         let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
-        let context = Context { progress_hint_tx };
         let suspender = Arc::new(Suspender::new());
         let join_handle = {
             let suspender = suspender.clone();
@@ -252,9 +232,9 @@ where
             })
         };
         Self {
-            join_handle,
-            context,
+            progress_hint_tx,
             suspender,
+            join_handle,
         }
     }
 
@@ -266,7 +246,7 @@ where
             return Ok(false);
         }
         // 2nd step: Request processing to suspend
-        self.context.suspend()?;
+        self.progress_hint_tx.suspend()?;
         Ok(true)
     }
 
@@ -274,7 +254,7 @@ where
         // 1st step: Ensure that processing either continues or
         // terminates after the thread has been woken up and
         // resumes running
-        self.context.resume()?;
+        self.progress_hint_tx.resume()?;
         // 2nd step: Wake up the thread
         if !self.suspender.resume() {
             log::debug!("Not suspended yet");
@@ -297,7 +277,7 @@ where
     /// intercepts the termination.
     pub fn abort(&self, on_abort: impl FnOnce()) -> anyhow::Result<()> {
         // 1st step: Ensure that processing will terminate
-        self.context.terminate()?;
+        self.progress_hint_tx.terminate()?;
         // 2nd step: Abort processing through a side-effect controlled
         // by the caller. This must intercept the 1st and 3rd step to
         // avoid race conditions!
@@ -310,9 +290,9 @@ where
 
     pub fn join(self) -> JoinedThread<E, N, P> {
         let Self {
-            join_handle,
-            context: _,
+            progress_hint_tx: _,
             suspender: _,
+            join_handle,
         } = self;
         join_handle
             .join()
