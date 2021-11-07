@@ -141,13 +141,13 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_max_signaled() -> anyhow
 fn progress_hint_handshake_sender_receiver() {
     let mut rx = ProgressHintReceiver::default();
 
-    // 1st Sender: Success
+    // Attach and test 1st sender
     let tx1 = ProgressHintSender::attach(&rx);
     assert!(tx1.is_attached());
     assert!(matches!(tx1.suspend(), Ok(SwitchProgressHintOk::Accepted)));
     assert_eq!(ProgressHint::Suspending, rx.load());
 
-    // 2nd (cloned) Sender: Success
+    // Attach and test 2nd sender by cloning the 1st sender
     let tx2 = tx1.clone();
     assert!(tx2.is_attached());
     assert!(matches!(tx2.resume(), Ok(SwitchProgressHintOk::Accepted)));
@@ -156,13 +156,15 @@ fn progress_hint_handshake_sender_receiver() {
     // Detach the receiver
     rx.detach();
 
-    // Both senders detached now
+    // Both senders are detached now
     assert!(!tx1.is_attached());
+    assert!(!tx2.is_attached());
+
+    // All subsequent attempts to switch the progress hint fail
     assert!(matches!(
         tx1.terminate(),
         Err(SwitchProgressHintError::Detached)
     ));
-    assert!(!tx2.is_attached());
     assert!(matches!(
         tx2.terminate(),
         Err(SwitchProgressHintError::Detached)

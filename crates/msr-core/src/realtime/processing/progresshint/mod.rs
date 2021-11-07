@@ -168,10 +168,12 @@ struct ProgressHintHandshake {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WaitForProgressHintSignalOk {
+pub enum WaitForProgressHintSignalOk {
     Signaled,
     TimedOut,
 }
+
+pub type WaitForProgressHintSignalResult = anyhow::Result<WaitForProgressHintSignalOk>;
 
 /// The observed effect of switching the progress hint
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,7 +265,7 @@ impl ProgressHintHandshake {
     pub fn wait_for_signal_with_timeout(
         &self,
         timeout: Duration,
-    ) -> anyhow::Result<WaitForProgressHintSignalOk> {
+    ) -> WaitForProgressHintSignalResult {
         if timeout.is_zero() {
             // Time out immediately
             return Ok(WaitForProgressHintSignalOk::TimedOut);
@@ -305,7 +307,7 @@ impl ProgressHintHandshake {
     pub fn wait_for_signal_with_deadline(
         &self,
         deadline: Instant,
-    ) -> anyhow::Result<WaitForProgressHintSignalOk> {
+    ) -> WaitForProgressHintSignalResult {
         let now = Instant::now();
         let timeout = deadline.duration_since(deadline.min(now));
         self.wait_for_signal_with_timeout(timeout)
@@ -360,52 +362,63 @@ pub struct ProgressHintReceiver {
 }
 
 impl ProgressHintReceiver {
-    /// Load the latest value
+    /// Load the latest progress hint (lock-free)
     ///
     /// Leave any pending handshake signals untouched.
     ///
-    /// This function does not block and thus could be
-    /// invoked safely in a real-time context.
+    /// This function does not block and thus could be invoked
+    /// safely in a real-time context.
     pub fn load(&self) -> ProgressHint {
         self.handshake.load()
     }
 
-    /// Receive the latest progress hint, waiting for a signal
+    /// Wait for a progress hint signal with a timeout (blocking)
     ///
     /// Blocks until a new handshake signal has been received
-    /// or the timeout has expired and then reads the latest
-    /// value.
+    /// or the timeout has expired.
     ///
-    /// This function might block and thus should not be
-    /// invoked in a real-time context!
-    pub fn recv_timeout(&self, timeout: Duration) -> anyhow::Result<ProgressHint> {
-        let _outcome = self.handshake.wait_for_signal_with_timeout(timeout)?;
-        Ok(self.load())
+    /// This function might block and thus should not be invoked in
+    /// a hard real-time context! The sending threads of the signal
+    /// could cause a priority inversion.
+    pub fn wait_for_signal_with_timeout(
+        &self,
+        timeout: Duration,
+    ) -> WaitForProgressHintSignalResult {
+        self.handshake.wait_for_signal_with_timeout(timeout)
     }
 
-    /// Receive the latest progress hint, waiting for a signal
+    /// Wait for a progress hint signal with a deadline (blocking)
     ///
     /// Blocks until a new handshake signal has been received
-    /// or the deadline has expired and then reads the latest
-    /// value.
+    /// or the deadline has expired.
     ///
-    /// This function might block and thus should not be
-    /// invoked in a real-time context!
-    pub fn recv_deadline(&self, deadline: Instant) -> anyhow::Result<ProgressHint> {
-        let _outcome = self.handshake.wait_for_signal_with_deadline(deadline);
-        Ok(self.load())
+    /// This function might block and thus should not be invoked in
+    /// a hard real-time context! The sending threads of the signal
+    /// could cause a priority inversion.
+    pub fn wait_for_signal_with_deadline(
+        &self,
+        deadline: Instant,
+    ) -> WaitForProgressHintSignalResult {
+        self.handshake.wait_for_signal_with_deadline(deadline)
     }
 
-    /// Reset the handshake
+    /// Reset the handshake (blocking)
     ///
     /// Only the single receiver is allowed to reset the handshake.
+    ///
+    /// This function might block and thus should not be invoked in
+    /// a hard real-time context! The sending threads of the signal
+    /// could cause a priority inversion.
     pub fn reset(&self) -> anyhow::Result<()> {
         self.handshake.reset()
     }
 
-    /// Detach all senders
+    /// Detach all senders (lock-free)
     ///
     /// This will also reset the handshake back to default.
+    ///
+    /// This function does not block and thus could be invoked
+    /// safely in a real-time context.
     pub fn detach(&mut self) {
         self.handshake = Default::default();
     }
