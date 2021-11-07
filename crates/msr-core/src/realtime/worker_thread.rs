@@ -15,7 +15,7 @@ pub enum State {
     Starting,
     Running,
     Suspended,
-    Stopping,
+    Finishing,
     Terminating,
 }
 
@@ -177,8 +177,8 @@ fn thread_fn<N: Notifications, E, P: Processor<E>>(
         }
     }
 
-    log::info!("Stopping");
-    notifications.notify_state_changed(State::Stopping);
+    log::info!("Finishing");
+    notifications.notify_state_changed(State::Finishing);
 
     processor.finish_processing(environment)?;
 
