@@ -3,7 +3,10 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 use crate::sync::{
-    atomic::{AtomicU8, Ordering},
+    atomic::{
+        AtomicState, AtomicU8, Ordering, SwitchAtomicStateErr, SwitchAtomicStateOk,
+        SwitchAtomicStateResult,
+    },
     Arc, Condvar, Mutex, Weak,
 };
 
@@ -46,16 +49,80 @@ const PROGRESS_HINT_TERMINATING: AtomicValue = 2;
 #[derive(Debug)]
 struct AtomicProgressHint(AtomicU8);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SwitchAtomicProgressHintOutcome {
-    /// Changed
-    Accepted,
+fn progress_hint_from_atomic_value(from: AtomicValue) -> ProgressHint {
+    match from {
+        PROGRESS_HINT_RUNNING => ProgressHint::Running,
+        PROGRESS_HINT_SUSPENDING => ProgressHint::Suspending,
+        PROGRESS_HINT_TERMINATING => ProgressHint::Terminating,
+        unexpected_value => unreachable!("unexpected progress hint value: {}", unexpected_value),
+    }
+}
 
-    /// Already as desired and unchanged
-    Ignored,
+const fn progress_hint_to_atomic_value(from: ProgressHint) -> AtomicValue {
+    match from {
+        ProgressHint::Running => PROGRESS_HINT_RUNNING,
+        ProgressHint::Suspending => PROGRESS_HINT_SUSPENDING,
+        ProgressHint::Terminating => PROGRESS_HINT_TERMINATING,
+    }
+}
 
-    /// Invalid transition and unchanged
-    Rejected,
+impl AtomicState for AtomicProgressHint {
+    type State = ProgressHint;
+
+    fn peek(&self) -> Self::State {
+        progress_hint_from_atomic_value(self.0.load(Ordering::Relaxed))
+    }
+
+    fn load(&self) -> Self::State {
+        progress_hint_from_atomic_value(self.0.load(Ordering::Acquire))
+    }
+
+    fn switch_to_desired(&self, desired_state: Self::State) -> SwitchAtomicStateOk<Self::State> {
+        let desired_value = progress_hint_to_atomic_value(desired_state);
+        let previous_value = self.0.swap(desired_value, Ordering::Release);
+        if previous_value == desired_value {
+            return SwitchAtomicStateOk::Ignored;
+        }
+        SwitchAtomicStateOk::Accepted {
+            previous_state: progress_hint_from_atomic_value(previous_value),
+        }
+    }
+
+    fn switch_from_expected_to_desired(
+        &self,
+        expected_state: Self::State,
+        desired_state: Self::State,
+    ) -> SwitchAtomicStateResult<Self::State> {
+        let expected_value = progress_hint_to_atomic_value(expected_state);
+        let desired_value = progress_hint_to_atomic_value(desired_state);
+        self.0
+            .compare_exchange(
+                expected_value,
+                desired_value,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .map(|_previous_value| {
+                debug_assert_eq!(expected_value, _previous_value);
+                if desired_value == expected_value {
+                    SwitchAtomicStateOk::Ignored
+                } else {
+                    SwitchAtomicStateOk::Accepted {
+                        previous_state: expected_state,
+                    }
+                }
+            })
+            .or_else(|current_value| {
+                debug_assert_ne!(expected_value, current_value);
+                if desired_value == current_value {
+                    Ok(SwitchAtomicStateOk::Ignored)
+                } else {
+                    Err(SwitchAtomicStateErr::Rejected {
+                        current_state: progress_hint_from_atomic_value(current_value),
+                    })
+                }
+            })
+    }
 }
 
 /// Atomic progress hint (thread-safe, lock-free)
@@ -83,7 +150,7 @@ impl AtomicProgressHint {
 
     #[cfg(not(loom))]
     const fn new(progress_hint: ProgressHint) -> Self {
-        Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
+        Self(AtomicU8::new(progress_hint_to_atomic_value(progress_hint)))
     }
 
     // The loom atomic does not provide a const fn new()
@@ -92,82 +159,28 @@ impl AtomicProgressHint {
         Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
     }
 
-    fn from_atomic_value(value: AtomicValue) -> ProgressHint {
-        match value {
-            PROGRESS_HINT_RUNNING => ProgressHint::Running,
-            PROGRESS_HINT_SUSPENDING => ProgressHint::Suspending,
-            PROGRESS_HINT_TERMINATING => ProgressHint::Terminating,
-            progress_hint => unreachable!("unexpected progress hint value: {}", progress_hint),
-        }
-    }
-
-    const fn to_atomic_value(progress_hint: ProgressHint) -> AtomicValue {
-        match progress_hint {
-            ProgressHint::Running => PROGRESS_HINT_RUNNING,
-            ProgressHint::Suspending => PROGRESS_HINT_SUSPENDING,
-            ProgressHint::Terminating => PROGRESS_HINT_TERMINATING,
-        }
-    }
-
-    /// Read the current value with `relaxed` semantics (memory order)
-    pub fn peek(&self) -> ProgressHint {
-        Self::from_atomic_value(self.0.load(Ordering::Relaxed))
-    }
-
-    /// Read the current value with `acquire` semantics (memory order)
-    pub fn load(&self) -> ProgressHint {
-        Self::from_atomic_value(self.0.load(Ordering::Acquire))
-    }
-
-    fn switch_from_expected_to_desired(
-        &self,
-        expected: AtomicValue,
-        desired: AtomicValue,
-    ) -> SwitchAtomicProgressHintOutcome {
-        match self
-            .0
-            .compare_exchange(expected, desired, Ordering::AcqRel, Ordering::Acquire)
-        {
-            Ok(_previous) => {
-                debug_assert_eq!(expected, _previous);
-                SwitchAtomicProgressHintOutcome::Accepted
-            }
-            Err(current) => {
-                if current == desired {
-                    SwitchAtomicProgressHintOutcome::Ignored
-                } else {
-                    SwitchAtomicProgressHintOutcome::Rejected
-                }
-            }
-        }
-    }
-
-    fn switch_to_desired(&self, desired: AtomicValue) -> SwitchAtomicProgressHintOutcome {
-        if self.0.swap(desired, Ordering::Release) == desired {
-            SwitchAtomicProgressHintOutcome::Ignored
-        } else {
-            SwitchAtomicProgressHintOutcome::Accepted
-        }
-    }
-
     /// Switch from [`ProgressHint::Running`] to [`ProgressHint::Suspending`]
-    pub fn suspend(&self) -> SwitchAtomicProgressHintOutcome {
-        self.switch_from_expected_to_desired(PROGRESS_HINT_RUNNING, PROGRESS_HINT_SUSPENDING)
+    pub fn suspend(&self) -> SwitchAtomicStateResult<ProgressHint> {
+        self.switch_from_expected_to_desired(ProgressHint::Running, ProgressHint::Suspending)
     }
 
     /// Switch from [`ProgressHint::Suspending`] to [`ProgressHint::Running`]
-    pub fn resume(&self) -> SwitchAtomicProgressHintOutcome {
-        self.switch_from_expected_to_desired(PROGRESS_HINT_SUSPENDING, PROGRESS_HINT_RUNNING)
+    pub fn resume(&self) -> SwitchAtomicStateResult<ProgressHint> {
+        self.switch_from_expected_to_desired(ProgressHint::Suspending, ProgressHint::Running)
     }
 
     /// Reset to [`ProgressHint::default()`]
-    pub fn reset(&self) -> SwitchAtomicProgressHintOutcome {
-        self.switch_to_desired(Self::to_atomic_value(ProgressHint::default()))
+    ///
+    /// Returns the previous state.
+    pub fn reset(&self) -> SwitchAtomicStateOk<ProgressHint> {
+        self.switch_to_desired(ProgressHint::default())
     }
 
     /// Set to [`ProgressHint::Terminating`]
-    pub fn terminate(&self) -> SwitchAtomicProgressHintOutcome {
-        self.switch_to_desired(PROGRESS_HINT_TERMINATING)
+    ///
+    /// Returns the previous state.
+    pub fn terminate(&self) -> SwitchAtomicStateOk<ProgressHint> {
+        self.switch_to_desired(ProgressHint::Terminating)
     }
 }
 
@@ -195,10 +208,19 @@ pub enum WaitForProgressHintSignalEvent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SwitchProgressHintOk {
     /// Changed as desired and signaled
-    Accepted,
+    Accepted { previous_state: ProgressHint },
 
     /// Unchanged (i.e. already as desired) and silently ignored (i.e. not signaled)
     Ignored,
+}
+
+impl From<SwitchAtomicStateOk<ProgressHint>> for SwitchProgressHintOk {
+    fn from(from: SwitchAtomicStateOk<ProgressHint>) -> Self {
+        match from {
+            SwitchAtomicStateOk::Accepted { previous_state } => Self::Accepted { previous_state },
+            SwitchAtomicStateOk::Ignored => Self::Ignored,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -213,7 +235,15 @@ pub enum SwitchProgressHintError {
 
     /// The requested state transition is not permitted
     #[error("rejected")]
-    Rejected,
+    Rejected { current_state: ProgressHint },
+}
+
+impl From<SwitchAtomicStateErr<ProgressHint>> for SwitchProgressHintError {
+    fn from(from: SwitchAtomicStateErr<ProgressHint>) -> Self {
+        match from {
+            SwitchAtomicStateErr::Rejected { current_state } => Self::Rejected { current_state },
+        }
+    }
 }
 
 pub type SwitchProgressHintResult = Result<SwitchProgressHintOk, SwitchProgressHintError>;
@@ -239,30 +269,35 @@ impl ProgressHintHandshake {
         *signal_latch_guard = false;
     }
 
-    fn after_atomic_switched(
+    fn after_atomic_state_switched_result(
         &self,
-        switched: SwitchAtomicProgressHintOutcome,
+        result: SwitchAtomicStateResult<ProgressHint>,
     ) -> SwitchProgressHintResult {
-        match switched {
-            SwitchAtomicProgressHintOutcome::Accepted => {
-                self.raise_signal_latch();
-                Ok(SwitchProgressHintOk::Accepted)
-            }
-            SwitchAtomicProgressHintOutcome::Ignored => Ok(SwitchProgressHintOk::Ignored),
-            SwitchAtomicProgressHintOutcome::Rejected => Err(SwitchProgressHintError::Rejected),
+        result
+            .map(|ok| self.after_atomic_state_switched_ok(ok))
+            .map_err(Into::into)
+    }
+
+    fn after_atomic_state_switched_ok(
+        &self,
+        ok: SwitchAtomicStateOk<ProgressHint>,
+    ) -> SwitchProgressHintOk {
+        if matches!(ok, SwitchAtomicStateOk::Accepted { .. }) {
+            self.raise_signal_latch();
         }
+        ok.into()
     }
 
     pub fn suspend(&self) -> SwitchProgressHintResult {
-        self.after_atomic_switched(self.atomic.suspend())
+        self.after_atomic_state_switched_result(self.atomic.suspend())
     }
 
     pub fn resume(&self) -> SwitchProgressHintResult {
-        self.after_atomic_switched(self.atomic.resume())
+        self.after_atomic_state_switched_result(self.atomic.resume())
     }
 
-    pub fn terminate(&self) -> SwitchProgressHintResult {
-        self.after_atomic_switched(self.atomic.terminate())
+    pub fn terminate(&self) -> SwitchProgressHintOk {
+        self.after_atomic_state_switched_ok(self.atomic.terminate())
     }
 
     pub fn reset(&self) {
@@ -362,7 +397,7 @@ impl ProgressHintSender {
     /// Ask the receiver to terminate itself
     pub fn terminate(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
-            .and_then(|handshake| handshake.terminate())
+            .map(|handshake| handshake.terminate())
     }
 }
 
