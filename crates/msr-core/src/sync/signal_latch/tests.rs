@@ -33,7 +33,7 @@ fn wait_with_timeout_max_signaled() -> anyhow::Result<()> {
     signal_latch.raise_notify_one();
 
     assert_eq!(
-        WaitForSignalEvent::Signaled,
+        WaitForSignalEvent::Raised,
         signal_latch.wait_with_timeout(Duration::MAX)
     );
 

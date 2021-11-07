@@ -4,8 +4,8 @@ use crate::sync::{const_mutex, Condvar, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SignalLatchState {
-    Empty,
-    Signaled,
+    Reset,
+    Raised,
 }
 
 impl SignalLatchState {
@@ -13,24 +13,30 @@ impl SignalLatchState {
         *self = Self::default()
     }
 
-    pub fn raise(&mut self) {
-        *self = Self::Signaled
+    pub fn raise(&mut self) -> bool {
+        match *self {
+            Self::Raised => false,
+            _ => {
+                *self = Self::Raised;
+                true
+            }
+        }
     }
 
     pub fn reset_if_raised(&mut self) -> bool {
         match *self {
-            Self::Signaled => {
+            Self::Raised => {
                 self.reset();
                 true
             }
-            Self::Empty => false,
+            Self::Reset => false,
         }
     }
 }
 
 impl SignalLatchState {
     pub const fn default() -> Self {
-        Self::Empty
+        Self::Reset
     }
 }
 
@@ -66,21 +72,25 @@ impl Default for SignalLatch {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WaitForSignalEvent {
-    Signaled,
+    Raised,
     TimedOut,
 }
 
 impl SignalLatch {
     pub fn raise_notify_one(&self) {
         let mut signal_latch_guard = self.signal_latch_mutex.lock();
-        signal_latch_guard.raise();
-        self.signal_latch_condvar.notify_one();
+        if signal_latch_guard.raise() {
+            drop(signal_latch_guard);
+            self.signal_latch_condvar.notify_one();
+        }
     }
 
     pub fn raise_notify_all(&self) {
         let mut signal_latch_guard = self.signal_latch_mutex.lock();
-        signal_latch_guard.raise();
-        self.signal_latch_condvar.notify_all();
+        if signal_latch_guard.raise() {
+            drop(signal_latch_guard);
+            self.signal_latch_condvar.notify_all();
+        }
     }
 
     pub fn reset(&self) {
@@ -104,7 +114,7 @@ impl SignalLatch {
         let mut signal_latch_guard = self.signal_latch_mutex.lock();
         if signal_latch_guard.reset_if_raised() {
             // Abort immediately after resetting the latch
-            return WaitForSignalEvent::Signaled;
+            return WaitForSignalEvent::Raised;
         }
         let wait_result = self
             .signal_latch_condvar
@@ -115,7 +125,7 @@ impl SignalLatch {
         if wait_result.timed_out() {
             WaitForSignalEvent::TimedOut
         } else {
-            WaitForSignalEvent::Signaled
+            WaitForSignalEvent::Raised
         }
     }
 
@@ -136,7 +146,7 @@ impl SignalLatch {
         let mut signal_latch_guard = self.signal_latch_mutex.lock();
         if signal_latch_guard.reset_if_raised() {
             // Abort immediately after resetting the latch
-            return WaitForSignalEvent::Signaled;
+            return WaitForSignalEvent::Raised;
         }
         let wait_result = self
             .signal_latch_condvar
@@ -147,7 +157,7 @@ impl SignalLatch {
         if wait_result.timed_out() {
             WaitForSignalEvent::TimedOut
         } else {
-            WaitForSignalEvent::Signaled
+            WaitForSignalEvent::Raised
         }
     }
 }
