@@ -214,13 +214,9 @@ pub enum SwitchProgressHintError {
     /// The requested state transition is not permitted
     #[error("rejected")]
     Rejected,
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
-pub type SwitchProgressHintResult =
-    std::result::Result<SwitchProgressHintOk, SwitchProgressHintError>;
+pub type SwitchProgressHintResult = Result<SwitchProgressHintOk, SwitchProgressHintError>;
 
 #[allow(clippy::mutex_atomic)]
 impl ProgressHintHandshake {
@@ -345,9 +341,7 @@ impl ProgressHintSender {
         self.handshake.strong_count() > 0
     }
 
-    fn upgrade_handshake(
-        &self,
-    ) -> std::result::Result<Arc<ProgressHintHandshake>, SwitchProgressHintError> {
+    fn upgrade_handshake(&self) -> Result<Arc<ProgressHintHandshake>, SwitchProgressHintError> {
         self.handshake
             .upgrade()
             .ok_or(SwitchProgressHintError::Detached)
