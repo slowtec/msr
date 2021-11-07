@@ -3,7 +3,7 @@ use std::{any::Any, thread::JoinHandle};
 use anyhow::Result;
 use thread_priority::ThreadPriority;
 
-use crate::sync::{Arc, Condvar, Mutex};
+use crate::sync::{const_mutex, Arc, Condvar, Mutex};
 
 use super::processing::{
     processor::{Processor, Progress},
@@ -101,11 +101,26 @@ pub fn adjust_current_thread_priority() {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[allow(clippy::mutex_atomic)]
 struct Suspender {
     suspended: Mutex<bool>,
     condvar: Condvar,
+}
+
+impl Suspender {
+    pub fn new() -> Self {
+        Self {
+            suspended: const_mutex(false),
+            condvar: Condvar::new(),
+        }
+    }
+}
+
+impl Default for Suspender {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[allow(clippy::mutex_atomic)]
@@ -219,7 +234,7 @@ where
         let progress_hint_rx = ProgressHintReceiver::default();
         let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
         let context = Context { progress_hint_tx };
-        let suspender = Arc::new(Suspender::default());
+        let suspender = Arc::new(Suspender::new());
         let join_handle = {
             let suspender = suspender.clone();
             std::thread::spawn({

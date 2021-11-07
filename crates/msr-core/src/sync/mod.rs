@@ -7,4 +7,4 @@ pub(crate) use std::sync::{Arc, Weak};
 // loom only provides drop-in replacements for the std::sync
 // primitives, but unfortunately not for the parking_lot
 // variants that are using a different API.
-pub(crate) use parking_lot::{Condvar, Mutex};
+pub(crate) use parking_lot::{const_mutex, Condvar, Mutex};
