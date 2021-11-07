@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use parking_lot::const_mutex;
 use thiserror::Error;
 
 use crate::sync::{
@@ -8,7 +7,7 @@ use crate::sync::{
         AtomicState, AtomicU8, Ordering, SwitchAtomicStateErr, SwitchAtomicStateOk,
         SwitchAtomicStateResult,
     },
-    Arc, Condvar, Mutex, Weak,
+    Arc, SignalLatch, WaitForSignalEvent, Weak,
 };
 
 /// Desired processing state
@@ -191,57 +190,17 @@ impl Default for AtomicProgressHint {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SignalLatchState {
-    Empty,
-    Signaled,
-}
-
-impl SignalLatchState {
-    pub fn reset(&mut self) {
-        *self = Self::default()
-    }
-
-    pub fn raise(&mut self) {
-        *self = Self::Signaled
-    }
-
-    pub fn reset_if_raised(&mut self) -> bool {
-        match *self {
-            Self::Signaled => {
-                self.reset();
-                true
-            }
-            Self::Empty => false,
-        }
-    }
-}
-
-impl SignalLatchState {
-    pub const fn default() -> Self {
-        Self::Empty
-    }
-}
-
-impl Default for SignalLatchState {
-    fn default() -> Self {
-        Self::default()
-    }
-}
-
 #[derive(Debug)]
 struct ProgressHintHandshake {
     atomic: AtomicProgressHint,
-    signal_latch_mutex: Mutex<SignalLatchState>,
-    signal_latch_condvar: Condvar,
+    signal_latch: SignalLatch,
 }
 
 impl ProgressHintHandshake {
     pub const fn default() -> Self {
         Self {
             atomic: AtomicProgressHint::default(),
-            signal_latch_mutex: const_mutex(SignalLatchState::default()),
-            signal_latch_condvar: Condvar::new(),
+            signal_latch: SignalLatch::default(),
         }
     }
 }
@@ -250,12 +209,6 @@ impl Default for ProgressHintHandshake {
     fn default() -> Self {
         Self::default()
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WaitForProgressHintSignalEvent {
-    Signaled,
-    TimedOut,
 }
 
 /// The observed effect of switching the progress hint
@@ -311,17 +264,6 @@ impl ProgressHintHandshake {
         self.atomic.load()
     }
 
-    fn raise_signal_latch(&self) {
-        let mut signal_latch_guard = self.signal_latch_mutex.lock();
-        signal_latch_guard.raise();
-        self.signal_latch_condvar.notify_one();
-    }
-
-    fn reset_signal_latch(&self) {
-        let mut signal_latch_guard = self.signal_latch_mutex.lock();
-        signal_latch_guard.reset();
-    }
-
     fn after_atomic_state_switched_result(
         &self,
         result: SwitchAtomicStateResult<ProgressHint>,
@@ -336,7 +278,7 @@ impl ProgressHintHandshake {
         ok: SwitchAtomicStateOk<ProgressHint>,
     ) -> SwitchProgressHintOk {
         if matches!(ok, SwitchAtomicStateOk::Accepted { .. }) {
-            self.raise_signal_latch();
+            self.signal_latch.raise_notify_one();
         }
         ok.into()
     }
@@ -355,60 +297,15 @@ impl ProgressHintHandshake {
 
     pub fn reset(&self) {
         self.atomic.reset();
-        self.reset_signal_latch();
+        self.signal_latch.reset();
     }
 
-    pub fn wait_for_signal_with_timeout(
-        &self,
-        timeout: Duration,
-    ) -> WaitForProgressHintSignalEvent {
-        if timeout.is_zero() {
-            // Time out immediately
-            return WaitForProgressHintSignalEvent::TimedOut;
-        }
-        let mut signal_latch_guard = self.signal_latch_mutex.lock();
-        if signal_latch_guard.reset_if_raised() {
-            // Abort immediately after resetting the latch
-            return WaitForProgressHintSignalEvent::Signaled;
-        }
-        let wait_result = self
-            .signal_latch_condvar
-            .wait_for(&mut signal_latch_guard, timeout);
-        // Reset the signal latch
-        signal_latch_guard.reset();
-        drop(signal_latch_guard);
-        if wait_result.timed_out() {
-            WaitForProgressHintSignalEvent::TimedOut
-        } else {
-            WaitForProgressHintSignalEvent::Signaled
-        }
+    pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
+        self.signal_latch.wait_with_timeout(timeout)
     }
 
-    pub fn wait_for_signal_until_deadline(
-        &self,
-        deadline: Instant,
-    ) -> WaitForProgressHintSignalEvent {
-        let now = Instant::now();
-        if deadline <= now {
-            // Time out immediately
-            return WaitForProgressHintSignalEvent::TimedOut;
-        }
-        let mut signal_latch_guard = self.signal_latch_mutex.lock();
-        if signal_latch_guard.reset_if_raised() {
-            // Abort immediately after resetting the latch
-            return WaitForProgressHintSignalEvent::Signaled;
-        }
-        let wait_result = self
-            .signal_latch_condvar
-            .wait_until(&mut signal_latch_guard, deadline);
-        // Reset the signal latch
-        signal_latch_guard.reset();
-        drop(signal_latch_guard);
-        if wait_result.timed_out() {
-            WaitForProgressHintSignalEvent::TimedOut
-        } else {
-            WaitForProgressHintSignalEvent::Signaled
-        }
+    pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
+        self.signal_latch.wait_until_deadline(deadline)
     }
 }
 
@@ -488,10 +385,7 @@ impl ProgressHintReceiver {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_for_signal_with_timeout(
-        &self,
-        timeout: Duration,
-    ) -> WaitForProgressHintSignalEvent {
+    pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
         self.handshake.wait_for_signal_with_timeout(timeout)
     }
 
@@ -503,10 +397,7 @@ impl ProgressHintReceiver {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_for_signal_until_deadline(
-        &self,
-        deadline: Instant,
-    ) -> WaitForProgressHintSignalEvent {
+    pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
         self.handshake.wait_for_signal_until_deadline(deadline)
     }
 

@@ -108,56 +108,6 @@ fn atomic_progress_hint_sequence() {
 }
 
 #[test]
-fn progress_hint_handshake_wait_for_signal_with_timeout_zero() -> anyhow::Result<()> {
-    let handshake = ProgressHintHandshake::default();
-
-    assert_eq!(
-        WaitForProgressHintSignalEvent::TimedOut,
-        handshake.wait_for_signal_with_timeout(Duration::ZERO)
-    );
-
-    Ok(())
-}
-
-#[test]
-fn progress_hint_handshake_wait_for_signal_with_timeout_zero_signaled() -> anyhow::Result<()> {
-    let handshake = ProgressHintHandshake::default();
-
-    assert_eq!(
-        SwitchProgressHintOk::Accepted {
-            previous_state: ProgressHint::Running,
-        },
-        handshake.suspend()?
-    );
-
-    assert_eq!(
-        WaitForProgressHintSignalEvent::TimedOut,
-        handshake.wait_for_signal_with_timeout(Duration::ZERO)
-    );
-
-    Ok(())
-}
-
-#[test]
-fn progress_hint_handshake_wait_for_signal_with_timeout_max_signaled() -> anyhow::Result<()> {
-    let handshake = ProgressHintHandshake::default();
-
-    assert_eq!(
-        SwitchProgressHintOk::Accepted {
-            previous_state: ProgressHint::Running,
-        },
-        handshake.suspend()?
-    );
-
-    assert_eq!(
-        WaitForProgressHintSignalEvent::Signaled,
-        handshake.wait_for_signal_with_timeout(Duration::MAX)
-    );
-
-    Ok(())
-}
-
-#[test]
 fn progress_hint_handshake_sender_receiver() -> anyhow::Result<()> {
     let mut rx = ProgressHintReceiver::default();
 
