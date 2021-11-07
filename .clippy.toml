@@ -1,5 +1,3 @@
-msrv = "1.56"
-
 disallowed-methods = [
 ]
 
@@ -10,5 +8,5 @@ disallowed-types = [
     # Use the faster, simpler, and non-poisonable primitives in `parking_lot` instead
     "std::sync::Mutex",
     "std::sync::RwLock",
-    "std::sync::CondVar",
+    "std::sync::Condvar",
 ]

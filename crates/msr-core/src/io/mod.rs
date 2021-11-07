@@ -1,10 +1,11 @@
 //! I/O related utilities
 pub mod file;
 
-use std::{
-    io::{Result, Write},
-    sync::atomic::{AtomicU64, Ordering},
-    sync::Arc,
+use std::io::{Result, Write};
+
+use crate::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
 };
 
 #[derive(Clone, Debug)]

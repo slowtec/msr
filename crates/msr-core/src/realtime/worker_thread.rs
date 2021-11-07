@@ -1,11 +1,9 @@
-use std::{
-    any::Any,
-    sync::{Arc, Condvar, Mutex},
-    thread::JoinHandle,
-};
+use std::{any::Any, thread::JoinHandle};
 
 use anyhow::Result;
 use thread_priority::ThreadPriority;
+
+use crate::sync::{Arc, Condvar, Mutex};
 
 use super::processing::{
     processor::{Processor, Progress},
@@ -113,10 +111,7 @@ struct Suspender {
 #[allow(clippy::mutex_atomic)]
 impl Suspender {
     fn suspend(&self) -> bool {
-        let mut suspended = self
-            .suspended
-            .lock()
-            .expect("lock suspended mutex to suspend");
+        let mut suspended = self.suspended.lock();
         if *suspended {
             // Already suspended
             return false;
@@ -126,10 +121,7 @@ impl Suspender {
     }
 
     fn resume(&self) -> bool {
-        let mut suspended = self
-            .suspended
-            .lock()
-            .expect("lock suspended mutex to resume");
+        let mut suspended = self.suspended.lock();
         if !*suspended {
             // Not suspended yet
             return false;
@@ -140,9 +132,9 @@ impl Suspender {
     }
 
     fn wait_while_suspended(&self) {
-        let mut suspended = self.suspended.lock().expect("lock suspended mutex");
+        let mut suspended = self.suspended.lock();
         while *suspended {
-            suspended = self.condvar.wait(suspended).expect("wait while suspended");
+            self.condvar.wait(&mut suspended);
         }
     }
 }

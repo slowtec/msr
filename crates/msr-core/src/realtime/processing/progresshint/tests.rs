@@ -4,7 +4,7 @@ use super::*;
 fn atomic_progress_hint_default() {
     assert_eq!(
         ProgressHint::default(),
-        AtomicProgressHint::default().load()
+        AtomicProgressHint::default().peek()
     );
 }
 
@@ -102,8 +102,8 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero() -> anyhow::Result
     let handshake = ProgressHintHandshake::default();
 
     assert_eq!(
-        WaitForProgressHintSignalOk::TimedOut,
-        handshake.wait_for_signal_with_timeout(Duration::ZERO)?
+        WaitForProgressHintSignalOutcome::TimedOut,
+        handshake.wait_for_signal_with_timeout(Duration::ZERO)
     );
 
     Ok(())
@@ -116,8 +116,8 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_zero_signaled() -> anyho
     assert_eq!(SwitchProgressHintOk::Accepted, handshake.suspend()?);
 
     assert_eq!(
-        WaitForProgressHintSignalOk::TimedOut,
-        handshake.wait_for_signal_with_timeout(Duration::ZERO)?
+        WaitForProgressHintSignalOutcome::TimedOut,
+        handshake.wait_for_signal_with_timeout(Duration::ZERO)
     );
 
     Ok(())
@@ -130,8 +130,8 @@ fn progress_hint_handshake_wait_for_signal_with_timeout_max_signaled() -> anyhow
     assert_eq!(SwitchProgressHintOk::Accepted, handshake.suspend()?);
 
     assert_eq!(
-        WaitForProgressHintSignalOk::Signaled,
-        handshake.wait_for_signal_with_timeout(Duration::MAX)?
+        WaitForProgressHintSignalOutcome::Signaled,
+        handshake.wait_for_signal_with_timeout(Duration::MAX)
     );
 
     Ok(())

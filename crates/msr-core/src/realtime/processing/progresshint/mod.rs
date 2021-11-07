@@ -1,12 +1,11 @@
-use std::{
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc, Condvar, Mutex, Weak,
-    },
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use thiserror::Error;
+
+use crate::sync::{
+    atomic::{AtomicU8, Ordering},
+    Arc, Condvar, Mutex, Weak,
+};
 
 /// Desired processing state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,11 +70,25 @@ impl AtomicProgressHint {
     /// Default value
     ///
     /// Creates a new value in accordance to `ProgressHint::default()`.
+    #[cfg(not(loom))]
     pub const fn default() -> Self {
         Self::new(ProgressHint::default())
     }
 
+    // The loom atomic does not provide a const fn new()
+    #[cfg(loom)]
+    pub fn default() -> Self {
+        Self::new(ProgressHint::default())
+    }
+
+    #[cfg(not(loom))]
     const fn new(progress_hint: ProgressHint) -> Self {
+        Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
+    }
+
+    // The loom atomic does not provide a const fn new()
+    #[cfg(loom)]
+    fn new(progress_hint: ProgressHint) -> Self {
         Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
     }
 
@@ -96,9 +109,14 @@ impl AtomicProgressHint {
         }
     }
 
-    /// Load the current value
-    pub fn load(&self) -> ProgressHint {
+    /// Read the current value with `relaxed` semantics (memory order)
+    pub fn peek(&self) -> ProgressHint {
         Self::from_atomic_value(self.0.load(Ordering::Relaxed))
+    }
+
+    /// Read the current value with `acquire` semantics (memory order)
+    pub fn load(&self) -> ProgressHint {
+        Self::from_atomic_value(self.0.load(Ordering::Acquire))
     }
 
     fn switch_from_expected_to_desired(
@@ -108,7 +126,7 @@ impl AtomicProgressHint {
     ) -> SwitchAtomicProgressHintOutcome {
         match self
             .0
-            .compare_exchange(expected, desired, Ordering::AcqRel, Ordering::Relaxed)
+            .compare_exchange(expected, desired, Ordering::AcqRel, Ordering::Acquire)
         {
             Ok(_previous) => {
                 debug_assert_eq!(expected, _previous);
@@ -168,12 +186,10 @@ struct ProgressHintHandshake {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WaitForProgressHintSignalOk {
+pub enum WaitForProgressHintSignalOutcome {
     Signaled,
     TimedOut,
 }
-
-pub type WaitForProgressHintSignalResult = anyhow::Result<WaitForProgressHintSignalOk>;
 
 /// The observed effect of switching the progress hint
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,27 +224,23 @@ pub type SwitchProgressHintResult =
 
 #[allow(clippy::mutex_atomic)]
 impl ProgressHintHandshake {
+    pub fn peek(&self) -> ProgressHint {
+        self.atomic.peek()
+    }
+
     pub fn load(&self) -> ProgressHint {
         self.atomic.load()
     }
 
-    fn raise_signal_latch(&self) -> anyhow::Result<()> {
-        let mut signal_latch_guard = self
-            .signal_latch_mutex
-            .lock()
-            .map_err(|_| anyhow::anyhow!("signal poisened"))?;
+    fn raise_signal_latch(&self) {
+        let mut signal_latch_guard = self.signal_latch_mutex.lock();
         *signal_latch_guard = true;
         self.signal_latch_condvar.notify_one();
-        Ok(())
     }
 
-    fn reset_signal_latch(&self) -> anyhow::Result<()> {
-        let mut signal_latch_guard = self
-            .signal_latch_mutex
-            .lock()
-            .map_err(|_| anyhow::anyhow!("condvar/mutex poisened"))?;
+    fn reset_signal_latch(&self) {
+        let mut signal_latch_guard = self.signal_latch_mutex.lock();
         *signal_latch_guard = false;
-        Ok(())
     }
 
     fn after_atomic_switched(
@@ -237,7 +249,7 @@ impl ProgressHintHandshake {
     ) -> SwitchProgressHintResult {
         match switched {
             SwitchAtomicProgressHintOutcome::Accepted => {
-                self.raise_signal_latch()?;
+                self.raise_signal_latch();
                 Ok(SwitchProgressHintOk::Accepted)
             }
             SwitchAtomicProgressHintOutcome::Ignored => Ok(SwitchProgressHintOk::Ignored),
@@ -257,60 +269,64 @@ impl ProgressHintHandshake {
         self.after_atomic_switched(self.atomic.terminate())
     }
 
-    pub fn reset(&self) -> anyhow::Result<()> {
+    pub fn reset(&self) {
         self.atomic.reset();
-        self.reset_signal_latch()
+        self.reset_signal_latch();
     }
 
     pub fn wait_for_signal_with_timeout(
         &self,
         timeout: Duration,
-    ) -> WaitForProgressHintSignalResult {
+    ) -> WaitForProgressHintSignalOutcome {
         if timeout.is_zero() {
             // Time out immediately
-            return Ok(WaitForProgressHintSignalOk::TimedOut);
+            return WaitForProgressHintSignalOutcome::TimedOut;
         }
-        let mut signal_latch_guard = self
-            .signal_latch_mutex
-            .lock()
-            .map_err(|_| anyhow::anyhow!("condvar/mutex poisened"))?;
+        let mut signal_latch_guard = self.signal_latch_mutex.lock();
         if *signal_latch_guard {
             // Reset the latch and abort immediately
             *signal_latch_guard = false;
-            return Ok(WaitForProgressHintSignalOk::Signaled);
+            return WaitForProgressHintSignalOutcome::Signaled;
         }
-        let (signal_latch_guard, wait_result) = self
+        let wait_result = self
             .signal_latch_condvar
-            .wait_timeout_while(signal_latch_guard, timeout, |signal| {
-                if *signal {
-                    // Clear signal and abort waiting
-                    *signal = false;
-                    return false;
-                }
-                // Continue waiting
-                true
-            })
-            .map_err(|_| anyhow::anyhow!("condvar/mutex poisened"))?;
-        // The signal latch has either not been raised or has been reset
-        // while waiting. It cannot be raised again before we drop the
-        // lock guard!
-        assert!(!*signal_latch_guard);
+            .wait_for(&mut signal_latch_guard, timeout);
+        // Reset the signal latch
+        *signal_latch_guard = false;
         drop(signal_latch_guard);
-        let outcome = if wait_result.timed_out() {
-            WaitForProgressHintSignalOk::TimedOut
+        if wait_result.timed_out() {
+            WaitForProgressHintSignalOutcome::TimedOut
         } else {
-            WaitForProgressHintSignalOk::Signaled
-        };
-        Ok(outcome)
+            WaitForProgressHintSignalOutcome::Signaled
+        }
     }
 
-    pub fn wait_for_signal_with_deadline(
+    pub fn wait_for_signal_until_deadline(
         &self,
         deadline: Instant,
-    ) -> WaitForProgressHintSignalResult {
+    ) -> WaitForProgressHintSignalOutcome {
         let now = Instant::now();
-        let timeout = deadline.duration_since(deadline.min(now));
-        self.wait_for_signal_with_timeout(timeout)
+        if deadline <= now {
+            // Time out immediately
+            return WaitForProgressHintSignalOutcome::TimedOut;
+        }
+        let mut signal_latch_guard = self.signal_latch_mutex.lock();
+        if *signal_latch_guard {
+            // Reset the latch and abort immediately
+            *signal_latch_guard = false;
+            return WaitForProgressHintSignalOutcome::Signaled;
+        }
+        let wait_result = self
+            .signal_latch_condvar
+            .wait_until(&mut signal_latch_guard, deadline);
+        // Reset the signal latch
+        *signal_latch_guard = false;
+        drop(signal_latch_guard);
+        if wait_result.timed_out() {
+            WaitForProgressHintSignalOutcome::TimedOut
+        } else {
+            WaitForProgressHintSignalOutcome::Signaled
+        }
     }
 }
 
@@ -362,9 +378,21 @@ pub struct ProgressHintReceiver {
 }
 
 impl ProgressHintReceiver {
-    /// Load the latest progress hint (lock-free)
+    /// Read the latest progress hint (lock-free)
     ///
-    /// Leave any pending handshake signals untouched.
+    /// Reads the current value using `relaxed` semantics (memory order)
+    /// and leave any pending handshake signals untouched.
+    ///
+    /// This function does not block and thus could be invoked
+    /// safely in a real-time context.
+    pub fn peek(&self) -> ProgressHint {
+        self.handshake.peek()
+    }
+
+    /// Read the latest progress hint (lock-free)
+    ///
+    /// Reads the current value using `acquire` semantics (memory order)
+    /// and leave any pending handshake signals untouched.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
@@ -383,7 +411,7 @@ impl ProgressHintReceiver {
     pub fn wait_for_signal_with_timeout(
         &self,
         timeout: Duration,
-    ) -> WaitForProgressHintSignalResult {
+    ) -> WaitForProgressHintSignalOutcome {
         self.handshake.wait_for_signal_with_timeout(timeout)
     }
 
@@ -395,11 +423,11 @@ impl ProgressHintReceiver {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_for_signal_with_deadline(
+    pub fn wait_for_signal_until_deadline(
         &self,
         deadline: Instant,
-    ) -> WaitForProgressHintSignalResult {
-        self.handshake.wait_for_signal_with_deadline(deadline)
+    ) -> WaitForProgressHintSignalOutcome {
+        self.handshake.wait_for_signal_until_deadline(deadline)
     }
 
     /// Reset the handshake (blocking)
@@ -409,8 +437,8 @@ impl ProgressHintReceiver {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn reset(&self) -> anyhow::Result<()> {
-        self.handshake.reset()
+    pub fn reset(&self) {
+        self.handshake.reset();
     }
 
     /// Detach all senders (lock-free)
