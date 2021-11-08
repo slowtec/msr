@@ -181,3 +181,6 @@ where
             .unwrap_or_else(JoinedThread::JoinError)
     }
 }
+
+#[cfg(test)]
+mod tests;
