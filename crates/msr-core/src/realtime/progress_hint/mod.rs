@@ -204,7 +204,7 @@ impl ProgressHintHandshake {
     pub const fn default() -> Self {
         Self {
             atomic: AtomicProgressHint::default(),
-            relay: Relay::default(),
+            relay: Relay::new(),
         }
     }
 }

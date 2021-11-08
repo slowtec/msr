@@ -20,9 +20,16 @@ pub struct Relay<T> {
 }
 
 impl<T> Relay<T> {
-    pub const fn default() -> Self {
+    pub const fn new() -> Self {
         Self {
             mutex: const_mutex(None),
+            condvar: Condvar::new(),
+        }
+    }
+
+    pub const fn with_value(value: T) -> Self {
+        Self {
+            mutex: const_mutex(Some(value)),
             condvar: Condvar::new(),
         }
     }
@@ -30,7 +37,7 @@ impl<T> Relay<T> {
 
 impl<T> Default for Relay<T> {
     fn default() -> Self {
-        Self::default()
+        Self::new()
     }
 }
 
@@ -121,7 +128,9 @@ impl<T> Relay<T> {
     pub fn wait_until(&self, deadline: Instant) -> Option<T> {
         let mut guard = self.mutex.lock();
         // The loop is required to handle spurious wakeups
-        while guard.is_none() && !self.condvar.wait_until(&mut guard, deadline).timed_out() {}
+        while guard.is_none() && !self.condvar.wait_until(&mut guard, deadline).timed_out() {
+            continue; // Continue on spurious wakeup
+        }
         guard.take()
     }
 }
