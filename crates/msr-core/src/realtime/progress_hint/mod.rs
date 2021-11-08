@@ -7,7 +7,7 @@ use crate::sync::{
         AtomicState, AtomicU8, Ordering, SwitchAtomicStateErr, SwitchAtomicStateOk,
         SwitchAtomicStateResult,
     },
-    Arc, SignalLatch, WaitForSignalEvent, Weak,
+    Arc, Relay, Weak,
 };
 
 /// Desired processing state
@@ -197,14 +197,14 @@ impl Default for AtomicProgressHint {
 #[derive(Debug)]
 struct ProgressHintHandshake {
     atomic: AtomicProgressHint,
-    signal_latch: SignalLatch,
+    relay: Relay<()>,
 }
 
 impl ProgressHintHandshake {
     pub const fn default() -> Self {
         Self {
             atomic: AtomicProgressHint::default(),
-            signal_latch: SignalLatch::default(),
+            relay: Relay::default(),
         }
     }
 }
@@ -282,7 +282,7 @@ impl ProgressHintHandshake {
         ok: SwitchAtomicStateOk<ProgressHint>,
     ) -> SwitchProgressHintOk {
         if matches!(ok, SwitchAtomicStateOk::Accepted { .. }) {
-            self.signal_latch.raise_notify_one();
+            self.relay.replace_notify_one(());
         }
         ok.into()
     }
@@ -299,18 +299,18 @@ impl ProgressHintHandshake {
         self.after_atomic_state_switched_ok(self.atomic.terminate())
     }
 
-    pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
-        self.signal_latch.wait_for_signal_with_timeout(timeout)
+    pub fn wait_for(&self, timeout: Duration) -> bool {
+        self.relay.wait_for(timeout).is_some()
     }
 
-    pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
-        self.signal_latch.wait_for_signal_until_deadline(deadline)
+    pub fn wait_until(&self, deadline: Instant) -> bool {
+        self.relay.wait_until(deadline).is_some()
     }
 
     pub fn wait_for_signal_while_suspending(&self) -> ProgressHint {
         let mut latest_hint = self.atomic.load();
         while latest_hint == ProgressHint::Suspending {
-            self.signal_latch.wait_for_signal();
+            self.relay.wait();
             latest_hint = self.atomic.load()
         }
         latest_hint
@@ -318,7 +318,7 @@ impl ProgressHintHandshake {
 
     pub fn reset(&self) {
         self.atomic.reset();
-        self.signal_latch.reset();
+        self.relay.take();
     }
 
     pub fn try_suspending(&self) -> bool {
@@ -402,26 +402,26 @@ impl ProgressHintReceiver {
 
     /// Wait for a progress hint signal with a timeout (blocking)
     ///
-    /// Blocks until a new handshake signal has been received
-    /// or the timeout has expired.
+    /// Blocks until a relay signal has arrived (`true`) or
+    /// or the timeout has expired (`false`).
     ///
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
-        self.handshake.wait_for_signal_with_timeout(timeout)
+    pub fn wait_for(&self, timeout: Duration) -> bool {
+        self.handshake.wait_for(timeout)
     }
 
     /// Wait for a progress hint signal with a deadline (blocking)
     ///
-    /// Blocks until a new handshake signal has been received
-    /// or the deadline has expired.
+    /// Blocks until a new relay signal has arrived (`true`) or
+    /// the deadline has expired (`false`).
     ///
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the signal
     /// could cause a priority inversion.
-    pub fn wait_for_signal_until_deadline(&self, deadline: Instant) -> WaitForSignalEvent {
-        self.handshake.wait_for_signal_until_deadline(deadline)
+    pub fn wait_until(&self, deadline: Instant) -> bool {
+        self.handshake.wait_until(deadline)
     }
 
     /// Reserved for internal usage

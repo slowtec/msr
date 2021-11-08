@@ -2,9 +2,9 @@ use anyhow::Result;
 
 use super::progress_hint::ProgressHintReceiver;
 
-/// Intention after completing a chunk of work
+/// Intention after completing a unit of work
 ///
-/// Affects the control flow.
+/// Affects the subsequent control flow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Completion {
     /// Working should be suspended
@@ -14,8 +14,13 @@ pub enum Completion {
     Terminating,
 }
 
-/// Callback interface for real-time processing
+/// Callback interface for real-time processing tasks
+///
+/// All invocations between start_working() and finish_working() will
+/// happen on the same thread, including those two clamping functions.
 pub trait Worker {
+    /// The environment is provided as an external invocation context
+    /// to every function of the worker.
     type Environment;
 
     /// Start working
@@ -24,7 +29,7 @@ pub trait Worker {
     /// acquiring resources and to perform initialization.
     fn start_working(&mut self, env: &mut Self::Environment) -> Result<()>;
 
-    /// Perform the next chunk of work
+    /// Perform a unit of work
     ///
     /// This function is invoked at least once after [`Worker::start_working()`]
     /// has returned successfully. It will be invoked repeatedly until finally

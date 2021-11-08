@@ -1,7 +1,7 @@
 pub mod atomic;
 
-pub mod signal_latch;
-pub use self::signal_latch::{SignalLatch, WaitForSignalEvent};
+pub mod relay;
+pub use self::relay::Relay;
 
 // loom doesn't provide a drop-in replacement for std::sync::Weak,
 // only for std::sync::Arc. Unfortunately, both are needed.
