@@ -3,18 +3,18 @@ use std::{any::Any, thread::JoinHandle};
 use anyhow::Result;
 use thread_priority::ThreadPriority;
 
-use super::processing::{
-    processor::{Processor, Progress},
-    progresshint::{ProgressHintReceiver, ProgressHintSender},
+use super::{
+    progress_hint::ProgressHintReceiver,
+    worker::{Completion, Worker},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
     Starting,
     Running,
-    Suspended,
-    Finishing,
+    Suspending,
     Terminating,
+    Stopping,
 }
 
 pub trait Notifications {
@@ -37,16 +37,15 @@ impl Notifications for NotificationsBoxed {
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
 #[derive(Debug)]
-pub struct Params<E, N, P> {
+pub struct RecoverableParams<W, E, N> {
+    pub worker: W,
     pub environment: E,
     pub notifications: N,
-    pub processor: P,
 }
 
 #[derive(Debug)]
-pub struct Thread<E, N, P> {
-    progress_hint_tx: ProgressHintSender,
-    join_handle: JoinHandle<TerminatedThread<E, N, P>>,
+pub struct WorkerThread<W, E, N> {
+    join_handle: JoinHandle<TerminatedThread<W, E, N>>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -79,88 +78,91 @@ pub fn adjust_current_thread_priority() {
     }
 }
 
-fn thread_fn<N: Notifications, E, P: Processor<E>>(
-    progress_hint_rx: &ProgressHintReceiver,
-    mut params: &mut Params<E, N, P>,
+fn thread_fn<W: Worker, N: Notifications>(
+    progress_hint_rx: &mut ProgressHintReceiver,
+    mut recoverable_params: &mut RecoverableParams<W, <W as Worker>::Environment, N>,
 ) -> Result<()> {
-    let Params {
+    let RecoverableParams {
+        worker,
         environment,
         notifications,
-        processor,
-    } = &mut params;
+    } = &mut recoverable_params;
 
     log::info!("Starting");
     notifications.notify_state_changed(State::Starting);
 
-    processor.start_processing(environment)?;
-
+    worker.start_working(environment)?;
     loop {
         log::info!("Running");
         notifications.notify_state_changed(State::Running);
-        match processor.process(environment, progress_hint_rx)? {
-            Progress::Suspended => {
-                // Try to suspend ourselves
-                let suspended = progress_hint_rx.suspend();
-                if suspended.is_err() {
-                    // Might have been terminated
+        match worker.perform_work(environment, progress_hint_rx)? {
+            Completion::Suspending => {
+                // The worker may have decided to suspend itself independent
+                // of the current progress hint.
+                if !progress_hint_rx.try_suspending() {
+                    // Suspending is not permitted
+                    log::debug!("Suspending rejected");
                     continue;
                 }
-                notifications.notify_state_changed(State::Suspended);
+                log::debug!("Suspending");
+                notifications.notify_state_changed(State::Suspending);
                 progress_hint_rx.wait_for_signal_while_suspending();
             }
-            Progress::Terminated => {
-                log::debug!("Processing terminated");
+            Completion::Terminating => {
+                // The worker may have decided to terminate itself independent
+                // of the current progress hint. Termination cannot be rejected.
+                progress_hint_rx.on_terminating();
+                log::debug!("Terminating");
+                notifications.notify_state_changed(State::Terminating);
+                worker.finish_working(environment)?;
                 // Exit loop
                 break;
             }
         }
     }
 
-    log::info!("Finishing");
-    notifications.notify_state_changed(State::Finishing);
-
-    processor.finish_processing(environment)?;
-
-    log::info!("Terminating");
-    notifications.notify_state_changed(State::Terminating);
+    log::info!("Stopping");
+    notifications.notify_state_changed(State::Stopping);
 
     Ok(())
 }
 
 /// Outcome of [`Thread::join()`]
 #[derive(Debug)]
-pub struct TerminatedThread<E, N, P> {
+pub struct TerminatedThread<W, E, N> {
     /// The result of the thread function
     pub result: Result<()>,
 
     /// The recovered parameters
-    pub recovered_params: Params<E, N, P>,
+    pub recovered_params: RecoverableParams<W, E, N>,
 }
 
 /// Outcome of [`Thread::join()`]
 #[derive(Debug)]
-pub enum JoinedThread<E, N, P> {
-    Terminated(TerminatedThread<E, N, P>),
+pub enum JoinedThread<W, E, N> {
+    Terminated(TerminatedThread<W, E, N>),
     JoinError(Box<dyn Any + Send + 'static>),
 }
 
-impl<E, N, P> Thread<E, N, P>
+impl<W, E, N> WorkerThread<W, E, N>
 where
+    W: Worker<Environment = E> + Send + 'static,
     E: Send + 'static,
     N: Notifications + Send + 'static,
-    P: Processor<E> + Send + 'static,
 {
-    pub fn spawn(params: Params<E, N, P>) -> Self {
-        let progress_hint_rx = ProgressHintReceiver::default();
-        let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
+    pub fn spawn(
+        progress_hint_rx: ProgressHintReceiver,
+        recoverable_params: RecoverableParams<W, E, N>,
+    ) -> Self {
         let join_handle = {
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
-                    // The parameters are mutable within the real-time thread
-                    let mut params = params;
-                    let result = thread_fn(&progress_hint_rx, &mut params);
-                    let recovered_params = params;
+                    // The function parameters need to be mutable within the real-time thread
+                    let mut progress_hint_rx = progress_hint_rx;
+                    let mut recoverable_params = recoverable_params;
+                    let result = thread_fn(&mut progress_hint_rx, &mut recoverable_params);
+                    let recovered_params = recoverable_params;
                     TerminatedThread {
                         result,
                         recovered_params,
@@ -168,21 +170,11 @@ where
                 }
             })
         };
-        Self {
-            progress_hint_tx,
-            join_handle,
-        }
+        Self { join_handle }
     }
 
-    pub fn progress_hint_sender(&self) -> &ProgressHintSender {
-        &self.progress_hint_tx
-    }
-
-    pub fn join(self) -> JoinedThread<E, N, P> {
-        let Self {
-            progress_hint_tx: _,
-            join_handle,
-        } = self;
+    pub fn join(self) -> JoinedThread<W, E, N> {
+        let Self { join_handle } = self;
         join_handle
             .join()
             .map(JoinedThread::Terminated)

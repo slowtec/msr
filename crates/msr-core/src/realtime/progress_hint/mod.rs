@@ -171,12 +171,16 @@ impl AtomicProgressHint {
 
     /// Reset to [`ProgressHint::default()`]
     ///
+    /// Resetting is enforced regardless of the current state and never fails.
+    ///
     /// Returns the previous state.
     pub fn reset(&self) -> SwitchAtomicStateOk<ProgressHint> {
         self.switch_to_desired(ProgressHint::default())
     }
 
     /// Set to [`ProgressHint::Terminating`]
+    ///
+    /// Termination never fails, i.e. is permitted in any state.
     ///
     /// Returns the previous state.
     pub fn terminate(&self) -> SwitchAtomicStateOk<ProgressHint> {
@@ -295,11 +299,6 @@ impl ProgressHintHandshake {
         self.after_atomic_state_switched_ok(self.atomic.terminate())
     }
 
-    pub fn reset(&self) {
-        self.atomic.reset();
-        self.signal_latch.reset();
-    }
-
     pub fn wait_for_signal_with_timeout(&self, timeout: Duration) -> WaitForSignalEvent {
         self.signal_latch.wait_for_signal_with_timeout(timeout)
     }
@@ -315,6 +314,21 @@ impl ProgressHintHandshake {
             latest_hint = self.atomic.load()
         }
         latest_hint
+    }
+
+    pub fn reset(&self) {
+        self.atomic.reset();
+        self.signal_latch.reset();
+    }
+
+    pub fn try_suspending(&self) -> bool {
+        self.atomic.suspend().is_ok()
+        // Raising the signal is not needed and not intended!
+    }
+
+    pub fn on_terminating(&self) {
+        let _ = self.atomic.terminate();
+        // Raising the signal is not needed and not intended!
     }
 }
 
@@ -410,28 +424,50 @@ impl ProgressHintReceiver {
         self.handshake.wait_for_signal_until_deadline(deadline)
     }
 
-    pub fn wait_for_signal_while_suspending(&self) -> ProgressHint {
+    /// Reserved for internal usage
+    ///
+    /// Silently try to switch to [`ProgressHint::Suspending`] (lock-free).
+    ///
+    /// Intentionally declared as &mut to make it inaccessible for
+    /// borrowed references!
+    pub fn try_suspending(&mut self) -> bool {
+        self.handshake.try_suspending()
+    }
+
+    /// Reserved for internal usage
+    ///
+    /// Park the thread while [`ProgressHint::Suspending`] (blocking).
+    ///
+    /// Intentionally declared as &mut to make it inaccessible for
+    /// borrowed references!
+    pub fn wait_for_signal_while_suspending(&mut self) -> ProgressHint {
         self.handshake.wait_for_signal_while_suspending()
     }
 
-    pub fn suspend(&self) -> SwitchProgressHintResult {
-        self.handshake.suspend()
+    /// Reserved for internal usage
+    ///
+    /// Silently switch to [`ProgressHint::Terminating`] (lock-free).
+    ///
+    /// Intentionally declared as &mut to make it inaccessible for
+    /// borrowed references!
+    pub fn on_terminating(&mut self) {
+        self.handshake.on_terminating()
     }
 
-    /// Reset the handshake (blocking)
+    /// Reserved for internal usage
     ///
-    /// Only the single receiver is allowed to reset the handshake.
+    /// Reset the handshake (blocking).
     ///
-    /// This function might block and thus should not be invoked in
-    /// a hard real-time context! The sending threads of the signal
-    /// could cause a priority inversion.
-    pub fn reset(&self) {
+    /// Intentionally declared as &mut to make it inaccessible for
+    /// borrowed references!
+    pub fn reset(&mut self) {
         self.handshake.reset();
     }
 
-    /// Detach all senders (lock-free)
+    /// Reserved for internal usage
     ///
-    /// This will also reset the handshake back to default.
+    /// Detach all senders (lock-free). This will also reset the
+    /// handshake back to default.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
