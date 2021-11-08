@@ -64,12 +64,12 @@ struct StateChangedCount {
     stopping: usize,
 }
 
-struct SmokeTestNotifications {
+struct SmokeTestEvents {
     progress_hint_tx: ProgressHintSender,
     state_changed_count: StateChangedCount,
 }
 
-impl SmokeTestNotifications {
+impl SmokeTestEvents {
     pub fn new(progress_hint_tx: ProgressHintSender) -> Self {
         Self {
             progress_hint_tx,
@@ -78,8 +78,8 @@ impl SmokeTestNotifications {
     }
 }
 
-impl Notifications for SmokeTestNotifications {
-    fn notify_state_changed(&mut self, state: State) {
+impl Events for SmokeTestEvents {
+    fn on_state_changed(&mut self, state: State) {
         match state {
             State::Starting => {
                 self.state_changed_count.starting += 1;
@@ -111,21 +111,22 @@ fn smoke_test() -> anyhow::Result<()> {
     for expected_perform_work_invocations in 1..10 {
         let worker = SmokeTestWorker::new(expected_perform_work_invocations);
         let progress_hint_rx = ProgressHintReceiver::default();
-        let notifications =
-            SmokeTestNotifications::new(ProgressHintSender::attach(&progress_hint_rx));
+        let events = SmokeTestEvents::new(ProgressHintSender::attach(&progress_hint_rx));
         let recoverable_params = RecoverableParams {
+            progress_hint_rx,
             worker,
             environment: SmokeTestEnvironment,
-            notifications,
+            events,
         };
-        let worker_thread = WorkerThread::spawn(progress_hint_rx, recoverable_params);
+        let worker_thread = WorkerThread::spawn(recoverable_params);
         match worker_thread.join() {
             JoinedThread::Terminated(TerminatedThread {
                 recovered_params:
                     RecoverableParams {
+                        progress_hint_rx: _,
                         worker,
                         environment: _,
-                        notifications,
+                        events,
                     },
                 result,
             }) => {
@@ -136,17 +137,16 @@ fn smoke_test() -> anyhow::Result<()> {
                     expected_perform_work_invocations,
                     worker.actual_do_work_invocations
                 );
-                assert_eq!(1, notifications.state_changed_count.starting);
-                assert_eq!(1, notifications.state_changed_count.stopping);
+                assert_eq!(1, events.state_changed_count.starting);
+                assert_eq!(1, events.state_changed_count.stopping);
                 assert_eq!(
                     expected_perform_work_invocations,
-                    notifications.state_changed_count.running
+                    events.state_changed_count.running
                 );
-                assert_eq!(1, notifications.state_changed_count.terminating);
+                assert_eq!(1, events.state_changed_count.terminating);
                 assert_eq!(
-                    notifications.state_changed_count.running
-                        - notifications.state_changed_count.terminating,
-                    notifications.state_changed_count.suspending
+                    events.state_changed_count.running - events.state_changed_count.terminating,
+                    events.state_changed_count.suspending
                 );
             }
             JoinedThread::JoinError(err) => {

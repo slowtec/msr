@@ -17,15 +17,16 @@ pub enum State {
     Stopping,
 }
 
-pub trait Notifications {
-    fn notify_state_changed(&mut self, state: State);
+/// Event callbacks
+pub trait Events {
+    fn on_state_changed(&mut self, state: State);
 }
 
-pub type NotificationsBoxed = Box<dyn Notifications + Send + 'static>;
+pub type EventsBoxed = Box<dyn Events + Send + 'static>;
 
-impl Notifications for NotificationsBoxed {
-    fn notify_state_changed(&mut self, state: State) {
-        (&mut **self).notify_state_changed(state)
+impl Events for EventsBoxed {
+    fn on_state_changed(&mut self, state: State) {
+        (&mut **self).on_state_changed(state)
     }
 }
 
@@ -36,16 +37,17 @@ impl Notifications for NotificationsBoxed {
 ///
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
-#[derive(Debug)]
-pub struct RecoverableParams<W, E, N> {
+#[allow(missing_debug_implementations)]
+pub struct RecoverableParams<W: Worker, E> {
+    pub progress_hint_rx: ProgressHintReceiver,
     pub worker: W,
-    pub environment: E,
-    pub notifications: N,
+    pub environment: <W as Worker>::Environment,
+    pub events: E,
 }
 
 #[derive(Debug)]
-pub struct WorkerThread<W, E, N> {
-    join_handle: JoinHandle<TerminatedThread<W, E, N>>,
+pub struct WorkerThread<W: Worker, E> {
+    join_handle: JoinHandle<TerminatedThread<W, E>>,
 }
 
 /// TODO: Realtime scheduling has only been confirmed to work on Linux
@@ -78,23 +80,21 @@ pub fn adjust_current_thread_priority() {
     }
 }
 
-fn thread_fn<W: Worker, N: Notifications>(
-    progress_hint_rx: &mut ProgressHintReceiver,
-    mut recoverable_params: &mut RecoverableParams<W, <W as Worker>::Environment, N>,
-) -> Result<()> {
+fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W, E>) -> Result<()> {
     let RecoverableParams {
+        progress_hint_rx,
         worker,
         environment,
-        notifications,
-    } = &mut recoverable_params;
+        events,
+    } = recoverable_params;
 
     log::info!("Starting");
-    notifications.notify_state_changed(State::Starting);
+    events.on_state_changed(State::Starting);
 
     worker.start_working(environment)?;
     loop {
         log::info!("Running");
-        notifications.notify_state_changed(State::Running);
+        events.on_state_changed(State::Running);
         match worker.perform_work(environment, progress_hint_rx)? {
             Completion::Suspending => {
                 // The worker may have decided to suspend itself independent
@@ -105,7 +105,7 @@ fn thread_fn<W: Worker, N: Notifications>(
                     continue;
                 }
                 log::debug!("Suspending");
-                notifications.notify_state_changed(State::Suspending);
+                events.on_state_changed(State::Suspending);
                 progress_hint_rx.wait_for_signal_while_suspending();
             }
             Completion::Terminating => {
@@ -113,7 +113,7 @@ fn thread_fn<W: Worker, N: Notifications>(
                 // of the current progress hint. Termination cannot be rejected.
                 progress_hint_rx.on_terminating();
                 log::debug!("Terminating");
-                notifications.notify_state_changed(State::Terminating);
+                events.on_state_changed(State::Terminating);
                 worker.finish_working(environment)?;
                 // Exit loop
                 break;
@@ -122,46 +122,42 @@ fn thread_fn<W: Worker, N: Notifications>(
     }
 
     log::info!("Stopping");
-    notifications.notify_state_changed(State::Stopping);
+    events.on_state_changed(State::Stopping);
 
     Ok(())
 }
 
 /// Outcome of [`Thread::join()`]
-#[derive(Debug)]
-pub struct TerminatedThread<W, E, N> {
+#[allow(missing_debug_implementations)]
+pub struct TerminatedThread<W: Worker, E> {
     /// The result of the thread function
     pub result: Result<()>,
 
     /// The recovered parameters
-    pub recovered_params: RecoverableParams<W, E, N>,
+    pub recovered_params: RecoverableParams<W, E>,
 }
 
 /// Outcome of [`Thread::join()`]
-#[derive(Debug)]
-pub enum JoinedThread<W, E, N> {
-    Terminated(TerminatedThread<W, E, N>),
+#[allow(missing_debug_implementations)]
+pub enum JoinedThread<W: Worker, E> {
+    Terminated(TerminatedThread<W, E>),
     JoinError(Box<dyn Any + Send + 'static>),
 }
 
-impl<W, E, N> WorkerThread<W, E, N>
+impl<W, E> WorkerThread<W, E>
 where
-    W: Worker<Environment = E> + Send + 'static,
-    E: Send + 'static,
-    N: Notifications + Send + 'static,
+    W: Worker + Send + 'static,
+    <W as Worker>::Environment: Send + 'static,
+    E: Events + Send + 'static,
 {
-    pub fn spawn(
-        progress_hint_rx: ProgressHintReceiver,
-        recoverable_params: RecoverableParams<W, E, N>,
-    ) -> Self {
+    pub fn spawn(recoverable_params: RecoverableParams<W, E>) -> Self {
         let join_handle = {
             std::thread::spawn({
                 move || {
                     adjust_current_thread_priority();
                     // The function parameters need to be mutable within the real-time thread
-                    let mut progress_hint_rx = progress_hint_rx;
                     let mut recoverable_params = recoverable_params;
-                    let result = thread_fn(&mut progress_hint_rx, &mut recoverable_params);
+                    let result = thread_fn(&mut recoverable_params);
                     let recovered_params = recoverable_params;
                     TerminatedThread {
                         result,
@@ -173,7 +169,7 @@ where
         Self { join_handle }
     }
 
-    pub fn join(self) -> JoinedThread<W, E, N> {
+    pub fn join(self) -> JoinedThread<W, E> {
         let Self { join_handle } = self;
         join_handle
             .join()
