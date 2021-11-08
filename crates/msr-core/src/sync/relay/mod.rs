@@ -97,10 +97,22 @@ impl<T> Relay<T> {
     ///
     /// Returns the value if available or `None` if the timeout expired.
     pub fn wait_for(&self, timeout: Duration) -> Option<T> {
-        let mut guard = self.mutex.lock();
-        // The loop is required to handle spurious wakeups
-        while guard.is_none() && !self.condvar.wait_for(&mut guard, timeout).timed_out() {}
-        guard.take()
+        // Handle edge case separately
+        if timeout.is_zero() {
+            return self.take();
+        }
+        // Handling spurious timeouts in a loop would require to adjust the
+        // timeout on each turn by calculating the remaining timeout from
+        // the elapsed timeout! This is tedious, error prone, and could cause
+        // jitter when done wrong. Better delegate this task to the
+        // deadline-constrained wait function.
+        if let Some(deadline) = Instant::now().checked_add(timeout) {
+            self.wait_until(deadline)
+        } else {
+            // Wait without a deadline if the result cannot be represented
+            // by an Instant
+            Some(self.wait())
+        }
     }
 
     /// Wait for a value until a deadline and then take it
