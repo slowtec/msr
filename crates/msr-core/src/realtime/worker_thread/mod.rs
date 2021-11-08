@@ -13,7 +13,7 @@ pub enum State {
     Starting,
     Running,
     Suspending,
-    Terminating,
+    Finishing,
     Stopping,
 }
 
@@ -108,12 +108,12 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 events.on_state_changed(State::Suspending);
                 progress_hint_rx.wait_for_signal_while_suspending();
             }
-            Completion::Terminating => {
+            Completion::Finishing => {
                 // The worker may have decided to terminate itself independent
                 // of the current progress hint. Termination cannot be rejected.
                 progress_hint_rx.on_terminating();
-                log::debug!("Terminating");
-                events.on_state_changed(State::Terminating);
+                log::debug!("   ");
+                events.on_state_changed(State::Finishing);
                 worker.finish_working(environment)?;
                 // Exit loop
                 break;

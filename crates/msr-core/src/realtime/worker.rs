@@ -10,8 +10,8 @@ pub enum Completion {
     /// Working should be suspended
     Suspending,
 
-    /// Working should be terminated
-    Terminating,
+    /// Working should be finished
+    Finishing,
 }
 
 /// Callback interface for real-time processing tasks

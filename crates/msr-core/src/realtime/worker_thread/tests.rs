@@ -45,11 +45,11 @@ impl Worker for SmokeTestWorker {
                 if self.actual_do_work_invocations < self.expected_do_work_invocations {
                     Completion::Suspending
                 } else {
-                    Completion::Terminating
+                    Completion::Finishing
                 }
             }
             ProgressHint::Suspending => Completion::Suspending,
-            ProgressHint::Terminating => Completion::Terminating,
+            ProgressHint::Terminating => Completion::Finishing,
         };
         Ok(progress)
     }
@@ -60,7 +60,7 @@ struct StateChangedCount {
     starting: usize,
     running: usize,
     suspending: usize,
-    terminating: usize,
+    finishing: usize,
     stopping: usize,
 }
 
@@ -96,8 +96,8 @@ impl Events for SmokeTestEvents {
                     self.progress_hint_tx.resume().expect("resuming")
                 );
             }
-            State::Terminating => {
-                self.state_changed_count.terminating += 1;
+            State::Finishing => {
+                self.state_changed_count.finishing += 1;
             }
             State::Stopping => {
                 self.state_changed_count.stopping += 1;
@@ -143,9 +143,9 @@ fn smoke_test() -> anyhow::Result<()> {
                     expected_perform_work_invocations,
                     events.state_changed_count.running
                 );
-                assert_eq!(1, events.state_changed_count.terminating);
+                assert_eq!(1, events.state_changed_count.finishing);
                 assert_eq!(
-                    events.state_changed_count.running - events.state_changed_count.terminating,
+                    events.state_changed_count.running - events.state_changed_count.finishing,
                     events.state_changed_count.suspending
                 );
             }
