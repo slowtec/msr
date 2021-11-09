@@ -10,17 +10,22 @@ use crate::sync::{
     Arc, Relay, Weak,
 };
 
-/// Desired processing state
+/// Desired worker progress
+///
+/// Non-compulsary intention or request on how the worker should
+/// proceed with the pending work.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressHint {
-    /// Processing should continue
-    Running,
+    /// Worker should continue uninterrupted
+    Continue,
 
-    /// Processing should be suspended
-    Suspending,
+    /// Worker should complete the current unit of work asap
+    /// with [`Completion::Suspending`].
+    Suspend,
 
-    /// Processing should be finished
-    Finishing,
+    /// Worker should complete the current unit of work asap
+    /// with [`Completion::Finishing`].
+    Finish,
 }
 
 impl ProgressHint {
@@ -29,7 +34,7 @@ impl ProgressHint {
     /// The default should be used when no other information is available,
     /// i.e. processing should continue running uninterrupted.
     pub const fn default() -> Self {
-        Self::Running
+        Self::Continue
     }
 }
 
@@ -41,7 +46,7 @@ impl Default for ProgressHint {
 
 type AtomicValue = u8;
 
-const PROGRESS_HINT_RUNNING: AtomicValue = 0;
+const PROGRESS_HINT_CONTINUE: AtomicValue = 0;
 const PROGRESS_HINT_SUSPENDING: AtomicValue = 1;
 const PROGRESS_HINT_FINISHING: AtomicValue = 2;
 
@@ -51,18 +56,18 @@ struct AtomicProgressHint(AtomicU8);
 
 fn progress_hint_from_atomic_value(from: AtomicValue) -> ProgressHint {
     match from {
-        PROGRESS_HINT_RUNNING => ProgressHint::Running,
-        PROGRESS_HINT_SUSPENDING => ProgressHint::Suspending,
-        PROGRESS_HINT_FINISHING => ProgressHint::Finishing,
+        PROGRESS_HINT_CONTINUE => ProgressHint::Continue,
+        PROGRESS_HINT_SUSPENDING => ProgressHint::Suspend,
+        PROGRESS_HINT_FINISHING => ProgressHint::Finish,
         unexpected_value => unreachable!("unexpected progress hint value: {}", unexpected_value),
     }
 }
 
 const fn progress_hint_to_atomic_value(from: ProgressHint) -> AtomicValue {
     match from {
-        ProgressHint::Running => PROGRESS_HINT_RUNNING,
-        ProgressHint::Suspending => PROGRESS_HINT_SUSPENDING,
-        ProgressHint::Finishing => PROGRESS_HINT_FINISHING,
+        ProgressHint::Continue => PROGRESS_HINT_CONTINUE,
+        ProgressHint::Suspend => PROGRESS_HINT_SUSPENDING,
+        ProgressHint::Finish => PROGRESS_HINT_FINISHING,
     }
 }
 
@@ -159,22 +164,22 @@ impl AtomicProgressHint {
         Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
     }
 
-    /// Switch from [`ProgressHint::Running`] to [`ProgressHint::Suspending`]
+    /// Switch from [`ProgressHint::Continue`] to [`ProgressHint::Suspend`]
     pub fn suspend(&self) -> SwitchAtomicStateResult<ProgressHint> {
-        self.switch_from_expected_to_desired(ProgressHint::Running, ProgressHint::Suspending)
+        self.switch_from_expected_to_desired(ProgressHint::Continue, ProgressHint::Suspend)
     }
 
-    /// Switch from [`ProgressHint::Suspending`] to [`ProgressHint::Running`]
+    /// Switch from [`ProgressHint::Suspend`] to [`ProgressHint::Continue`]
     pub fn resume(&self) -> SwitchAtomicStateResult<ProgressHint> {
-        self.switch_from_expected_to_desired(ProgressHint::Suspending, ProgressHint::Running)
+        self.switch_from_expected_to_desired(ProgressHint::Suspend, ProgressHint::Continue)
     }
 
-    /// Switch from any state to [`ProgressHint::Finishing`]
+    /// Switch from any state to [`ProgressHint::Finish`]
     ///
     /// Currently, finishing is permitted in any state. But this
     /// may change in the future.
     pub fn finish(&self) -> SwitchAtomicStateResult<ProgressHint> {
-        Ok(self.switch_to_desired(ProgressHint::Finishing))
+        Ok(self.switch_to_desired(ProgressHint::Finish))
     }
 
     /// Reset to [`ProgressHint::default()`]
@@ -304,9 +309,9 @@ impl ProgressHintHandshake {
         self.relay.wait_until(deadline).is_some()
     }
 
-    pub fn wait_for_signal_while_suspending(&self) -> ProgressHint {
+    pub fn wait_while_suspending(&self) -> ProgressHint {
         let mut latest_hint = self.atomic.load();
-        while latest_hint == ProgressHint::Suspending {
+        while latest_hint == ProgressHint::Suspend {
             self.relay.wait();
             latest_hint = self.atomic.load()
         }
@@ -329,6 +334,7 @@ impl ProgressHintHandshake {
     }
 }
 
+/// Sender of the progress hint handshake protocol
 #[derive(Debug, Clone)]
 pub struct ProgressHintSender {
     handshake: Weak<ProgressHintHandshake>,
@@ -369,6 +375,7 @@ impl ProgressHintSender {
     }
 }
 
+/// Receiver of the progress hint handshake protocol
 #[derive(Debug, Default)]
 pub struct ProgressHintReceiver {
     handshake: Arc<ProgressHintHandshake>,
@@ -378,7 +385,7 @@ impl ProgressHintReceiver {
     /// Read the latest progress hint (lock-free)
     ///
     /// Reads the current value using `relaxed` semantics (memory order)
-    /// and leave any pending handshake signals untouched.
+    /// and leaves any pending handshake notifications untouched.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
@@ -389,7 +396,7 @@ impl ProgressHintReceiver {
     /// Read the latest progress hint (lock-free)
     ///
     /// Reads the current value using `acquire` semantics (memory order)
-    /// and leave any pending handshake signals untouched.
+    /// and leaves any pending handshake notifications untouched.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
@@ -397,25 +404,25 @@ impl ProgressHintReceiver {
         self.handshake.load()
     }
 
-    /// Wait for a progress hint signal with a timeout (blocking)
+    /// Wait for a progress hint update notification with a timeout (blocking)
     ///
-    /// Blocks until a relay signal has arrived (`true`) or
-    /// or the timeout has expired (`false`).
+    /// Blocks until a handshake notification is available (`true`) or
+    /// the timeout has expired (`false`).
     ///
     /// This function might block and thus should not be invoked in
-    /// a hard real-time context! The sending threads of the signal
+    /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
     pub fn wait_for(&self, timeout: Duration) -> bool {
         self.handshake.wait_for(timeout)
     }
 
-    /// Wait for a progress hint signal with a deadline (blocking)
+    /// Wait for a progress hint update notification with a deadline (blocking)
     ///
-    /// Blocks until a new relay signal has arrived (`true`) or
+    /// Blocks until a handshake notification is available (`true`) or
     /// the deadline has expired (`false`).
     ///
     /// This function might block and thus should not be invoked in
-    /// a hard real-time context! The sending threads of the signal
+    /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
     pub fn wait_until(&self, deadline: Instant) -> bool {
         self.handshake.wait_until(deadline)
@@ -423,7 +430,7 @@ impl ProgressHintReceiver {
 
     /// Reserved for internal usage
     ///
-    /// Silently try to switch to [`ProgressHint::Suspending`] (lock-free).
+    /// Silently try to switch to [`ProgressHint::Suspend`] (lock-free).
     ///
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
@@ -433,17 +440,17 @@ impl ProgressHintReceiver {
 
     /// Reserved for internal usage
     ///
-    /// Park the thread while [`ProgressHint::Suspending`] (blocking).
+    /// Park the thread during [`ProgressHint::Suspend`] (blocking).
     ///
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
-    pub fn wait_for_signal_while_suspending(&mut self) -> ProgressHint {
-        self.handshake.wait_for_signal_while_suspending()
+    pub fn wait_while_suspending(&mut self) -> ProgressHint {
+        self.handshake.wait_while_suspending()
     }
 
     /// Reserved for internal usage
     ///
-    /// Silently try to switch to [`ProgressHint::Finishing`] (lock-free).
+    /// Silently try to switch to [`ProgressHint::Finish`] (lock-free).
     ///
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!

@@ -3,10 +3,7 @@ use std::{any::Any, thread::JoinHandle};
 use anyhow::Result;
 use thread_priority::ThreadPriority;
 
-use super::{
-    progress_hint::ProgressHintReceiver,
-    worker::{Completion, Worker},
-};
+use super::{progress::ProgressHintReceiver, Completion, Worker};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -91,11 +88,11 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
     log::info!("Starting");
     events.on_state_changed(State::Starting);
 
-    worker.start_working_task(environment)?;
+    worker.start_task_of_work(environment)?;
     loop {
         log::info!("Running");
         events.on_state_changed(State::Running);
-        match worker.perform_work(environment, progress_hint_rx)? {
+        match worker.perform_unit_of_work(environment, progress_hint_rx)? {
             Completion::Suspending => {
                 // The worker may have decided to suspend itself independent
                 // of the current progress hint.
@@ -106,7 +103,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 }
                 log::debug!("Suspending");
                 events.on_state_changed(State::Suspending);
-                progress_hint_rx.wait_for_signal_while_suspending();
+                progress_hint_rx.wait_while_suspending();
             }
             Completion::Finishing => {
                 // The worker may have decided to finish itself independent
@@ -118,7 +115,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 }
                 log::debug!("Finishing");
                 events.on_state_changed(State::Finishing);
-                worker.finish_working_task(environment)?;
+                worker.finish_task_of_work(environment)?;
                 // Exit loop
                 break;
             }
