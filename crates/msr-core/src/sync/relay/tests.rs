@@ -81,32 +81,34 @@ fn wait_until_deadline_now_ready() {
 fn keep_last_value() {
     let relay = Relay::default();
 
-    for i in 0..=10 {
-        relay.replace_notify_one(i);
-    }
-
-    assert_eq!(Some(10), relay.wait_until(Instant::now()));
-}
-
-#[test]
-fn capture_notifications() {
-    let relay = Arc::new(Relay::default());
-
     let rounds = 10;
 
     for i in 1..=rounds {
         relay.replace_notify_one(i);
     }
 
-    let capture_notifications_thread = std::thread::spawn({
+    assert_eq!(Some(rounds), relay.take());
+}
+
+#[test]
+fn capture_notifications_concurrently() {
+    let relay = Arc::new(Relay::default());
+
+    let rounds = 10;
+
+    let thread = std::thread::spawn({
         let relay = Arc::clone(&relay);
         move || capture_notifications_fn(relay, rounds)
     });
 
+    for i in 1..=rounds {
+        relay.replace_notify_one(i);
+    }
+
     let CapturedNotifications {
         number_of_notifications,
         last_value,
-    } = capture_notifications_thread.join().unwrap();
+    } = thread.join().unwrap();
 
     assert!(number_of_notifications >= 1);
     assert!(number_of_notifications <= rounds);

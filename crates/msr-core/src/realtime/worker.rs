@@ -8,9 +8,15 @@ use super::progress_hint::ProgressHintReceiver;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Completion {
     /// Working should be suspended
+    ///
+    /// The worker has decided to suspend itself and needs to be
+    /// resumed manually to continue.
     Suspending,
 
     /// Working should be finished
+    ///
+    /// The work has accomplished it's task and expects to be
+    /// finished.
     Finishing,
 }
 

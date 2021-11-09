@@ -4,15 +4,17 @@ use crate::sync::{const_mutex, Condvar, Mutex};
 
 /// Move single values between threads
 ///
-/// A condition variable with a memory that allows to pass single
-/// values from producer to consumer threads.
+/// A condition variable with a single slot that allows to pass
+/// values from producer to consumer threads. Producers and consumers
+/// may arrive at any point in time.
 ///
 /// A typical scenario involves only a single producer and a single
 /// consumer thread implementing a handshake protocol for passing
 /// the latest (= most recent) value between each other.
 ///
 /// The value is buffered until the consumer is ready to take it.
-/// Each value can be consumed at most once.
+/// Each value can be consumed at most once. Producers can replace
+/// the current value if it has not been consumed yet.
 #[derive(Debug)]
 pub struct Relay<T> {
     mutex: Mutex<Option<T>>,
