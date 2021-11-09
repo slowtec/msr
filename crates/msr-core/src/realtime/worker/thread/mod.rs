@@ -3,7 +3,7 @@ use std::{any::Any, thread::JoinHandle};
 use anyhow::Result;
 use thread_priority::ThreadPriority;
 
-use super::{progress::ProgressHintReceiver, Completion, Worker};
+use super::{progress::ProgressHintReceiver, CompletionStatus, Worker};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -93,7 +93,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
         log::info!("Running");
         events.on_state_changed(State::Running);
         match worker.perform_unit_of_work(environment, progress_hint_rx)? {
-            Completion::Suspending => {
+            CompletionStatus::Suspending => {
                 // The worker may have decided to suspend itself independent
                 // of the current progress hint.
                 if !progress_hint_rx.try_suspending() {
@@ -105,7 +105,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 events.on_state_changed(State::Suspending);
                 progress_hint_rx.wait_while_suspending();
             }
-            Completion::Finishing => {
+            CompletionStatus::Finishing => {
                 // The worker may have decided to finish itself independent
                 // of the current progress hint.
                 if !progress_hint_rx.try_finishing() {

@@ -5,12 +5,15 @@ use self::progress::ProgressHintReceiver;
 
 pub mod thread;
 
-/// Intention after completing a unit of work
+/// Completion status
 ///
-/// Affects the subsequent control flow outside of the worker's
-/// own context.
+/// Reflects the intention on how to proceed with the current task
+/// after completing a unit of work.
+///
+/// Supposed to affect the subsequent control flow outside of the
+/// worker's context.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Completion {
+pub enum CompletionStatus {
     /// Working should be suspended
     ///
     /// The worker currently has no more pending work to do.
@@ -39,14 +42,14 @@ pub enum Completion {
 ///
 /// -> Worker: perform_unit_of_work()
 /// activate Worker
-/// <- Worker: Completion::Suspending
+/// <- Worker: CompletionStatus::Suspending
 /// deactivate Worker
 ///
 /// ...
 ///
 /// -> Worker: perform_unit_of_work()
 /// activate Worker
-/// <- Worker: Completion::Finishing
+/// <- Worker: CompletionStatus::Finishing
 /// deactivate Worker
 ///
 /// -> Worker: finish_task_of_work()
@@ -69,8 +72,8 @@ pub trait Worker {
     /// Perform a unit of work
     ///
     /// Performs work for the current task of work until either no more work is
-    /// pending or the progress hint indicates that suspending or finishing is
-    /// desired.
+    /// pending or the progress hint indicates that suspending or finishing the
+    /// task is desired.
     ///
     /// This function is invoked at least once after [`Worker::start_task_of_work()`]
     /// has returned successfully. It will be invoked repeatedly until finally
@@ -81,7 +84,7 @@ pub trait Worker {
         &mut self,
         env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
-    ) -> Result<Completion>;
+    ) -> Result<CompletionStatus>;
 
     /// Finish the current task of work
     ///
@@ -104,7 +107,7 @@ impl<E> Worker for WorkerBoxed<E> {
         &mut self,
         env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
-    ) -> Result<Completion> {
+    ) -> Result<CompletionStatus> {
         (&mut **self).perform_unit_of_work(env, progress_hint_rx)
     }
 

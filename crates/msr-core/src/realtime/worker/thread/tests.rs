@@ -38,20 +38,20 @@ impl Worker for SmokeTestWorker {
         &mut self,
         _env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
-    ) -> Result<Completion> {
+    ) -> Result<CompletionStatus> {
         self.actual_perform_unit_of_work_invocations += 1;
         let progress = match progress_hint_rx.peek() {
             ProgressHint::Continue => {
                 if self.actual_perform_unit_of_work_invocations
                     < self.expected_perform_unit_of_work_invocations
                 {
-                    Completion::Suspending
+                    CompletionStatus::Suspending
                 } else {
-                    Completion::Finishing
+                    CompletionStatus::Finishing
                 }
             }
-            ProgressHint::Suspend => Completion::Suspending,
-            ProgressHint::Finish => Completion::Finishing,
+            ProgressHint::Suspend => CompletionStatus::Suspending,
+            ProgressHint::Finish => CompletionStatus::Finishing,
         };
         Ok(progress)
     }
