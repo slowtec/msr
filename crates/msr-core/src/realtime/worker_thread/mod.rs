@@ -109,10 +109,14 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 progress_hint_rx.wait_for_signal_while_suspending();
             }
             Completion::Finishing => {
-                // The worker may have decided to terminate itself independent
-                // of the current progress hint. Termination cannot be rejected.
-                progress_hint_rx.on_terminating();
-                log::debug!("   ");
+                // The worker may have decided to finish itself independent
+                // of the current progress hint.
+                if !progress_hint_rx.try_finishing() {
+                    // Suspending is not permitted
+                    log::debug!("Finishing rejected");
+                    continue;
+                }
+                log::debug!("Finishing");
                 events.on_state_changed(State::Finishing);
                 worker.finish_working(environment)?;
                 // Exit loop

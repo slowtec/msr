@@ -48,7 +48,7 @@ pub trait Worker {
         progress_hint_rx: &ProgressHintReceiver,
     ) -> Result<Completion>;
 
-    /// Finish working after terminated
+    /// Finish working
     ///
     /// Invoked once after the last call to [`Worker::perform_work()`] for finalizing
     /// results, releasing resources, or performing cleanup.

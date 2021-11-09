@@ -49,7 +49,7 @@ impl Worker for SmokeTestWorker {
                 }
             }
             ProgressHint::Suspending => Completion::Suspending,
-            ProgressHint::Terminating => Completion::Finishing,
+            ProgressHint::Finishing => Completion::Finishing,
         };
         Ok(progress)
     }

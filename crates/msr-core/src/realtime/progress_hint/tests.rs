@@ -46,23 +46,26 @@ fn atomic_progress_hint_sequence() {
     );
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
-    // Terminate while running
+    // Finish while running
     assert_eq!(
         SwitchAtomicStateOk::Accepted {
             previous_state: ProgressHint::Running,
         },
-        progress_hint.terminate()
+        progress_hint.finish().unwrap()
     );
-    assert_eq!(ProgressHint::Terminating, progress_hint.load());
+    assert_eq!(ProgressHint::Finishing, progress_hint.load());
 
-    // Terminate again
-    assert_eq!(SwitchAtomicStateOk::Ignored, progress_hint.terminate());
-    assert_eq!(ProgressHint::Terminating, progress_hint.load());
+    // Finish again
+    assert_eq!(
+        SwitchAtomicStateOk::Ignored,
+        progress_hint.finish().unwrap()
+    );
+    assert_eq!(ProgressHint::Finishing, progress_hint.load());
 
-    // Reset after terminated
+    // Reset after finished
     assert_eq!(
         SwitchAtomicStateOk::Accepted {
-            previous_state: ProgressHint::Terminating,
+            previous_state: ProgressHint::Finishing,
         },
         progress_hint.reset()
     );
@@ -72,7 +75,7 @@ fn atomic_progress_hint_sequence() {
     assert_eq!(SwitchAtomicStateOk::Ignored, progress_hint.reset());
     assert_eq!(ProgressHint::Running, progress_hint.load());
 
-    // Terminate while suspended
+    // Finish while suspended
     assert_eq!(
         SwitchAtomicStateOk::Accepted {
             previous_state: ProgressHint::Running,
@@ -84,27 +87,27 @@ fn atomic_progress_hint_sequence() {
         SwitchAtomicStateOk::Accepted {
             previous_state: ProgressHint::Suspending,
         },
-        progress_hint.terminate()
+        progress_hint.finish().unwrap()
     );
-    assert_eq!(ProgressHint::Terminating, progress_hint.load());
+    assert_eq!(ProgressHint::Finishing, progress_hint.load());
 
-    // Reject suspend after terminated
+    // Reject suspend after finished
     assert_eq!(
         Err(SwitchAtomicStateErr::Rejected {
-            current_state: ProgressHint::Terminating,
+            current_state: ProgressHint::Finishing,
         }),
         progress_hint.suspend()
     );
-    assert_eq!(ProgressHint::Terminating, progress_hint.load());
+    assert_eq!(ProgressHint::Finishing, progress_hint.load());
 
-    // Reject resume after terminated
+    // Reject resume after finished
     assert_eq!(
         Err(SwitchAtomicStateErr::Rejected {
-            current_state: ProgressHint::Terminating,
+            current_state: ProgressHint::Finishing,
         }),
         progress_hint.resume()
     );
-    assert_eq!(ProgressHint::Terminating, progress_hint.load());
+    assert_eq!(ProgressHint::Finishing, progress_hint.load());
 }
 
 #[test]
@@ -142,11 +145,11 @@ fn progress_hint_handshake_sender_receiver() -> anyhow::Result<()> {
 
     // All subsequent attempts to switch the progress hint fail
     assert!(matches!(
-        tx1.terminate(),
+        tx1.finish(),
         Err(SwitchProgressHintError::Detached)
     ));
     assert!(matches!(
-        tx2.terminate(),
+        tx2.finish(),
         Err(SwitchProgressHintError::Detached)
     ));
 

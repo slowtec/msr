@@ -19,8 +19,8 @@ pub enum ProgressHint {
     /// Processing should be suspended
     Suspending,
 
-    /// Processing should be terminated
-    Terminating,
+    /// Processing should be finished
+    Finishing,
 }
 
 impl ProgressHint {
@@ -43,7 +43,7 @@ type AtomicValue = u8;
 
 const PROGRESS_HINT_RUNNING: AtomicValue = 0;
 const PROGRESS_HINT_SUSPENDING: AtomicValue = 1;
-const PROGRESS_HINT_TERMINATING: AtomicValue = 2;
+const PROGRESS_HINT_FINISHING: AtomicValue = 2;
 
 /// Atomic [`ProgressHint`]
 #[derive(Debug)]
@@ -53,7 +53,7 @@ fn progress_hint_from_atomic_value(from: AtomicValue) -> ProgressHint {
     match from {
         PROGRESS_HINT_RUNNING => ProgressHint::Running,
         PROGRESS_HINT_SUSPENDING => ProgressHint::Suspending,
-        PROGRESS_HINT_TERMINATING => ProgressHint::Terminating,
+        PROGRESS_HINT_FINISHING => ProgressHint::Finishing,
         unexpected_value => unreachable!("unexpected progress hint value: {}", unexpected_value),
     }
 }
@@ -62,7 +62,7 @@ const fn progress_hint_to_atomic_value(from: ProgressHint) -> AtomicValue {
     match from {
         ProgressHint::Running => PROGRESS_HINT_RUNNING,
         ProgressHint::Suspending => PROGRESS_HINT_SUSPENDING,
-        ProgressHint::Terminating => PROGRESS_HINT_TERMINATING,
+        ProgressHint::Finishing => PROGRESS_HINT_FINISHING,
     }
 }
 
@@ -169,22 +169,19 @@ impl AtomicProgressHint {
         self.switch_from_expected_to_desired(ProgressHint::Suspending, ProgressHint::Running)
     }
 
+    /// Switch from any state to [`ProgressHint::Finishing`]
+    ///
+    /// Currently, finishing is permitted in any state. But this
+    /// may change in the future.
+    pub fn finish(&self) -> SwitchAtomicStateResult<ProgressHint> {
+        Ok(self.switch_to_desired(ProgressHint::Finishing))
+    }
+
     /// Reset to [`ProgressHint::default()`]
     ///
     /// Resetting is enforced regardless of the current state and never fails.
-    ///
-    /// Returns the previous state.
     pub fn reset(&self) -> SwitchAtomicStateOk<ProgressHint> {
         self.switch_to_desired(ProgressHint::default())
-    }
-
-    /// Set to [`ProgressHint::Terminating`]
-    ///
-    /// Termination never fails, i.e. is permitted in any state.
-    ///
-    /// Returns the previous state.
-    pub fn terminate(&self) -> SwitchAtomicStateOk<ProgressHint> {
-        self.switch_to_desired(ProgressHint::Terminating)
     }
 }
 
@@ -295,8 +292,8 @@ impl ProgressHintHandshake {
         self.after_atomic_state_switched_result(self.atomic.resume())
     }
 
-    pub fn terminate(&self) -> SwitchProgressHintOk {
-        self.after_atomic_state_switched_ok(self.atomic.terminate())
+    pub fn finish(&self) -> SwitchProgressHintResult {
+        self.after_atomic_state_switched_result(self.atomic.finish())
     }
 
     pub fn wait_for(&self, timeout: Duration) -> bool {
@@ -326,8 +323,8 @@ impl ProgressHintHandshake {
         // Raising the signal is not needed and not intended!
     }
 
-    pub fn on_terminating(&self) {
-        let _ = self.atomic.terminate();
+    pub fn try_finishing(&self) -> bool {
+        self.atomic.finish().is_ok()
         // Raising the signal is not needed and not intended!
     }
 }
@@ -353,22 +350,22 @@ impl ProgressHintSender {
             .ok_or(SwitchProgressHintError::Detached)
     }
 
-    /// Ask the receiver to suspend itself while running
+    /// Ask the receiver to suspend while running
     pub fn suspend(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
             .and_then(|handshake| handshake.suspend())
     }
 
-    /// Ask the receiver to resume itself while suspended
+    /// Ask the receiver to resume while suspended
     pub fn resume(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
             .and_then(|handshake| handshake.resume())
     }
 
-    /// Ask the receiver to terminate itself
-    pub fn terminate(&self) -> SwitchProgressHintResult {
+    /// Ask the receiver to finish
+    pub fn finish(&self) -> SwitchProgressHintResult {
         self.upgrade_handshake()
-            .map(|handshake| handshake.terminate())
+            .and_then(|handshake| handshake.finish())
     }
 }
 
@@ -446,12 +443,12 @@ impl ProgressHintReceiver {
 
     /// Reserved for internal usage
     ///
-    /// Silently switch to [`ProgressHint::Terminating`] (lock-free).
+    /// Silently try to switch to [`ProgressHint::Finishing`] (lock-free).
     ///
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
-    pub fn on_terminating(&mut self) {
-        self.handshake.on_terminating()
+    pub fn try_finishing(&mut self) -> bool {
+        self.handshake.try_finishing()
     }
 
     /// Reserved for internal usage
