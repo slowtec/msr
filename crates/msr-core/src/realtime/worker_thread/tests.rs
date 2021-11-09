@@ -24,12 +24,12 @@ impl SmokeTestWorker {
 impl Worker for SmokeTestWorker {
     type Environment = SmokeTestEnvironment;
 
-    fn start_working(&mut self, _env: &mut Self::Environment) -> Result<()> {
+    fn start_working_task(&mut self, _env: &mut Self::Environment) -> Result<()> {
         self.start_working_invocations += 1;
         Ok(())
     }
 
-    fn finish_working(&mut self, _env: &mut Self::Environment) -> Result<()> {
+    fn finish_working_task(&mut self, _env: &mut Self::Environment) -> Result<()> {
         self.finish_working_invocations += 1;
         Ok(())
     }

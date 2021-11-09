@@ -91,7 +91,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
     log::info!("Starting");
     events.on_state_changed(State::Starting);
 
-    worker.start_working(environment)?;
+    worker.start_working_task(environment)?;
     loop {
         log::info!("Running");
         events.on_state_changed(State::Running);
@@ -118,7 +118,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 }
                 log::debug!("Finishing");
                 events.on_state_changed(State::Finishing);
-                worker.finish_working(environment)?;
+                worker.finish_working_task(environment)?;
                 // Exit loop
                 break;
             }
