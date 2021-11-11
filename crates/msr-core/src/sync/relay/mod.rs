@@ -82,6 +82,8 @@ impl<T> Relay<T> {
 
     /// Take the current value immediately
     ///
+    /// Resets the internal state on return.
+    ///
     /// Returns the previous value or `None`.
     pub fn take(&self) -> Option<T> {
         let mut guard = self.mutex.lock();
@@ -89,6 +91,8 @@ impl<T> Relay<T> {
     }
 
     /// Wait for a value and then take it
+    ///
+    /// Resets the internal state on return.
     ///
     /// Returns the previous value.
     pub fn wait(&self) -> T {
@@ -103,6 +107,10 @@ impl<T> Relay<T> {
     }
 
     /// Wait for a value with a timeout and then take it
+    ///
+    /// Resets the internal state on return, i.e. either takes the value
+    /// or on timeout the internal value already was `None` and doesn't
+    /// need to be reset.
     ///
     /// Returns the value if available or `None` if the timeout expired.
     pub fn wait_for(&self, timeout: Duration) -> Option<T> {
@@ -125,6 +133,10 @@ impl<T> Relay<T> {
     }
 
     /// Wait for a value until a deadline and then take it
+    ///
+    /// Resets the internal state on return, i.e. either takes the value
+    /// or on timeout the internal value already was `None` and doesn't
+    /// need to be reset.
     ///
     /// Returns the value if available or `None` if the deadline expired.
     pub fn wait_until(&self, deadline: Instant) -> Option<T> {
