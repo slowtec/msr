@@ -50,7 +50,7 @@ pub struct WorkerThread<W: Worker, E> {
     join_handle: JoinHandle<TerminatedThread<W, E>>,
 }
 
-struct RealTimeThreadScope {
+struct ThreadSchedulingScope {
     native_id: NativeThreadId,
     saved_priority: ThreadPriority,
 
@@ -60,9 +60,9 @@ struct RealTimeThreadScope {
 
 // TODO: Prevent passing of instances to different threads
 //#![feature(negative_impls)]
-//impl !Send for RealTimeThreadScope {}
+//impl !Send for ThreadSchedulingScope {}
 
-impl RealTimeThreadScope {
+impl ThreadSchedulingScope {
     #[cfg(target_os = "linux")]
     pub fn enter() -> anyhow::Result<Self> {
         log::debug!("Entering real-time scope");
@@ -169,9 +169,51 @@ impl RealTimeThreadScope {
             saved_priority,
         })
     }
+
+    #[cfg(not(target_os = "linux"))]
+    fn maximize_current_thread_priority() -> anyhow::Result<(NativeThreadId, ThreadPriority)> {
+        let native_id = thread_priority::thread_native_id();
+        let thread_id = thread::current().id();
+        let saved_priority = thread_priority::unix::thread_priority().map_err(|err| {
+            anyhow::anyhow!(
+                "Failed to save the priority of thread {:?} ({}): {:?}",
+                thread_id,
+                native_id,
+                err,
+            )
+        })?;
+        let adjusted_priority = ThreadPriority::Max;
+        if adjusted_priority != saved_priority {
+            log::debug!(
+                "Adjusting priority of thread {:?} ({}): {:?} -> {:?}",
+                thread_id,
+                native_id,
+                saved_priority,
+                adjusted_priority
+            );
+        }
+        thread_priority::set_current_thread_priority(adjusted_priority).map_err(|err| {
+            anyhow::anyhow!(
+                "Failed to adjust priority of thread {:?} ({}): {:?}",
+                thread_id,
+                native_id,
+                err
+            )
+        })?;
+        Ok((native_id, saved_priority))
+    }
+    #[cfg(not(target_os = "linux"))]
+    pub fn enter() -> anyhow::Result<Self> {
+        log::debug!("Entering real-time scope");
+        let (native_id, saved_priority) = Self::maximize_current_thread_priority()?;
+        Ok(Self {
+            native_id,
+            saved_priority,
+        })
+    }
 }
 
-impl Drop for RealTimeThreadScope {
+impl Drop for ThreadSchedulingScope {
     #[cfg(target_os = "linux")]
     fn drop(&mut self) {
         log::debug!("Leaving real-time scope");
@@ -218,7 +260,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
 
     worker.start_task_of_work(environment)?;
 
-    let rt_scope = RealTimeThreadScope::enter()?;
+    let rt_sched_scope = ThreadSchedulingScope::enter()?;
     loop {
         log::debug!("Running");
         events.on_state_changed(State::Running);
@@ -243,6 +285,8 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                     log::debug!("Finishing rejected");
                     continue;
                 }
+                // Leave real-time scheduling scope
+                drop(rt_sched_scope);
                 log::debug!("Finishing");
                 events.on_state_changed(State::Finishing);
                 worker.finish_task_of_work(environment)?;
@@ -251,7 +295,6 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
             }
         }
     }
-    drop(rt_scope);
 
     log::debug!("Stopping");
     events.on_state_changed(State::Stopping);
