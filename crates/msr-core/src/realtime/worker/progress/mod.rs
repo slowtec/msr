@@ -212,14 +212,14 @@ struct UpdateNotificationToken;
 /// will only trigger a single notifications.
 #[derive(Debug)]
 struct ProgressHintHandover {
-    atomic_state: AtomicProgressHint,
+    latest_progress_hint: AtomicProgressHint,
     update_notification_relay: Relay<UpdateNotificationToken>,
 }
 
 impl ProgressHintHandover {
     pub const fn default() -> Self {
         Self {
-            atomic_state: AtomicProgressHint::default(),
+            latest_progress_hint: AtomicProgressHint::default(),
             update_notification_relay: Relay::new(),
         }
     }
@@ -277,42 +277,43 @@ pub type SwitchProgressHintResult = Result<SwitchProgressHintOk, SwitchProgressH
 
 impl ProgressHintHandover {
     pub fn peek(&self) -> ProgressHint {
-        self.atomic_state.peek()
+        self.latest_progress_hint.peek()
     }
 
     pub fn load(&self) -> ProgressHint {
-        self.atomic_state.load()
+        self.latest_progress_hint.load()
     }
 
-    fn after_atomic_state_switched_result(
+    fn after_latest_progress_hint_switched_result(
         &self,
         result: SwitchAtomicStateResult<ProgressHint>,
     ) -> SwitchProgressHintResult {
         result
-            .map(|ok| self.after_atomic_state_switched_ok(ok))
+            .map(|ok| self.after_latest_progress_hint_switched_ok(ok))
             .map_err(Into::into)
     }
 
-    fn after_atomic_state_switched_ok(
+    fn after_latest_progress_hint_switched_ok(
         &self,
         ok: SwitchAtomicStateOk<ProgressHint>,
     ) -> SwitchProgressHintOk {
         if matches!(ok, SwitchAtomicStateOk::Accepted { .. }) {
-            self.update_notification_relay.replace_notify_one(UpdateNotificationToken);
+            self.update_notification_relay
+                .replace_notify_one(UpdateNotificationToken);
         }
         ok.into()
     }
 
     pub fn suspend(&self) -> SwitchProgressHintResult {
-        self.after_atomic_state_switched_result(self.atomic_state.suspend())
+        self.after_latest_progress_hint_switched_result(self.latest_progress_hint.suspend())
     }
 
     pub fn resume(&self) -> SwitchProgressHintResult {
-        self.after_atomic_state_switched_result(self.atomic_state.resume())
+        self.after_latest_progress_hint_switched_result(self.latest_progress_hint.resume())
     }
 
     pub fn finish(&self) -> SwitchProgressHintResult {
-        self.after_atomic_state_switched_result(self.atomic_state.finish())
+        self.after_latest_progress_hint_switched_result(self.latest_progress_hint.finish())
     }
 
     pub fn wait(&self) {
@@ -324,31 +325,26 @@ impl ProgressHintHandover {
     }
 
     pub fn wait_until(&self, deadline: Instant) -> bool {
-        self.update_notification_relay.wait_until(deadline).is_some()
-    }
-
-    pub fn wait_while_suspending(&self) -> ProgressHint {
-        let mut latest_hint = self.atomic_state.load();
-        while latest_hint == ProgressHint::Suspend {
-            self.update_notification_relay.wait();
-            latest_hint = self.atomic_state.load()
-        }
-        latest_hint
+        self.update_notification_relay
+            .wait_until(deadline)
+            .is_some()
     }
 
     pub fn reset(&self) {
-        self.atomic_state.reset();
+        self.latest_progress_hint.reset();
         self.update_notification_relay.take();
     }
 
     pub fn try_suspending(&self) -> bool {
-        self.atomic_state.suspend().is_ok()
-        // No update notification needed nor intended!
+        // No update notification needed nor intended as this function
+        // is supposed to be invoked only by the single receiver!
+        self.latest_progress_hint.suspend().is_ok()
     }
 
     pub fn try_finishing(&self) -> bool {
-        self.atomic_state.finish().is_ok()
-        // No update notification needed nor intended!
+        // No update notification needed nor intended as this function
+        // is supposed to be invoked only by the single receiver!
+        self.latest_progress_hint.finish().is_ok()
     }
 }
 
@@ -475,7 +471,22 @@ impl ProgressHintReceiver {
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
     pub fn wait_while_suspending(&mut self) -> ProgressHint {
-        self.handover.wait_while_suspending()
+        // The borrow checker ensures that self.handover cannot be modified
+        // outside the scope of this function even while blocking. This is
+        // a prerequisite for the correctness of this implementation that
+        // parks/unparks the thread while the condition is not satisfied.
+        //
+        // In an unsafe language like C++ we would need to create a local
+        // reference for the duration of the function scope by cloning the
+        // Arc (= std::smart_ptr)! While this would prevent dropping the
+        // reference it could not prevent replacing it with a different
+        // reference.
+        let mut latest_progress_hint = self.handover.load();
+        while latest_progress_hint == ProgressHint::Suspend {
+            self.handover.wait();
+            latest_progress_hint = self.handover.load()
+        }
+        latest_progress_hint
     }
 
     /// Reserved for internal usage
