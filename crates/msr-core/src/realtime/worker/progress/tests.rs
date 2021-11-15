@@ -111,7 +111,7 @@ fn atomic_progress_hint_sequence() {
 }
 
 #[test]
-fn progress_hint_handshake_sender_receiver() -> anyhow::Result<()> {
+fn progress_hint_handover_sender_receiver() -> anyhow::Result<()> {
     let mut rx = ProgressHintReceiver::default();
 
     // Attach and test 1st sender

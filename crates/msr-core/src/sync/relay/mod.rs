@@ -9,7 +9,7 @@ use crate::sync::{const_mutex, Condvar, Mutex};
 /// may arrive at any point in time.
 ///
 /// A typical scenario involves only a single producer and a single
-/// consumer thread implementing a handshake protocol for passing
+/// consumer thread implementing a handover protocol for passing
 /// the latest (= most recent) value between each other.
 ///
 /// The value is buffered until the consumer is ready to take it.

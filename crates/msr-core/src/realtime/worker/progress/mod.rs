@@ -54,7 +54,7 @@ const PROGRESS_HINT_FINISHING: AtomicValue = 2;
 #[derive(Debug)]
 struct AtomicProgressHint(AtomicU8);
 
-fn progress_hint_from_atomic_value(from: AtomicValue) -> ProgressHint {
+fn progress_hint_from_atomic_state(from: AtomicValue) -> ProgressHint {
     match from {
         PROGRESS_HINT_CONTINUE => ProgressHint::Continue,
         PROGRESS_HINT_SUSPENDING => ProgressHint::Suspend,
@@ -63,7 +63,7 @@ fn progress_hint_from_atomic_value(from: AtomicValue) -> ProgressHint {
     }
 }
 
-const fn progress_hint_to_atomic_value(from: ProgressHint) -> AtomicValue {
+const fn progress_hint_to_atomic_state(from: ProgressHint) -> AtomicValue {
     match from {
         ProgressHint::Continue => PROGRESS_HINT_CONTINUE,
         ProgressHint::Suspend => PROGRESS_HINT_SUSPENDING,
@@ -75,21 +75,21 @@ impl AtomicState for AtomicProgressHint {
     type State = ProgressHint;
 
     fn peek(&self) -> Self::State {
-        progress_hint_from_atomic_value(self.0.load(Ordering::Relaxed))
+        progress_hint_from_atomic_state(self.0.load(Ordering::Relaxed))
     }
 
     fn load(&self) -> Self::State {
-        progress_hint_from_atomic_value(self.0.load(Ordering::Acquire))
+        progress_hint_from_atomic_state(self.0.load(Ordering::Acquire))
     }
 
     fn switch_to_desired(&self, desired_state: Self::State) -> SwitchAtomicStateOk<Self::State> {
-        let desired_value = progress_hint_to_atomic_value(desired_state);
+        let desired_value = progress_hint_to_atomic_state(desired_state);
         let previous_value = self.0.swap(desired_value, Ordering::Release);
         if previous_value == desired_value {
             return SwitchAtomicStateOk::Ignored;
         }
         SwitchAtomicStateOk::Accepted {
-            previous_state: progress_hint_from_atomic_value(previous_value),
+            previous_state: progress_hint_from_atomic_state(previous_value),
         }
     }
 
@@ -98,8 +98,8 @@ impl AtomicState for AtomicProgressHint {
         expected_state: Self::State,
         desired_state: Self::State,
     ) -> SwitchAtomicStateResult<Self::State> {
-        let expected_value = progress_hint_to_atomic_value(expected_state);
-        let desired_value = progress_hint_to_atomic_value(desired_state);
+        let expected_value = progress_hint_to_atomic_state(expected_state);
+        let desired_value = progress_hint_to_atomic_state(desired_state);
         self.0
             .compare_exchange(
                 expected_value,
@@ -123,7 +123,7 @@ impl AtomicState for AtomicProgressHint {
                     Ok(SwitchAtomicStateOk::Ignored)
                 } else {
                     Err(SwitchAtomicStateErr::Rejected {
-                        current_state: progress_hint_from_atomic_value(current_value),
+                        current_state: progress_hint_from_atomic_state(current_value),
                     })
                 }
             })
@@ -155,13 +155,13 @@ impl AtomicProgressHint {
 
     #[cfg(not(loom))]
     const fn new(progress_hint: ProgressHint) -> Self {
-        Self(AtomicU8::new(progress_hint_to_atomic_value(progress_hint)))
+        Self(AtomicU8::new(progress_hint_to_atomic_state(progress_hint)))
     }
 
     // The loom atomic does not provide a const fn new()
     #[cfg(loom)]
     fn new(progress_hint: ProgressHint) -> Self {
-        Self(AtomicU8::new(Self::to_atomic_value(progress_hint)))
+        Self(AtomicU8::new(Self::to_atomic_state(progress_hint)))
     }
 
     /// Switch from [`ProgressHint::Continue`] to [`ProgressHint::Suspend`]
@@ -196,22 +196,36 @@ impl Default for AtomicProgressHint {
     }
 }
 
+// Zero-sized token for passing update notifications
 #[derive(Debug)]
-struct ProgressHintHandshake {
-    atomic: AtomicProgressHint,
-    relay: Relay<()>,
+struct UpdateNotificationToken;
+
+/// Handover of progress hint values from multiple senders to
+/// a single receiver.
+///
+/// Allows a receiver to read the latest progress hint value
+/// without blocking, i.e. lock-free under real-time constraints.
+///
+/// On demand a receiver may block and wait for the next update
+/// notification from a sender. A progress hint update notification
+/// is buffered until consumed by the receiver. Subsequent updates
+/// will only trigger a single notifications.
+#[derive(Debug)]
+struct ProgressHintHandover {
+    atomic_state: AtomicProgressHint,
+    update_notification_relay: Relay<UpdateNotificationToken>,
 }
 
-impl ProgressHintHandshake {
+impl ProgressHintHandover {
     pub const fn default() -> Self {
         Self {
-            atomic: AtomicProgressHint::default(),
-            relay: Relay::new(),
+            atomic_state: AtomicProgressHint::default(),
+            update_notification_relay: Relay::new(),
         }
     }
 }
 
-impl Default for ProgressHintHandshake {
+impl Default for ProgressHintHandover {
     fn default() -> Self {
         Self::default()
     }
@@ -261,13 +275,13 @@ impl From<SwitchAtomicStateErr<ProgressHint>> for SwitchProgressHintError {
 
 pub type SwitchProgressHintResult = Result<SwitchProgressHintOk, SwitchProgressHintError>;
 
-impl ProgressHintHandshake {
+impl ProgressHintHandover {
     pub fn peek(&self) -> ProgressHint {
-        self.atomic.peek()
+        self.atomic_state.peek()
     }
 
     pub fn load(&self) -> ProgressHint {
-        self.atomic.load()
+        self.atomic_state.load()
     }
 
     fn after_atomic_state_switched_result(
@@ -284,148 +298,164 @@ impl ProgressHintHandshake {
         ok: SwitchAtomicStateOk<ProgressHint>,
     ) -> SwitchProgressHintOk {
         if matches!(ok, SwitchAtomicStateOk::Accepted { .. }) {
-            self.relay.replace_notify_one(());
+            self.update_notification_relay.replace_notify_one(UpdateNotificationToken);
         }
         ok.into()
     }
 
     pub fn suspend(&self) -> SwitchProgressHintResult {
-        self.after_atomic_state_switched_result(self.atomic.suspend())
+        self.after_atomic_state_switched_result(self.atomic_state.suspend())
     }
 
     pub fn resume(&self) -> SwitchProgressHintResult {
-        self.after_atomic_state_switched_result(self.atomic.resume())
+        self.after_atomic_state_switched_result(self.atomic_state.resume())
     }
 
     pub fn finish(&self) -> SwitchProgressHintResult {
-        self.after_atomic_state_switched_result(self.atomic.finish())
+        self.after_atomic_state_switched_result(self.atomic_state.finish())
+    }
+
+    pub fn wait(&self) {
+        self.update_notification_relay.wait();
     }
 
     pub fn wait_for(&self, timeout: Duration) -> bool {
-        self.relay.wait_for(timeout).is_some()
+        self.update_notification_relay.wait_for(timeout).is_some()
     }
 
     pub fn wait_until(&self, deadline: Instant) -> bool {
-        self.relay.wait_until(deadline).is_some()
+        self.update_notification_relay.wait_until(deadline).is_some()
     }
 
     pub fn wait_while_suspending(&self) -> ProgressHint {
-        let mut latest_hint = self.atomic.load();
+        let mut latest_hint = self.atomic_state.load();
         while latest_hint == ProgressHint::Suspend {
-            self.relay.wait();
-            latest_hint = self.atomic.load()
+            self.update_notification_relay.wait();
+            latest_hint = self.atomic_state.load()
         }
         latest_hint
     }
 
     pub fn reset(&self) {
-        self.atomic.reset();
-        self.relay.take();
+        self.atomic_state.reset();
+        self.update_notification_relay.take();
     }
 
     pub fn try_suspending(&self) -> bool {
-        self.atomic.suspend().is_ok()
-        // Raising the signal is not needed and not intended!
+        self.atomic_state.suspend().is_ok()
+        // No update notification needed nor intended!
     }
 
     pub fn try_finishing(&self) -> bool {
-        self.atomic.finish().is_ok()
-        // Raising the signal is not needed and not intended!
+        self.atomic_state.finish().is_ok()
+        // No update notification needed nor intended!
     }
 }
 
-/// Sender of the progress hint handshake protocol
+/// Sender of the progress hint handover protocol
 #[derive(Debug, Clone)]
 pub struct ProgressHintSender {
-    handshake: Weak<ProgressHintHandshake>,
+    handover: Weak<ProgressHintHandover>,
 }
 
 impl ProgressHintSender {
     pub fn attach(rx: &ProgressHintReceiver) -> Self {
-        let handshake = Arc::downgrade(&rx.handshake);
-        ProgressHintSender { handshake }
+        let handover = Arc::downgrade(&rx.handover);
+        ProgressHintSender { handover }
     }
 
     pub fn is_attached(&self) -> bool {
-        self.handshake.strong_count() > 0
+        self.handover.strong_count() > 0
     }
 
-    fn upgrade_handshake(&self) -> Result<Arc<ProgressHintHandshake>, SwitchProgressHintError> {
-        self.handshake
+    fn upgrade_handover(&self) -> Result<Arc<ProgressHintHandover>, SwitchProgressHintError> {
+        self.handover
             .upgrade()
             .ok_or(SwitchProgressHintError::Detached)
     }
 
     /// Ask the receiver to suspend while running
     pub fn suspend(&self) -> SwitchProgressHintResult {
-        self.upgrade_handshake()
-            .and_then(|handshake| handshake.suspend())
+        self.upgrade_handover()
+            .and_then(|handover| handover.suspend())
     }
 
     /// Ask the receiver to resume while suspended
     pub fn resume(&self) -> SwitchProgressHintResult {
-        self.upgrade_handshake()
-            .and_then(|handshake| handshake.resume())
+        self.upgrade_handover()
+            .and_then(|handover| handover.resume())
     }
 
     /// Ask the receiver to finish
     pub fn finish(&self) -> SwitchProgressHintResult {
-        self.upgrade_handshake()
-            .and_then(|handshake| handshake.finish())
+        self.upgrade_handover()
+            .and_then(|handover| handover.finish())
     }
 }
 
-/// Receiver of the progress hint handshake protocol
+/// Receiver of the progress hint handover protocol
 #[derive(Debug, Default)]
 pub struct ProgressHintReceiver {
-    handshake: Arc<ProgressHintHandshake>,
+    handover: Arc<ProgressHintHandover>,
 }
 
 impl ProgressHintReceiver {
     /// Read the latest progress hint (lock-free)
     ///
     /// Reads the current value using `relaxed` semantics (memory order)
-    /// and leaves any pending handshake notifications untouched.
+    /// and leaves any pending handover notifications untouched.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
     pub fn peek(&self) -> ProgressHint {
-        self.handshake.peek()
+        self.handover.peek()
     }
 
     /// Read the latest progress hint (lock-free)
     ///
     /// Reads the current value using `acquire` semantics (memory order)
-    /// and leaves any pending handshake notifications untouched.
+    /// and leaves any pending handover notifications untouched.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
     pub fn load(&self) -> ProgressHint {
-        self.handshake.load()
+        self.handover.load()
+    }
+
+    /// Wait for a progress hint update notification (blocking)
+    ///
+    /// Blocks until a handover notification is available. Use deliberately
+    /// to prevent infinite blocking!
+    ///
+    /// This function might block and thus should not be invoked in
+    /// a hard real-time context! The sending threads of the notification
+    /// could cause a priority inversion.
+    pub fn wait(&self) {
+        self.handover.wait()
     }
 
     /// Wait for a progress hint update notification with a timeout (blocking)
     ///
-    /// Blocks until a handshake notification is available (`true`) or
-    /// the timeout has expired (`false`).
+    /// Blocks until a handover notification is available (`true`) or the
+    /// timeout has expired (`false`).
     ///
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
     pub fn wait_for(&self, timeout: Duration) -> bool {
-        self.handshake.wait_for(timeout)
+        self.handover.wait_for(timeout)
     }
 
     /// Wait for a progress hint update notification with a deadline (blocking)
     ///
-    /// Blocks until a handshake notification is available (`true`) or
-    /// the deadline has expired (`false`).
+    /// Blocks until a handover notification is available (`true`) or the
+    /// deadline has expired (`false`).
     ///
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
     pub fn wait_until(&self, deadline: Instant) -> bool {
-        self.handshake.wait_until(deadline)
+        self.handover.wait_until(deadline)
     }
 
     /// Reserved for internal usage
@@ -435,7 +465,7 @@ impl ProgressHintReceiver {
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
     pub fn try_suspending(&mut self) -> bool {
-        self.handshake.try_suspending()
+        self.handover.try_suspending()
     }
 
     /// Reserved for internal usage
@@ -445,7 +475,7 @@ impl ProgressHintReceiver {
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
     pub fn wait_while_suspending(&mut self) -> ProgressHint {
-        self.handshake.wait_while_suspending()
+        self.handover.wait_while_suspending()
     }
 
     /// Reserved for internal usage
@@ -455,28 +485,28 @@ impl ProgressHintReceiver {
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
     pub fn try_finishing(&mut self) -> bool {
-        self.handshake.try_finishing()
+        self.handover.try_finishing()
     }
 
     /// Reserved for internal usage
     ///
-    /// Reset the handshake (blocking).
+    /// Reset the handover (blocking).
     ///
     /// Intentionally declared as &mut to make it inaccessible for
     /// borrowed references!
     pub fn reset(&mut self) {
-        self.handshake.reset();
+        self.handover.reset();
     }
 
     /// Reserved for internal usage
     ///
     /// Detach all senders (lock-free). This will also reset the
-    /// handshake back to default.
+    /// handover back to default.
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
     pub fn detach(&mut self) {
-        self.handshake = Default::default();
+        self.handover = Default::default();
     }
 }
 
