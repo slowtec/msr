@@ -6,16 +6,16 @@ struct SmokeTestEnvironment;
 
 #[derive(Default)]
 struct SmokeTestWorker {
-    start_task_of_work_invocations: usize,
-    finish_task_of_work_invocations: usize,
-    actual_perform_unit_of_work_invocations: usize,
-    expected_perform_unit_of_work_invocations: usize,
+    start_working_invocations: usize,
+    finish_working_invocations: usize,
+    actual_perform_work_invocations: usize,
+    expected_perform_work_invocations: usize,
 }
 
 impl SmokeTestWorker {
-    pub fn new(expected_perform_unit_of_work_invocations: usize) -> Self {
+    pub fn new(expected_perform_work_invocations: usize) -> Self {
         Self {
-            expected_perform_unit_of_work_invocations,
+            expected_perform_work_invocations,
             ..Default::default()
         }
     }
@@ -24,27 +24,25 @@ impl SmokeTestWorker {
 impl Worker for SmokeTestWorker {
     type Environment = SmokeTestEnvironment;
 
-    fn start_task_of_work(&mut self, _env: &mut Self::Environment) -> Result<()> {
-        self.start_task_of_work_invocations += 1;
+    fn start_working(&mut self, _env: &mut Self::Environment) -> Result<()> {
+        self.start_working_invocations += 1;
         Ok(())
     }
 
-    fn finish_task_of_work(&mut self, _env: &mut Self::Environment) -> Result<()> {
-        self.finish_task_of_work_invocations += 1;
+    fn finish_working(&mut self, _env: &mut Self::Environment) -> Result<()> {
+        self.finish_working_invocations += 1;
         Ok(())
     }
 
-    fn perform_unit_of_work(
+    fn perform_work(
         &mut self,
         _env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
     ) -> Result<CompletionStatus> {
-        self.actual_perform_unit_of_work_invocations += 1;
+        self.actual_perform_work_invocations += 1;
         let progress = match progress_hint_rx.peek() {
             ProgressHint::Continue => {
-                if self.actual_perform_unit_of_work_invocations
-                    < self.expected_perform_unit_of_work_invocations
-                {
+                if self.actual_perform_work_invocations < self.expected_perform_work_invocations {
                     CompletionStatus::Suspending
                 } else {
                     CompletionStatus::Finishing
@@ -110,8 +108,8 @@ impl Events for SmokeTestEvents {
 
 #[test]
 fn smoke_test() -> anyhow::Result<()> {
-    for expected_perform_unit_of_work_invocations in 1..10 {
-        let worker = SmokeTestWorker::new(expected_perform_unit_of_work_invocations);
+    for expected_perform_work_invocations in 1..10 {
+        let worker = SmokeTestWorker::new(expected_perform_work_invocations);
         let progress_hint_rx = ProgressHintReceiver::default();
         let events = SmokeTestEvents::new(ProgressHintSender::attach(&progress_hint_rx));
         let recoverable_params = RecoverableParams {
@@ -133,16 +131,16 @@ fn smoke_test() -> anyhow::Result<()> {
                 result,
             }) => {
                 result?;
-                assert_eq!(1, worker.start_task_of_work_invocations);
-                assert_eq!(1, worker.finish_task_of_work_invocations);
+                assert_eq!(1, worker.start_working_invocations);
+                assert_eq!(1, worker.finish_working_invocations);
                 assert_eq!(
-                    expected_perform_unit_of_work_invocations,
-                    worker.actual_perform_unit_of_work_invocations
+                    expected_perform_work_invocations,
+                    worker.actual_perform_work_invocations
                 );
                 assert_eq!(1, events.state_changed_count.starting);
                 assert_eq!(1, events.state_changed_count.stopping);
                 assert_eq!(
-                    expected_perform_unit_of_work_invocations,
+                    expected_perform_work_invocations,
                     events.state_changed_count.running
                 );
                 assert_eq!(1, events.state_changed_count.finishing);

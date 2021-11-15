@@ -258,13 +258,13 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
     log::debug!("Starting");
     events.on_state_changed(State::Starting);
 
-    worker.start_task_of_work(environment)?;
+    worker.start_working(environment)?;
 
     let rt_sched_scope = ThreadSchedulingScope::enter()?;
     loop {
         log::debug!("Running");
         events.on_state_changed(State::Running);
-        match worker.perform_unit_of_work(environment, progress_hint_rx)? {
+        match worker.perform_work(environment, progress_hint_rx)? {
             CompletionStatus::Suspending => {
                 // The worker may have decided to suspend itself independent
                 // of the current progress hint.
@@ -289,7 +289,7 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
                 drop(rt_sched_scope);
                 log::debug!("Finishing");
                 events.on_state_changed(State::Finishing);
-                worker.finish_task_of_work(environment)?;
+                worker.finish_working(environment)?;
                 // Exit loop
                 break;
             }

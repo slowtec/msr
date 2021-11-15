@@ -7,8 +7,8 @@ pub mod thread;
 
 /// Completion status
 ///
-/// Reflects the intention on how to proceed with the current task
-/// after completing a unit of work.
+/// Reflects the intention on how to proceed after performing some
+/// work.
 ///
 /// Supposed to affect the subsequent control flow outside of the
 /// worker's context.
@@ -26,33 +26,33 @@ pub enum CompletionStatus {
     Finishing,
 }
 
-/// Callback interface for work tasks under real-time constraints
+/// Callback interface for performing work under real-time constraints
 ///
-/// All invocations between start_task_of_work() and finish_task_of_work()
+/// All invocations between start_working() and finish_working()
 /// will happen on the same thread, including those two clamping functions.
 ///
 /// ```puml
 /// @startuml
 /// participant Worker
 ///
-/// -> Worker: start_task_of_work()
+/// -> Worker: start_working()
 /// activate Worker
 /// <- Worker: started
 /// deactivate Worker
 ///
-/// -> Worker: perform_unit_of_work()
+/// -> Worker: perform_work()
 /// activate Worker
 /// <- Worker: CompletionStatus::Suspending
 /// deactivate Worker
 ///
 /// ...
 ///
-/// -> Worker: perform_unit_of_work()
+/// -> Worker: perform_work()
 /// activate Worker
 /// <- Worker: CompletionStatus::Finishing
 /// deactivate Worker
 ///
-/// -> Worker: finish_task_of_work()
+/// -> Worker: finish_working()
 /// activate Worker
 /// <- Worker: finished
 /// deactivate Worker
@@ -63,34 +63,35 @@ pub trait Worker {
     /// to every function of the worker.
     type Environment;
 
-    /// Start a new task of work
+    /// Start working
     ///
-    /// Invoked once before the first call to [`Worker::perform_unit_of_work()`] for
-    /// acquiring resources and to perform initialization.
-    fn start_task_of_work(&mut self, env: &mut Self::Environment) -> Result<()>;
+    /// Invoked once before the first call to [`Worker::perform_work()`] for
+    /// acquiring resources and initializing the internal state.
+    fn start_working(&mut self, env: &mut Self::Environment) -> Result<()>;
 
-    /// Perform a unit of work
+    /// Perform work
     ///
-    /// Performs work for the current task of work until either no more work is
-    /// pending or the progress hint indicates that suspending or finishing the
-    /// task is desired.
+    /// Make progress until work is either interrupted by a progress hint
+    /// or done.
     ///
-    /// This function is invoked at least once after [`Worker::start_task_of_work()`]
+    /// This function is invoked at least once after [`Worker::start_working()`]
     /// has returned successfully. It will be invoked repeatedly until finally
-    /// [`Worker::finish_task_of_work()`] is invoked.
+    /// [`Worker::finish_working()`] is invoked.
     ///
     /// This function is not supposed to mutate the environment.
-    fn perform_unit_of_work(
+    ///
+    /// Returns a completion status that indicates how to proceed.
+    fn perform_work(
         &mut self,
         env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
     ) -> Result<CompletionStatus>;
 
-    /// Finish the current task of work
+    /// Finish working
     ///
-    /// Invoked once after the last call to [`Worker::perform_unit_of_work()`] for finalizing
-    /// results, releasing resources, or performing cleanup.
-    fn finish_task_of_work(&mut self, env: &mut Self::Environment) -> Result<()>;
+    /// Invoked once after the last call to [`Worker::perform_work()`] for
+    /// finalizing results, releasing resources, and performing cleanup.
+    fn finish_working(&mut self, env: &mut Self::Environment) -> Result<()>;
 }
 
 /// Wraps a [`Worker`] as a boxed trait object
@@ -99,19 +100,19 @@ pub type WorkerBoxed<E> = Box<dyn Worker<Environment = E> + Send + 'static>;
 impl<E> Worker for WorkerBoxed<E> {
     type Environment = E;
 
-    fn start_task_of_work(&mut self, env: &mut Self::Environment) -> Result<()> {
-        (&mut **self).start_task_of_work(env)
+    fn start_working(&mut self, env: &mut Self::Environment) -> Result<()> {
+        (&mut **self).start_working(env)
     }
 
-    fn perform_unit_of_work(
+    fn perform_work(
         &mut self,
         env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
     ) -> Result<CompletionStatus> {
-        (&mut **self).perform_unit_of_work(env, progress_hint_rx)
+        (&mut **self).perform_work(env, progress_hint_rx)
     }
 
-    fn finish_task_of_work(&mut self, env: &mut Self::Environment) -> Result<()> {
-        (&mut **self).finish_task_of_work(env)
+    fn finish_working(&mut self, env: &mut Self::Environment) -> Result<()> {
+        (&mut **self).finish_working(env)
     }
 }
