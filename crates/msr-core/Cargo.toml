@@ -23,15 +23,15 @@ uuid = { version = "0.8", optional = true, default-features = false }
 [target.'cfg(loom)'.dependencies]
 loom = "0.5"
 
-[dev-dependencies]
-tempfile = "3"
-
 [features]
-default = ["realtime-worker-thread", "csv-event-journal", "csv-register-recorder"]
-#default = []
+default = []
 event-journal = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "uuid/v4"]
 register-recorder = ["anyhow/std", "chrono/serde", "serde/derive", "serde_json/std"]
 csv-storage = ["csv", "serde"]
 csv-event-journal = ["event-journal", "csv-storage"]
 csv-register-recorder = ["register-recorder", "csv-storage"]
 realtime-worker-thread = ["anyhow/std", "thread-priority"]
+
+[dev-dependencies]
+tempfile = "3"
+msr-core = { version = "*", features = ["realtime-worker-thread", "csv-event-journal", "csv-register-recorder"] }
