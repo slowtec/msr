@@ -1,7 +1,9 @@
 #[cfg(loom)]
+#[allow(unused_imports)]
 pub(crate) use loom::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 
 #[cfg(not(loom))]
+#[allow(unused_imports)]
 pub(crate) use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 
 /// An atomic flag
