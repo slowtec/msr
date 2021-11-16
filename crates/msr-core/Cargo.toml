@@ -26,7 +26,7 @@ loom = "0.5"
 [features]
 default = []
 event-journal = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "uuid/v4"]
-register-recorder = ["anyhow/std", "chrono/serde", "serde/derive", "serde_json/std"]
+register-recorder = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "serde_json/std"]
 csv-storage = ["csv", "serde"]
 csv-event-journal = ["event-journal", "csv-storage"]
 csv-register-recorder = ["register-recorder", "csv-storage"]
