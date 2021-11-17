@@ -111,7 +111,7 @@ fn atomic_progress_hint_sequence() {
 }
 
 #[test]
-fn progress_hint_handover_sender_receiver() -> anyhow::Result<()> {
+fn progress_hint_sender_receiver_attach_detach() -> anyhow::Result<()> {
     let mut rx = ProgressHintReceiver::default();
 
     // Attach and test 1st sender
@@ -152,6 +152,102 @@ fn progress_hint_handover_sender_receiver() -> anyhow::Result<()> {
         tx2.finish(),
         Err(SwitchProgressHintError::Detached)
     ));
+
+    Ok(())
+}
+
+#[test]
+fn progress_hint_handover_temporal_decoupling_of_sender_receiver() -> anyhow::Result<()> {
+    let rx = ProgressHintReceiver::default();
+
+    // No update has been sent yet
+    assert!(!rx.wait_until(Instant::now()));
+
+    let tx = ProgressHintSender::attach(&rx);
+    assert!(tx.is_attached());
+    assert_eq!(
+        SwitchProgressHintOk::Accepted {
+            previous_state: ProgressHint::Continue,
+        },
+        tx.finish()?
+    );
+    assert_eq!(ProgressHint::Finish, rx.load());
+
+    // Drop the sender before the receiver notices the update
+    drop(tx);
+
+    // The receiver should notice the pending update by now
+    assert!(rx.wait_until(Instant::now()));
+
+    Ok(())
+}
+
+#[test]
+fn progress_hint_handover_consume_single_update_notification_once() -> anyhow::Result<()> {
+    let rx = ProgressHintReceiver::default();
+    let tx = ProgressHintSender::attach(&rx);
+    assert!(tx.is_attached());
+
+    // No update has been sent yet
+    assert!(!rx.wait_until(Instant::now()));
+
+    // Continue -> Suspend
+    assert_eq!(
+        SwitchProgressHintOk::Accepted {
+            previous_state: ProgressHint::Continue,
+        },
+        tx.suspend()?
+    );
+    assert_eq!(ProgressHint::Suspend, rx.load());
+
+    // Consume update notification once
+    assert!(rx.wait_until(Instant::now()));
+    assert!(!rx.wait_until(Instant::now()));
+
+    // Suspend -> Continue
+    assert_eq!(
+        SwitchProgressHintOk::Accepted {
+            previous_state: ProgressHint::Suspend,
+        },
+        tx.resume()?
+    );
+    assert_eq!(ProgressHint::Continue, rx.load());
+    // Continue -> Finish
+    assert_eq!(
+        SwitchProgressHintOk::Accepted {
+            previous_state: ProgressHint::Continue,
+        },
+        tx.finish()?
+    );
+    assert_eq!(ProgressHint::Finish, rx.load());
+
+    // Consume single notification once after 2 updates
+    assert!(rx.wait_until(Instant::now()));
+    assert!(!rx.wait_until(Instant::now()));
+
+    Ok(())
+}
+
+#[test]
+fn progress_hint_handover_try_switch_without_update_notification() -> anyhow::Result<()> {
+    let mut rx = ProgressHintReceiver::default();
+
+    // No update has been sent yet
+    assert!(!rx.wait_until(Instant::now()));
+
+    // Continue -> Suspend
+    assert!(rx.try_suspending());
+    assert_eq!(ProgressHint::Suspend, rx.load());
+
+    // No update notification after try_suspending()
+    assert!(!rx.wait_until(Instant::now()));
+
+    // Suspend -> Finish
+    assert!(rx.try_finishing());
+    assert_eq!(ProgressHint::Finish, rx.load());
+
+    // No update notification after try_finishing()
+    assert!(!rx.wait_until(Instant::now()));
 
     Ok(())
 }
