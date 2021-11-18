@@ -18,6 +18,17 @@ Add this to your `Cargo.toml`:
 msr = "0.3"
 ```
 
+## Development
+
+For executing common development tasks install [cargo just](https://github.com/casey/just)
+and run it without arguments to print the list of predefined *recipes*:
+
+```shell
+cargo install just
+just
+
+```
+
 ## License
 
 Copyright (c) 2018 - 2021, [slowtec GmbH](https://www.slowtec.de)
