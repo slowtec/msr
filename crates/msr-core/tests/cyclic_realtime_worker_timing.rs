@@ -62,6 +62,23 @@ impl CyclicWorker {
             measurements: Default::default(),
         }
     }
+
+    fn update_measurements(&mut self, expected_cycle_start: Instant, actual_cycle_start: Instant) {
+        // Measure deviation/jitter of expected vs. actual timing
+        if actual_cycle_start < expected_cycle_start {
+            let earliness = expected_cycle_start.duration_since(actual_cycle_start);
+            self.measurements.earliness_sum += earliness;
+            if self.measurements.earliness_max < earliness {
+                self.measurements.earliness_max = earliness;
+            }
+        } else {
+            let lateness = actual_cycle_start.duration_since(expected_cycle_start);
+            self.measurements.lateness_sum += lateness;
+            if self.measurements.lateness_max < lateness {
+                self.measurements.lateness_max = lateness;
+            }
+        }
+    }
 }
 
 impl Worker for CyclicWorker {
@@ -80,42 +97,27 @@ impl Worker for CyclicWorker {
         _env: &Self::Environment,
         progress_hint_rx: &ProgressHintReceiver,
     ) -> anyhow::Result<CompletionStatus> {
-        let mut previous_cycle_deadline = None;
-        for _ in 0..=self.params.rounds {
-            let actual_cycle_start = Instant::now();
-            let expected_cycle_start =
-                if let Some(previous_cycle_deadline) = previous_cycle_deadline {
-                    if actual_cycle_start < previous_cycle_deadline {
-                        let earliness = previous_cycle_deadline.duration_since(actual_cycle_start);
-                        self.measurements.earliness_sum += earliness;
-                        if self.measurements.earliness_max < earliness {
-                            self.measurements.earliness_max = earliness;
-                        }
-                    } else {
-                        let lateness = actual_cycle_start.duration_since(previous_cycle_deadline);
-                        self.measurements.lateness_sum += lateness;
-                        if self.measurements.lateness_max < lateness {
-                            self.measurements.lateness_max = lateness;
-                        }
+        let mut cycle_deadline = Instant::now();
+        for _ in 0..self.params.rounds {
+            // Idle: Wait for the current cycle to end
+            while progress_hint_rx.wait_until(cycle_deadline) {
+                match progress_hint_rx.peek() {
+                    ProgressHint::Continue => {
+                        continue;
                     }
-                    previous_cycle_deadline
-                } else {
-                    actual_cycle_start
+                    ProgressHint::Suspend | ProgressHint::Finish => {
+                        panic!("benchmark interrupted");
+                    }
                 };
-            let cycle_deadline = expected_cycle_start + self.params.cycle_time();
-            match progress_hint_rx.peek() {
-                ProgressHint::Continue => (),
-                ProgressHint::Suspend | ProgressHint::Finish => {
-                    panic!("benchmark interrupted");
-                }
-            };
-            // Busy
-            thread::sleep(self.params.busy_time);
-            // Idle
-            if progress_hint_rx.wait_until(cycle_deadline) {
-                panic!("benchmark interrupted");
             }
-            previous_cycle_deadline = Some(cycle_deadline);
+
+            // Start the next cycle
+            let cycle_start = Instant::now();
+            self.update_measurements(cycle_deadline, cycle_start);
+            cycle_deadline += self.params.cycle_time();
+
+            // Busy: Perform work (simulated by sleeping)
+            thread::sleep(self.params.busy_time);
         }
         Ok(CompletionStatus::Finishing)
     }
@@ -151,8 +153,7 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
 }
 
 #[test]
-fn cyclic_realtime_worker_latencies_run_with_nocapture_to_print_measurements() -> anyhow::Result<()>
-{
+fn cyclic_realtime_worker_timing_run_with_nocapture_to_print_measurements() -> anyhow::Result<()> {
     let params = CyclicWorkerParams {
         busy_time: BUSY_TIME,
         idle_time: IDLE_TIME,
