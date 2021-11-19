@@ -182,9 +182,6 @@ fn cyclic_realtime_worker_timing_run_with_nocapture_to_print_measurements() -> a
 
     let measurements = run_cyclic_worker(params.clone())?;
 
-    assert_eq!(params.rounds, measurements.completed_cycles);
-    assert_eq!(0, measurements.skipped_cycles);
-
     let earliness_avg = measurements.earliness_sum / params.rounds;
     println!(
         "Earliness: max = {} ms, avg = {} ms",
@@ -209,6 +206,9 @@ fn cyclic_realtime_worker_timing_run_with_nocapture_to_print_measurements() -> a
     #[cfg(target_os = "linux")]
     assert_eq!(Duration::ZERO, measurements.earliness_max);
 
+    assert_eq!(params.rounds, measurements.completed_cycles);
+    assert_eq!(0, measurements.skipped_cycles);
+
     Ok(())
 }
 
@@ -226,12 +226,6 @@ fn cyclic_realtime_worker_skipped_cycles_run_with_nocapture_to_print_measurement
 
     let max_completed_cycles =
         params.rounds as f64 * params.cycle_time.as_secs_f64() / params.busy_time.as_secs_f64();
-    assert!(measurements.completed_cycles <= max_completed_cycles.floor() as u32);
-    assert!(params.rounds >= measurements.completed_cycles);
-    assert_eq!(
-        params.rounds - measurements.completed_cycles,
-        measurements.skipped_cycles
-    );
 
     let earliness_avg = measurements.earliness_sum / params.rounds;
     println!(
@@ -250,6 +244,13 @@ fn cyclic_realtime_worker_skipped_cycles_run_with_nocapture_to_print_measurement
     // As observed on Linux, may vary for other operating systems
     #[cfg(target_os = "linux")]
     assert_eq!(Duration::ZERO, measurements.earliness_max);
+
+    assert!(measurements.completed_cycles <= max_completed_cycles.floor() as u32);
+    assert!(params.rounds >= measurements.completed_cycles);
+    assert_eq!(
+        params.rounds - measurements.completed_cycles,
+        measurements.skipped_cycles
+    );
 
     Ok(())
 }
