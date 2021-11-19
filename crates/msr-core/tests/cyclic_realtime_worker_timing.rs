@@ -79,26 +79,15 @@ impl CyclicWorker {
         expected_cycle_start: Instant,
         actual_cycle_start: Instant,
     ) -> Instant {
-        if expected_cycle_start >= actual_cycle_start {
-            return expected_cycle_start;
-        }
-        let elapsed_cycles = actual_cycle_start
-            .duration_since(expected_cycle_start)
-            .as_secs_f64()
-            / self.params.cycle_time.as_secs_f64();
-        debug_assert!(elapsed_cycles > 0.0);
-        if elapsed_cycles >= 2.0 {
-            // We missed at least 1 entire cycle
-            let missed_cycles = elapsed_cycles.floor() - 1.0;
-            debug_assert!(missed_cycles <= u32::MAX as f64);
-            let missed_cycles = missed_cycles.min(u32::MAX as f64) as u32;
+        msr_core::control::cyclic::skip_missed_cycles(
+            self.params.cycle_time,
+            expected_cycle_start,
+            actual_cycle_start,
+        )
+        .unwrap_or_else(|(expected_cycle_start, missed_cycles)| {
             self.measurements.skipped_cycles += missed_cycles;
-            // Adjust the deadline of the previous cycle
-            let skipped_cycles_duration = missed_cycles * self.params.cycle_time;
-            expected_cycle_start + skipped_cycles_duration
-        } else {
             expected_cycle_start
-        }
+        })
     }
 }
 
