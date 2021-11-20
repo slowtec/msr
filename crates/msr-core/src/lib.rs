@@ -18,6 +18,7 @@ pub mod io;
 pub mod register;
 pub mod storage;
 pub mod sync;
+pub mod thread;
 pub mod time;
 
 #[cfg(feature = "realtime-worker-thread")]
