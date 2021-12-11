@@ -17,7 +17,7 @@ bs58 = { version = "0.4", optional = true, default-features = false }
 csv = { version = "1", optional = true, default-features = false }
 serde = { version = "1", optional = true, default-features = false }
 serde_json = { version = "1", optional = true, default-features = false }
-thread-priority = { version = "0.2", optional = true, default-features = false }
+thread-priority = { version = "0.4", optional = true, default-features = false }
 uuid = { version = "0.8", optional = true, default-features = false }
 
 [target.'cfg(loom)'.dependencies]
