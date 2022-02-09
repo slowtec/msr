@@ -33,6 +33,7 @@ impl ProgressHint {
     ///
     /// The default should be used when no other information is available,
     /// i.e. processing should continue running uninterrupted.
+    #[must_use]
     pub const fn default() -> Self {
         Self::Continue
     }
@@ -355,11 +356,13 @@ pub struct ProgressHintSender {
 }
 
 impl ProgressHintSender {
+    #[must_use]
     pub fn attach(rx: &ProgressHintReceiver) -> Self {
         let handover = Arc::downgrade(&rx.handover);
         ProgressHintSender { handover }
     }
 
+    #[must_use]
     pub fn is_attached(&self) -> bool {
         self.handover.strong_count() > 0
     }
@@ -403,6 +406,7 @@ impl ProgressHintReceiver {
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
+    #[must_use]
     pub fn peek(&self) -> ProgressHint {
         self.handover.peek()
     }
@@ -414,6 +418,7 @@ impl ProgressHintReceiver {
     ///
     /// This function does not block and thus could be invoked
     /// safely in a real-time context.
+    #[must_use]
     pub fn load(&self) -> ProgressHint {
         self.handover.load()
     }
@@ -438,6 +443,7 @@ impl ProgressHintReceiver {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
+    #[must_use]
     pub fn wait_for(&self, timeout: Duration) -> bool {
         self.handover.wait_for(timeout)
     }
@@ -450,6 +456,7 @@ impl ProgressHintReceiver {
     /// This function might block and thus should not be invoked in
     /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
+    #[must_use]
     pub fn wait_until(&self, deadline: Instant) -> bool {
         self.handover.wait_until(deadline)
     }

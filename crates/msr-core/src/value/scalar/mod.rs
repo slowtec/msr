@@ -30,6 +30,7 @@ const TYPE_STR_U64: &str = "u64";
 const TYPE_STR_F64: &str = "f64";
 
 impl Type {
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         use Type::*;
         match self {
@@ -47,6 +48,7 @@ impl Type {
         }
     }
 
+    #[must_use]
     pub fn try_from_str(s: &str) -> Option<Type> {
         // TODO: Declare as `const fn` when supported
         match s {
@@ -109,50 +111,62 @@ pub enum Value {
 }
 
 impl Value {
+    #[must_use]
     pub const fn from_bool(val: bool) -> Self {
         Self::Bool(val)
     }
 
+    #[must_use]
     pub const fn from_i8(val: i8) -> Self {
         Self::I8(val)
     }
 
+    #[must_use]
     pub const fn from_u8(val: u8) -> Self {
         Self::U8(val)
     }
 
+    #[must_use]
     pub const fn from_i16(val: i16) -> Self {
         Self::I16(val)
     }
 
+    #[must_use]
     pub const fn from_u16(val: u16) -> Self {
         Self::U16(val)
     }
 
+    #[must_use]
     pub const fn from_i32(val: i32) -> Self {
         Self::I32(val)
     }
 
+    #[must_use]
     pub const fn from_u32(val: u32) -> Self {
         Self::U32(val)
     }
 
+    #[must_use]
     pub const fn from_i64(val: i64) -> Self {
         Self::I64(val)
     }
 
+    #[must_use]
     pub const fn from_u64(val: u64) -> Self {
         Self::U64(val)
     }
 
+    #[must_use]
     pub const fn from_f32(val: f32) -> Self {
         Self::F32(val)
     }
 
+    #[must_use]
     pub const fn from_f64(val: f64) -> Self {
         Self::F64(val)
     }
 
+    #[must_use]
     pub const fn to_bool(self) -> Option<bool> {
         match self {
             Self::Bool(val) => Some(val),
@@ -160,6 +174,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_i8(self) -> Option<i8> {
         match self {
             Self::I8(val) => Some(val),
@@ -167,6 +182,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_u8(self) -> Option<u8> {
         match self {
             Self::U8(val) => Some(val),
@@ -174,6 +190,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_i16(self) -> Option<i16> {
         match self {
             Self::I8(val) => Some(val.into()),
@@ -183,6 +200,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_u16(self) -> Option<u16> {
         match self {
             Self::U8(val) => Some(val.into()),
@@ -191,6 +209,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_i32(self) -> Option<i32> {
         match self {
             Self::I8(val) => Some(val.into()),
@@ -202,6 +221,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_u32(self) -> Option<u32> {
         match self {
             Self::U8(val) => Some(val.into()),
@@ -211,6 +231,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_i64(self) -> Option<i64> {
         match self {
             Self::I8(val) => Some(val.into()),
@@ -224,6 +245,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_u64(self) -> Option<u64> {
         match self {
             Self::U8(val) => Some(val.into()),
@@ -234,6 +256,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_f32(self) -> Option<f32> {
         match self {
             Self::I8(val) => Some(val.into()),
@@ -245,6 +268,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn to_f64(self) -> Option<f64> {
         match self {
             Self::I8(val) => Some(val.into()),
@@ -280,6 +304,7 @@ impl fmt::Display for Value {
 }
 
 impl Value {
+    #[must_use]
     pub const fn to_type(self) -> Type {
         use self::Value::*;
         match self {

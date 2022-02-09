@@ -92,6 +92,7 @@ struct RollingFile {
 
 impl RollingFile {
     // Custom handling and transformation of I/O errors
+    #[allow(clippy::panic_in_result_fn)] // unreachable!()
     fn after_record_written(&mut self, res: StdResult<(), ::csv::Error>) -> Result<WriteResult> {
         match res {
             Ok(()) => {
@@ -143,6 +144,7 @@ impl RollingFile {
 pub struct ClosedFileInfo(RollingFileInfo);
 
 impl ClosedFileInfo {
+    #[must_use]
     pub fn into_inner(self) -> RollingFileInfo {
         self.0
     }
@@ -156,6 +158,7 @@ pub struct RollingFileWriter {
 }
 
 impl RollingFileWriter {
+    #[must_use]
     pub fn new(config: RollingFileConfig, custom_header: Option<StringRecord>) -> Self {
         Self {
             config,
@@ -206,6 +209,7 @@ impl RollingFileWriter {
     }
 
     /// Query information about the current file.
+    #[must_use]
     pub fn current_file_info(&self) -> Option<&RollingFileInfo> {
         self.current_file
             .as_ref()
@@ -216,6 +220,7 @@ impl RollingFileWriter {
     ///
     /// The returned estimated size only reflects the actual size of the file after
     /// cached records has been flushed to disk!
+    #[must_use]
     pub fn current_file_info_with_size(&self) -> Option<RollingFileInfoWithSize> {
         self.current_file.as_ref().map(|current_file| {
             let RollingFileInfo { path, created_at } = &current_file.info;

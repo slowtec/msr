@@ -15,10 +15,12 @@ pub type IndexValue = u64;
 pub struct Index(IndexValue);
 
 impl Index {
+    #[must_use]
     pub const fn new(value: IndexValue) -> Self {
         Self(value)
     }
 
+    #[must_use]
     pub const fn to_value(self) -> IndexValue {
         let Index(value) = self;
         value

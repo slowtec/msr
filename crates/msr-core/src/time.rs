@@ -23,6 +23,7 @@ pub struct SystemTimeInstant {
 }
 
 impl SystemTimeInstant {
+    #[must_use]
     pub const fn new(system_time: SystemTime, instant: Instant) -> Self {
         Self {
             system_time,
@@ -30,6 +31,7 @@ impl SystemTimeInstant {
         }
     }
 
+    #[must_use]
     pub fn now() -> Self {
         let instant = Instant::now();
         let system_time = SystemTime::now();
@@ -40,10 +42,12 @@ impl SystemTimeInstant {
         Self::new(system_time, instant)
     }
 
+    #[must_use]
     pub fn system_time(&self) -> SystemTime {
         self.system_time
     }
 
+    #[must_use]
     pub fn instant(&self) -> Instant {
         self.instant
     }

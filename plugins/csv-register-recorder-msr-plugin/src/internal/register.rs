@@ -13,10 +13,12 @@ pub type GroupIdValue = String;
 pub struct GroupId(GroupIdValue);
 
 impl GroupId {
+    #[must_use]
     pub const fn from_value(value: GroupIdValue) -> Self {
         Self(value)
     }
 
+    #[must_use]
     pub fn into_value(self) -> GroupIdValue {
         let GroupId(value) = self;
         value

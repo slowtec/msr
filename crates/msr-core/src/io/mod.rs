@@ -12,6 +12,7 @@ use crate::sync::{
 pub struct BytesWritten(Arc<AtomicU64>);
 
 impl BytesWritten {
+    #[must_use]
     pub fn value(&self) -> u64 {
         self.0.load(Ordering::Relaxed)
     }

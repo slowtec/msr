@@ -145,6 +145,7 @@ pub struct CreatedAtOffset {
 }
 
 impl CreatedAtOffset {
+    #[must_use]
     pub fn to_system_time(self, origin: SystemTime) -> SystemTime {
         origin + Duration::from(self)
     }
@@ -228,6 +229,7 @@ impl<R> InMemoryRecordStorage<R>
 where
     R: Clone,
 {
+    #[must_use]
     pub fn new(config: StorageConfig) -> Self {
         let descriptor = StorageDescriptor {
             kind: "in-memory".to_string(),

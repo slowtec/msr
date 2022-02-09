@@ -1,9 +1,18 @@
-// FIXME: Enable all warnings before the release
+#![warn(unsafe_code)]
+#![cfg_attr(not(debug_assertions), deny(warnings))]
+#![deny(rust_2018_idioms)]
+#![deny(rust_2021_compatibility)]
+// FIXME: Enable `deny(missing_docs)` before release
 //#![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(test, deny(warnings))]
-#![warn(rust_2018_idioms)]
+#![deny(clippy::all)]
+#![deny(clippy::explicit_deref_methods)]
+#![deny(clippy::explicit_into_iter_loop)]
+#![deny(clippy::explicit_iter_loop)]
+#![deny(clippy::must_use_candidate)]
+#![cfg_attr(not(test), deny(clippy::panic_in_result_fn))]
+#![cfg_attr(not(debug_assertions), deny(clippy::used_underscore_binding))]
 
 pub use msr_core as core;
 

@@ -3,7 +3,7 @@ use crate::fsm::*;
 use std::{collections::HashMap, io, result, time::Duration};
 
 /// A simple synchronous closed-loop runtime.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SyncRuntime {
     /// Loops
     pub loops: Vec<Loop>,
@@ -13,17 +13,6 @@ pub struct SyncRuntime {
     pub actions: Vec<Action>,
     /// Finite State Machines
     pub state_machines: HashMap<String, StateMachine>,
-}
-
-impl Default for SyncRuntime {
-    fn default() -> Self {
-        SyncRuntime {
-            loops: vec![],
-            rules: vec![],
-            actions: vec![],
-            state_machines: HashMap::new(),
-        }
-    }
 }
 
 /// A runtime error

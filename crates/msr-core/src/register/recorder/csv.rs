@@ -17,6 +17,7 @@ use crate::{
 use super::*;
 
 impl csv::StringRecordDeserializer<StorageRecord> for StorageRecordDeserializer {
+    #[allow(clippy::panic_in_result_fn)] // unimplemented!()
     fn deserialize_string_record(
         &self,
         record: &CsvStringRecord,

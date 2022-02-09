@@ -449,6 +449,7 @@ impl Context {
     }
 
     // FIXME: Replace with an integration test
+    #[allow(clippy::panic_in_result_fn)] // just a test
     pub fn smoke_test(&mut self) -> Result<()> {
         let register_group_id = RegisterGroupId::from_value("smoke-test-register-group".into());
         let register_group_config = RegisterGroupConfig {

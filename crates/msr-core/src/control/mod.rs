@@ -26,6 +26,7 @@ pub struct Input<V> {
 }
 
 impl<V> Input<V> {
+    #[must_use]
     pub const fn new() -> Self {
         Self { observed: None }
     }
@@ -44,6 +45,7 @@ pub struct Output<V> {
 }
 
 impl<V> Output<V> {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             observed: None,

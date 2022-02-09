@@ -17,6 +17,7 @@ pub struct Controller {
 }
 
 impl Controller {
+    #[must_use]
     pub const fn new(message_tx: MessageSender) -> Self {
         Self { message_tx }
     }

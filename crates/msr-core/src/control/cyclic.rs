@@ -16,10 +16,12 @@ pub type CycleIdValue = u16;
 pub struct CycleId(CycleIdValue);
 
 impl CycleId {
+    #[must_use]
     pub const fn from_value(value: CycleIdValue) -> Self {
         Self(value)
     }
 
+    #[must_use]
     pub const fn to_value(self) -> CycleIdValue {
         self.0
     }
@@ -51,6 +53,7 @@ pub struct CycleTimeStamp {
 }
 
 impl CycleTimeStamp {
+    #[must_use]
     pub fn now(id: CycleId) -> Self {
         Self {
             id,
@@ -74,6 +77,7 @@ pub struct CyclicRegisterMeasurements<RegisterValue> {
 }
 
 impl<RegisterValue> CyclicRegisterMeasurements<RegisterValue> {
+    #[must_use]
     pub fn count_number_unique_of_registers(&self) -> usize {
         let mut register_indices: Vec<_> = self.registers.iter().map(|m| m.index).collect();
         register_indices.sort_unstable();
@@ -81,6 +85,7 @@ impl<RegisterValue> CyclicRegisterMeasurements<RegisterValue> {
         register_indices.len()
     }
 
+    #[must_use]
     pub fn contains_duplicate_registers(&self) -> bool {
         self.registers.len() > self.count_number_unique_of_registers()
     }

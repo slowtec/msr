@@ -32,6 +32,7 @@ pub struct RollingFileLimits {
 }
 
 impl RollingFileLimits {
+    #[must_use]
     pub fn daily() -> Self {
         Self {
             interval: Some(Interval::Days(1)),
@@ -39,6 +40,7 @@ impl RollingFileLimits {
         }
     }
 
+    #[must_use]
     pub fn weekly() -> Self {
         Self {
             interval: Some(Interval::Weeks(1)),
@@ -55,6 +57,7 @@ pub struct RollingFileStatus {
 }
 
 impl RollingFileStatus {
+    #[must_use]
     pub const fn new(created_at: SystemTime) -> Self {
         Self {
             created_at,
@@ -63,6 +66,7 @@ impl RollingFileStatus {
         }
     }
 
+    #[must_use]
     pub fn should_roll(
         &self,
         now: SystemTime,
@@ -148,6 +152,7 @@ impl FromStr for FileNameTimeStamp {
 }
 
 impl RollingFileNameTemplate {
+    #[must_use]
     pub fn format_os_string_with_time_stamp(&self, ts: FileNameTimeStamp) -> OsString {
         let Self { prefix, suffix } = self;
         // Reserve 2 bytes per character (Windows/UTF-16) for the time stamp infix
@@ -199,6 +204,7 @@ pub struct RollingFileInfoWithSize {
 }
 
 impl RollingFileInfoWithSize {
+    #[must_use]
     pub fn new(info: RollingFileInfo, size_in_bytes: u64) -> Self {
         let RollingFileInfo { path, created_at } = info;
         Self {
@@ -258,6 +264,7 @@ pub struct FileInfoFilter {
 }
 
 impl RollingFileSystem {
+    #[must_use]
     pub fn new_file_path(&self, created_at: FileNameTimeStamp) -> PathBuf {
         debug_assert!(PathBuf::from(self.file_name_template.prefix.clone()).is_relative());
         let new_name = self

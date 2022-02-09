@@ -71,22 +71,27 @@ pub enum Severity {
 }
 
 impl Severity {
+    #[must_use]
     pub fn is_diagnostic(self) -> bool {
         self == Self::Diagnostic || self == Self::InformationVerbose
     }
 
+    #[must_use]
     pub fn is_information(self) -> bool {
         self == Self::Information || self == Self::InformationVerbose
     }
 
+    #[must_use]
     pub fn is_warning(self) -> bool {
         self == Self::Warning || self == Self::WarningUnexpected
     }
 
+    #[must_use]
     pub fn is_error(self) -> bool {
         self == Self::Error || self == Self::ErrorCritical
     }
 
+    #[must_use]
     pub const fn value(self) -> SeverityValue {
         self as SeverityValue
     }

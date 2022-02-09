@@ -1,9 +1,18 @@
-// FIXME: Enable all warnings before the release
+#![warn(unsafe_code)]
+#![cfg_attr(not(debug_assertions), deny(warnings))]
+#![deny(rust_2018_idioms)]
+#![deny(rust_2021_compatibility)]
+// FIXME: Enable `deny(missing_docs)` before release
 //#![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![deny(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(test, deny(warnings))]
-#![warn(rust_2018_idioms)]
+#![deny(clippy::all)]
+#![deny(clippy::explicit_deref_methods)]
+#![deny(clippy::explicit_into_iter_loop)]
+#![deny(clippy::explicit_iter_loop)]
+#![deny(clippy::must_use_candidate)]
+#![cfg_attr(not(test), deny(clippy::panic_in_result_fn))]
+#![cfg_attr(not(debug_assertions), deny(clippy::used_underscore_binding))]
 
 use std::{
     io::Error as IoError,
@@ -35,6 +44,7 @@ pub struct Environment {
     pub custom_file_name_prefix: Option<String>,
 }
 
+#[must_use]
 pub fn default_storage_config() -> StorageConfig {
     StorageConfig {
         retention_time: TimeInterval::Days(NonZeroU32::new(180).unwrap()), // 180 days
@@ -45,6 +55,7 @@ pub fn default_storage_config() -> StorageConfig {
     }
 }
 
+#[must_use]
 pub fn default_config() -> api::Config {
     api::Config {
         severity_threshold: Severity::Information,

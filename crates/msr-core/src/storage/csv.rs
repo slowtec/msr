@@ -511,6 +511,7 @@ where
     T: ReadableRecordPrelude,
     D: StringRecordDeserializer<T>,
 {
+    #[allow(clippy::panic_in_result_fn)] // unreachable!()
     fn recent_records(&mut self, limit: NonZeroUsize) -> Result<Vec<(SystemTime, T)>> {
         self.inner.flush_before_reading()?;
         let limit = limit.get().min(MAX_PREALLOCATED_CAPACITY_LIMIT);

@@ -22,6 +22,7 @@ pub struct Relay<T> {
 }
 
 impl<T> Relay<T> {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             mutex: const_mutex(None),

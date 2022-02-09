@@ -30,6 +30,7 @@ const TYPE_STR_STRING: &str = "string";
 const TYPE_STR_BYTES: &str = "bytes";
 
 impl ValueType {
+    #[must_use]
     pub const fn to_scalar(self) -> Option<ScalarType> {
         match self {
             Self::Scalar(s) => Some(s),
@@ -37,10 +38,12 @@ impl ValueType {
         }
     }
 
+    #[must_use]
     pub const fn is_scalar(self) -> bool {
         self.to_scalar().is_some()
     }
 
+    #[must_use]
     pub const fn from_scalar(scalar: ScalarType) -> Self {
         Self::Scalar(scalar)
     }
@@ -54,6 +57,7 @@ impl ValueType {
         }
     }
 
+    #[must_use]
     pub fn try_from_str(s: &str) -> Option<Self> {
         ScalarType::try_from_str(s)
             .map(Into::into)
@@ -117,6 +121,7 @@ impl From<Duration> for Value {
 }
 
 impl Value {
+    #[must_use]
     pub const fn to_type(&self) -> ValueType {
         match self {
             Self::Scalar(value) => ValueType::Scalar(value.to_type()),
@@ -126,6 +131,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub const fn to_scalar(&self) -> Option<ScalarValue> {
         match self {
             Self::Scalar(scalar) => Some(*scalar),
@@ -133,6 +139,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub const fn from_scalar(scalar: ScalarValue) -> Self {
         Self::Scalar(scalar)
     }

@@ -167,7 +167,7 @@ impl<'a>
 ///     thread::sleep(Duration::from_secs(2));
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct IoState {
     /// Input gates (sensors)
     pub inputs: HashMap<String, Value>,
@@ -178,7 +178,7 @@ pub struct IoState {
 }
 
 /// The state of a synchronous controlling system.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct SystemState {
     /// I/O states
     pub io: IoState,
@@ -207,30 +207,6 @@ impl SystemState {
             Timeout(id) => self.timeouts.get(id),
             Const(v) => Some(v),
             Setpoint(id) => self.setpoints.get(id),
-        }
-    }
-}
-
-impl Default for SystemState {
-    fn default() -> Self {
-        SystemState {
-            io: IoState::default(),
-            setpoints: HashMap::new(),
-            controllers: HashMap::new(),
-            inactive_loops: vec![],
-            state_machines: HashMap::new(),
-            rules: HashMap::new(),
-            timeouts: HashMap::new(),
-        }
-    }
-}
-
-impl Default for IoState {
-    fn default() -> Self {
-        IoState {
-            inputs: HashMap::new(),
-            outputs: HashMap::new(),
-            mem: HashMap::new(),
         }
     }
 }
