@@ -74,14 +74,15 @@ impl ThreadSchedulingScope {
                 err,
             )
         })?;
-        let saved_priority = thread_priority::unix::thread_priority().map_err(|err| {
-            anyhow::anyhow!(
-                "Failed to save the priority of thread {:?} ({}): {:?}",
-                thread_id,
-                native_id,
-                err,
-            )
-        })?;
+        let saved_priority =
+            thread_priority::unix::get_current_thread_priority().map_err(|err| {
+                anyhow::anyhow!(
+                    "Failed to save the priority of thread {:?} ({}): {:?}",
+                    thread_id,
+                    native_id,
+                    err,
+                )
+            })?;
         let adjusted_priority = ThreadPriority::Max;
         if adjusted_priority != saved_priority {
             log::debug!(

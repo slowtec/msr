@@ -9,7 +9,7 @@ version = "0.3.0"
 chrono = { version = "0.4", default-features = false }
 clokwerk = "0.3"
 log = "0.4"
-parking_lot = "0.11"
+parking_lot = "0.12"
 thiserror = "1"
 
 anyhow = { version = "1", optional = true, default-features = false }
@@ -17,7 +17,7 @@ bs58 = { version = "0.4", optional = true, default-features = false }
 csv = { version = "1", optional = true, default-features = false }
 serde = { version = "1", optional = true, default-features = false }
 serde_json = { version = "1", optional = true, default-features = false }
-thread-priority = { version = "0.4", optional = true, default-features = false }
+thread-priority = { version = "0.7", optional = true, default-features = false }
 uuid = { version = "0.8", optional = true, default-features = false }
 
 [target.'cfg(loom)'.dependencies]
