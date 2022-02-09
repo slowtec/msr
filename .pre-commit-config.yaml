@@ -1,6 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/pre-commit-config.json
+
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.0.1
+  rev: v4.1.0
   hooks:
   - id: check-case-conflict
   - id: check-json
@@ -17,12 +19,12 @@ repos:
   - id: mixed-line-ending
   - id: trailing-whitespace
 - repo: https://github.com/DavidAnson/markdownlint-cli2
-  rev: v0.3.2
+  rev: v0.4.0
   hooks:
   - id: markdownlint-cli2
     exclude: ^LICENSE\.md|doc/c4-plantuml/LayoutOptions\.md$
 - repo: https://github.com/shellcheck-py/shellcheck-py
-  rev: v0.8.0.1
+  rev: v0.8.0.4
   hooks:
   - id: shellcheck
 - repo: https://github.com/codespell-project/codespell
@@ -30,6 +32,11 @@ repos:
   hooks:
   - id: codespell
     args: [--ignore-words=.codespellignore]
+- repo: https://github.com/sirosen/check-jsonschema
+  rev: 0.10.2
+  hooks:
+  - id: check-github-actions
+  - id: check-github-workflows
 - repo: https://github.com/doublify/pre-commit-rust
   rev: v1.0
   hooks:
