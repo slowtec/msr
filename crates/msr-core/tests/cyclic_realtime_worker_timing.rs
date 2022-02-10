@@ -15,10 +15,6 @@ use msr_core::{
     thread,
 };
 
-// Expected upper bound for deviation from nominal cycle timing,
-// i.e. range between earliest and latest measured deviation.
-const MAX_EXPECTED_JITTER: Duration = Duration::from_millis(1);
-
 #[derive(Default)]
 struct CyclicWorkerEnvironment;
 
@@ -44,6 +40,18 @@ enum CyclicWorkerTiming {
 
     /// Interrupt sleeping when progress hint updates arrive
     Waiting,
+}
+
+// Expected upper bound for deviation from nominal cycle timing,
+// i.e. range between earliest and latest measured deviation.
+//
+// The different limits are required for the tests to finish successfully
+// on GitHub CI where real-time thread scheduling is not supported.
+const fn max_expected_jitter(timing: CyclicWorkerTiming) -> Duration {
+    match timing {
+        CyclicWorkerTiming::Sleeping => Duration::from_millis(1),
+        CyclicWorkerTiming::Waiting => Duration::from_millis(5),
+    }
 }
 
 impl fmt::Display for CyclicWorkerTiming {
@@ -252,7 +260,7 @@ fn cyclic_realtime_worker_timing() -> anyhow::Result<()> {
         // ||<-        full cycle       ->||<-        full cycle      ->||
         // ||<- ... ->|<- earliness_max ->||<- lateness_max ->|<- ... ->||
         let max_actual_jitter = measurements.earliness_max + measurements.lateness_max;
-        assert!(max_actual_jitter <= MAX_EXPECTED_JITTER);
+        assert!(max_actual_jitter <= max_expected_jitter(params.timing));
 
         assert_eq!(params.rounds, measurements.completed_cycles);
         assert_eq!(0, measurements.skipped_cycles);
