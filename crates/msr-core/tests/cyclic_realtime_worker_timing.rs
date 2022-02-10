@@ -6,7 +6,10 @@ use std::{
 use msr_core::{
     realtime::worker::{
         progress::{ProgressHint, ProgressHintReceiver},
-        thread::{Events, JoinedThread, RecoverableParams, State, TerminatedThread, WorkerThread},
+        thread::{
+            Events, JoinedThread, RecoverableParams, State, TerminatedThread, ThreadScheduling,
+            WorkerThread,
+        },
         CompletionStatus, Worker,
     },
     thread,
@@ -200,7 +203,8 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
         environment: CyclicWorkerEnvironment,
         events: CyclicWorkerEvents,
     };
-    let worker_thread = WorkerThread::spawn(recoverable_params);
+    let worker_thread =
+        WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, recoverable_params);
     match worker_thread.join() {
         JoinedThread::Terminated(TerminatedThread {
             recovered_params:

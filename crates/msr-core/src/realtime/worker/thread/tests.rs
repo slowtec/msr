@@ -118,7 +118,9 @@ fn smoke_test() -> anyhow::Result<()> {
             environment: SmokeTestEnvironment,
             events,
         };
-        let worker_thread = WorkerThread::spawn(recoverable_params);
+        // Real-time thread scheduling might not be supported when running the tests
+        // in containers on CI platforms.
+        let worker_thread = WorkerThread::spawn(ThreadScheduling::Default, recoverable_params);
         match worker_thread.join() {
             JoinedThread::Terminated(TerminatedThread {
                 recovered_params:

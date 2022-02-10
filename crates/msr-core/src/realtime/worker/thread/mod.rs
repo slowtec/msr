@@ -75,7 +75,7 @@ impl ThreadSchedulingScope {
             )
         })?;
         let saved_priority =
-            thread_priority::unix::get_current_thread_priority().map_err(|err| {
+            thread_priority::unix::get_thread_priority(native_id).map_err(|err| {
                 anyhow::anyhow!(
                     "Failed to save the priority of thread {:?} ({}): {:?}",
                     thread_id,
@@ -248,7 +248,10 @@ impl Drop for ThreadSchedulingScope {
     }
 }
 
-fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W, E>) -> Result<()> {
+fn thread_fn<W: Worker, E: Events>(
+    thread_scheduling: ThreadScheduling,
+    recoverable_params: &mut RecoverableParams<W, E>,
+) -> Result<()> {
     let RecoverableParams {
         progress_hint_rx,
         worker,
@@ -261,7 +264,11 @@ fn thread_fn<W: Worker, E: Events>(recoverable_params: &mut RecoverableParams<W,
 
     worker.start_working(environment)?;
 
-    let rt_sched_scope = ThreadSchedulingScope::enter()?;
+    let rt_sched_scope = match thread_scheduling {
+        ThreadScheduling::Default => None,
+        ThreadScheduling::Realtime => Some(ThreadSchedulingScope::enter()?),
+        ThreadScheduling::RealtimeOrDefault => ThreadSchedulingScope::enter().ok(),
+    };
     loop {
         log::debug!("Running");
         events.on_state_changed(State::Running);
@@ -320,19 +327,46 @@ pub enum JoinedThread<W: Worker, E> {
     JoinError(Box<dyn Any + Send + 'static>),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ThreadScheduling {
+    /// Default
+    ///
+    /// Do not modify the current thread's priority and leave the
+    /// process's scheduling policy untouched.
+    Default,
+
+    /// Real-time
+    ///
+    /// Switch thread to real-time priority and try to switch to a real-time
+    /// scheduling policy. The latter is optional and failures are only logged,
+    /// not reported.
+    Realtime,
+
+    /// Real-time with fallback
+    ///
+    /// Try to apply a real-time strategy, but silently fall back `Default`
+    /// if it fails. This is handy for tests in an environment that does not
+    /// permit real-time scheduling, e.g. running the tests in containers
+    /// on a CI platform.
+    RealtimeOrDefault,
+}
+
 impl<W, E> WorkerThread<W, E>
 where
     W: Worker + Send + 'static,
     <W as Worker>::Environment: Send + 'static,
     E: Events + Send + 'static,
 {
-    pub fn spawn(recoverable_params: RecoverableParams<W, E>) -> Self {
+    pub fn spawn(
+        thread_scheduling: ThreadScheduling,
+        recoverable_params: RecoverableParams<W, E>,
+    ) -> Self {
         let join_handle = {
             std::thread::spawn({
                 move || {
                     // The function parameters need to be mutable within the real-time thread
                     let mut recoverable_params = recoverable_params;
-                    let result = thread_fn(&mut recoverable_params);
+                    let result = thread_fn(thread_scheduling, &mut recoverable_params);
                     let recovered_params = recoverable_params;
                     TerminatedThread {
                         result,
