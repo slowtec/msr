@@ -9,7 +9,7 @@ use crate::{
         },
         BytesWritten, CountingWrite,
     },
-    time::SystemTimeInstant,
+    time::PointInTime,
 };
 use ::csv::{
     Error as CsvError, ErrorKind, StringRecord, Writer as CsvWriter,
@@ -167,7 +167,7 @@ impl RollingFileWriter {
         }
     }
 
-    fn start_new_file(&self, starting_at: SystemTimeInstant) -> Result<Option<RollingFile>> {
+    fn start_new_file(&self, starting_at: PointInTime) -> Result<Option<RollingFile>> {
         let new_file = self
             .config
             .system
@@ -193,7 +193,7 @@ impl RollingFileWriter {
         }
     }
 
-    fn roll_file_now(&mut self, now: SystemTimeInstant) -> Result<Option<ClosedFileInfo>> {
+    fn roll_file_now(&mut self, now: PointInTime) -> Result<Option<ClosedFileInfo>> {
         let new_file = self.start_new_file(now)?;
         if let Some(new_file) = new_file {
             log::info!("Opened new file: {}", new_file.info.path.display());
@@ -243,7 +243,7 @@ impl RollingFileWriter {
 
     fn before_writing(
         &mut self,
-        now: &SystemTimeInstant,
+        now: &PointInTime,
         now_nanoseconds_offset: u64,
     ) -> Result<Option<ClosedFileInfo>> {
         let (closed_file_info, created_new_file) = if let Some(current_file) = &self.current_file {
@@ -278,7 +278,7 @@ impl RollingFileWriter {
     /// Write a single record
     pub fn write_record<I, T>(
         &mut self,
-        now: &SystemTimeInstant,
+        now: &PointInTime,
         now_nanoseconds_offset: u64,
         record: I,
     ) -> Result<(WriteResult, Option<ClosedFileInfo>)>
@@ -299,7 +299,7 @@ impl RollingFileWriter {
     /// Serialize a single record
     pub fn serialize<S: Serialize>(
         &mut self,
-        now: &SystemTimeInstant,
+        now: &PointInTime,
         now_nanoseconds_offset: u64,
         record: S,
     ) -> Result<(WriteResult, Option<ClosedFileInfo>)> {

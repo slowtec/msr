@@ -18,7 +18,7 @@ use msr_core::{
         RecordPreludeFilter, RecordStorageBase, Result as StorageResult, StorageConfig,
         StorageStatus,
     },
-    time::SystemTimeInstant,
+    time::PointInTime,
     ScalarType, ScalarValue,
 };
 
@@ -153,15 +153,15 @@ impl RegisterGroupContext {
 }
 
 pub trait RecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(SystemTimeInstant, RecordPrelude)>;
+    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)>;
 }
 
 #[derive(Debug)]
 struct DefaultRecordPreludeGenerator;
 
 impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(SystemTimeInstant, RecordPrelude)> {
-        Ok((SystemTimeInstant::now(), Default::default()))
+    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)> {
+        Ok((PointInTime::now(), Default::default()))
     }
 }
 

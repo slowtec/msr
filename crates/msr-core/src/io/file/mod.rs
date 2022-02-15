@@ -1,5 +1,5 @@
-use crate::time::SystemTimeInstantError;
 use std::result::Result as StdResult;
+
 use thiserror::Error;
 
 pub mod policy;
@@ -10,17 +10,11 @@ pub mod csv;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("timing error")]
-    Timing(SystemTimeInstantError),
+    Timing,
 
     #[cfg(feature = "csv-storage")]
     #[error("CSV format error")]
     Csv(::csv::Error),
-}
-
-impl From<SystemTimeInstantError> for Error {
-    fn from(from: SystemTimeInstantError) -> Self {
-        Self::Timing(from)
-    }
 }
 
 #[cfg(feature = "csv-storage")]

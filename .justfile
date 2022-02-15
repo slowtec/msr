@@ -12,6 +12,8 @@ fmt:
 
 # Run clippy
 check:
+    cargo clippy --locked --workspace --bins --examples --tests -- -D warnings
+    cargo clippy --locked --workspace --no-default-features --bins --examples --tests -- -D warnings
     cargo clippy --locked --workspace --all-features --bins --examples --tests -- -D warnings
 
 # Fix lint warnings
@@ -21,6 +23,8 @@ fix:
 
 # Run unit tests
 test:
+    cargo test --locked --workspace -- --nocapture
+    cargo test --locked --workspace --no-default-features -- --nocapture
     cargo test --locked --workspace --all-features -- --nocapture
 
 # Update depenencies and pre-commit hooks

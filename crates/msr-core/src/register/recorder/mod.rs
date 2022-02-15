@@ -4,7 +4,6 @@ use std::{
     time::SystemTime,
 };
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -14,7 +13,7 @@ use crate::{
         self, CreatedAtOffset, CreatedAtOffsetNanos, ReadableRecordPrelude, RecordPreludeFilter,
         RecordStorageBase, WritableRecordPrelude,
     },
-    time::SystemTimeInstant,
+    time::{PointInTime, Timestamp},
     ScalarValue, Value, ValueType,
 };
 
@@ -89,15 +88,15 @@ impl<Value> WritableRecordPrelude for Record<Value> {
 }
 
 pub trait RecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(SystemTimeInstant, RecordPrelude)>;
+    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)>;
 }
 
 #[derive(Debug)]
 pub struct DefaultRecordPreludeGenerator;
 
 impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(SystemTimeInstant, RecordPrelude)> {
-        Ok((SystemTimeInstant::now(), Default::default()))
+    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)> {
+        Ok((PointInTime::now(), Default::default()))
     }
 }
 
@@ -116,7 +115,9 @@ impl StoredRecordPrelude {
     // Only used when a storage backend like CSV is enabled
     #[allow(dead_code)]
     fn restore(created_at_origin: SystemTime, prelude: RecordPrelude) -> Self {
-        let created_at = created_at_origin + prelude.created_at_offset.into();
+        let created_at = prelude
+            .created_at_offset
+            .system_time_from_origin(created_at_origin);
         Self { created_at }
     }
 }
@@ -124,7 +125,7 @@ impl StoredRecordPrelude {
 pub trait RecordStorage<RegisterValue>: RecordStorageBase {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         record: Record<RegisterValue>,
     ) -> Result<StoredRecordPrelude>;
 
@@ -252,7 +253,7 @@ impl<RegisterValue> StoredRecord<RegisterValue> {
 pub struct StorageRecord {
     created_at_offset_ns: CreatedAtOffsetNanos,
 
-    observed_at: DateTime<Utc>,
+    observed_at: Timestamp,
 
     register_values: Vec<Option<SerdeRegisterValue>>,
 }
@@ -288,7 +289,7 @@ pub enum StorageRecordDeserializeError {
     ParseCreatedAtOffset(ParseIntError),
 
     #[error(transparent)]
-    ParseObservedAt(chrono::ParseError),
+    ParseObservedAt(time::error::Parse),
 
     #[error(transparent)]
     ParseRegisterValue(anyhow::Error),

@@ -9,10 +9,12 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use clokwerk::Interval;
 use thiserror::Error;
 
-use crate::{io::file::WriteResult, time::SystemTimeInstant};
+use crate::{
+    io::file::WriteResult,
+    time::{Interval, PointInTime},
+};
 
 // TODO: Currently unused
 pub mod field;
@@ -146,8 +148,14 @@ pub struct CreatedAtOffset {
 
 impl CreatedAtOffset {
     #[must_use]
-    pub fn to_system_time(self, origin: SystemTime) -> SystemTime {
+    pub fn system_time_from_origin(self, origin: SystemTime) -> SystemTime {
         origin + Duration::from(self)
+    }
+
+    #[must_use]
+    pub const fn to_duration(self) -> Duration {
+        let Self { nanos } = self;
+        Duration::from_nanos(nanos)
     }
 }
 
@@ -177,8 +185,7 @@ impl From<Duration> for CreatedAtOffset {
 
 impl From<CreatedAtOffset> for Duration {
     fn from(from: CreatedAtOffset) -> Self {
-        let CreatedAtOffset { nanos } = from;
-        Self::from_nanos(nanos)
+        from.to_duration()
     }
 }
 
@@ -207,7 +214,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         record: R,
     ) -> Result<(WriteResult, CreatedAtOffset)>;
 }
@@ -220,7 +227,7 @@ pub trait RecordStorageRead<R>: RecordStorageBase {
 pub struct InMemoryRecordStorage<R> {
     config: StorageConfig,
     descriptor: StorageDescriptor,
-    created_at_origin: SystemTimeInstant,
+    created_at_origin: PointInTime,
     records: VecDeque<R>,
     _record_phantom: std::marker::PhantomData<R>,
 }
@@ -238,7 +245,7 @@ where
         Self {
             config,
             descriptor,
-            created_at_origin: SystemTimeInstant::now(),
+            created_at_origin: PointInTime::now(),
             records: VecDeque::with_capacity(MAX_PREALLOCATED_CAPACITY_LIMIT),
             _record_phantom: Default::default(),
         }
@@ -301,7 +308,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         mut record: R,
     ) -> Result<(WriteResult, CreatedAtOffset)> {
         debug_assert!(created_at.instant() >= self.created_at_origin.instant());

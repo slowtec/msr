@@ -13,7 +13,7 @@ use crate::{
         self, csv, CreatedAtOffset, RecordStorageBase, RecordStorageRead, RecordStorageWrite,
         StorageConfig, StorageDescriptor, StorageStatistics, MAX_PREALLOCATED_CAPACITY_LIMIT,
     },
-    time::SystemTimeInstant,
+    time::PointInTime,
 };
 
 #[allow(missing_debug_implementations)]
@@ -80,7 +80,7 @@ impl RecordStorageBase for FileRecordStorage {
 impl RecordStorageWrite<Record> for FileRecordStorage {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         record: Record,
     ) -> storage::Result<(WriteResult, CreatedAtOffset)> {
         self.inner

@@ -6,11 +6,10 @@ edition = "2021"
 version = "0.3.0"
 
 [dependencies]
-chrono = { version = "0.4", default-features = false }
-clokwerk = "0.3"
 log = "0.4"
 parking_lot = "0.12"
 thiserror = "1"
+time = { version = "0.3", features = ["local-offset", "macros"] }
 
 anyhow = { version = "1", optional = true, default-features = false }
 bs58 = { version = "0.4", optional = true, default-features = false }
@@ -25,8 +24,9 @@ loom = "0.5"
 
 [features]
 default = []
-event-journal = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "uuid/v4"]
-register-recorder = ["anyhow/std", "bs58/std", "chrono/serde", "serde/derive", "serde_json/std"]
+with-serde = ["serde", "time/serde-well-known"]
+event-journal = ["with-serde", "serde/derive", "anyhow/std", "bs58/std", "uuid/v4"]
+register-recorder = ["with-serde", "serde/derive", "anyhow/std", "bs58/std", "serde_json/std"]
 csv-storage = ["csv", "serde"]
 csv-event-journal = ["event-journal", "csv-storage"]
 csv-register-recorder = ["register-recorder", "csv-storage"]

@@ -1,3 +1,15 @@
+use std::{
+    collections::VecDeque,
+    fs::{self, File},
+    io::Result as IoResult,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
+
+use csv::{Reader as CsvReader, StringRecord as CsvStringRecord};
+use serde::{de::DeserializeOwned, Serialize};
+
 use crate::{
     io::file::{
         csv::RollingFileWriter,
@@ -13,18 +25,7 @@ use crate::{
         StorageSegmentConfig, StorageSegmentStatistics, StorageStatistics, WritableRecordPrelude,
         MAX_PREALLOCATED_CAPACITY_LIMIT,
     },
-    time::SystemTimeInstant,
-};
-use chrono::{DateTime, Utc};
-use csv::{Reader as CsvReader, StringRecord as CsvStringRecord};
-use serde::{de::DeserializeOwned, Serialize};
-use std::{
-    collections::VecDeque,
-    fs::{self, File},
-    io::Result as IoResult,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-    time::SystemTime,
+    time::{Interval, PointInTime, Timestamp},
 };
 
 fn open_readable_file(file_path: &Path) -> IoResult<File> {
@@ -63,7 +64,7 @@ pub fn create_file_reader(file_path: &Path) -> IoResult<CsvReader<File>> {
 pub struct WritingStatus {
     pub rolling_file: RollingFileStatus,
     pub writer: RollingFileWriter,
-    pub first_record_created_at: SystemTimeInstant,
+    pub first_record_created_at: PointInTime,
     pub last_record_created_at: SystemTime,
     pub flush_pending: bool,
 }
@@ -159,7 +160,7 @@ where
 {
     fn writer(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
     ) -> Result<(&mut RollingFileWriter, CreatedAtOffset)> {
         if self.writing_status.is_none() {
             // Perform housekeeping before initially
@@ -188,8 +189,8 @@ where
         {
             log::warn!(
                 "System time discontinuity between subsequent records detected: {} < {}",
-                DateTime::<Utc>::from(writing_status.last_record_created_at),
-                DateTime::<Utc>::from(writing_status.first_record_created_at.system_time()),
+                Timestamp::from(writing_status.last_record_created_at),
+                writing_status.first_record_created_at.timestamp_utc(),
             );
         }
         debug_assert!(created_at.instant() >= writing_status.first_record_created_at.instant());
@@ -231,14 +232,20 @@ where
         })
         .skip_while(move |record| {
             if let Some(since_created_at) = since_created_at {
-                created_at_origin + record.created_at_offset().into() < since_created_at
+                record
+                    .created_at_offset()
+                    .system_time_from_origin(created_at_origin)
+                    < since_created_at
             } else {
                 false
             }
         })
         .take_while(move |record| {
             if let Some(until_created_at) = until_created_at {
-                created_at_origin + record.created_at_offset().into() <= until_created_at
+                record
+                    .created_at_offset()
+                    .system_time_from_origin(created_at_origin)
+                    <= until_created_at
             } else {
                 true
             }
@@ -255,7 +262,8 @@ impl<RI, RO> RecordStorageBase for FileRecordStorage<RI, RO> {
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {
-        let created_since = SystemTime::now() - self.config.retention_time.into();
+        let created_since =
+            Interval::from(self.config.retention_time).prev_system_time(SystemTime::now());
         self.retain_all_records_created_since(created_since)
     }
 
@@ -320,7 +328,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         mut record: RI,
     ) -> Result<(WriteResult, CreatedAtOffset)> {
         let (writer, created_at_offset) = self.writer(created_at)?;
@@ -420,12 +428,20 @@ where
     while reader.read_record(record)? {
         let record = deserializer.deserialize_string_record(record)?;
         if let Some(since_created_at) = since_created_at {
-            if created_at_origin + record.created_at_offset().into() < *since_created_at {
+            if record
+                .created_at_offset()
+                .system_time_from_origin(created_at_origin)
+                < *since_created_at
+            {
                 // skip
                 continue;
             }
             if let Some(until_created_at) = until_created_at {
-                if created_at_origin + record.created_at_offset().into() > *until_created_at {
+                if record
+                    .created_at_offset()
+                    .system_time_from_origin(created_at_origin)
+                    > *until_created_at
+                {
                     // done
                     return Ok(Some(FilteredRecord::MismatchCreatedAfter));
                 }
@@ -499,7 +515,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         record: T,
     ) -> Result<(WriteResult, CreatedAtOffset)> {
         self.inner.append_record(created_at, record)

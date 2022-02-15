@@ -1,23 +1,27 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
-use clokwerk::{Interval, NextTime as _};
 use std::{
     cmp::Ordering,
     ffi::{OsStr, OsString},
     fmt, fs,
-    io::{ErrorKind as IoErrorKind, Result as IoResult},
+    io::{Cursor, ErrorKind as IoErrorKind, Result as IoResult},
     ops::{Range, RangeInclusive},
     path::PathBuf,
-    str::FromStr,
+    str::{from_utf8, FromStr},
     time::SystemTime,
 };
+
 use thiserror::Error;
+use time::{format_description::FormatItem, macros::format_description, PrimitiveDateTime};
+
+use crate::time::{Interval, Timestamp};
 
 // The full precision of nanoseconds is required to prevent that
 // the time stamp in the file name of the next file could be less
 // or equal than the time stamp of the last entry in the previous
 // file!
 // Format: YYYYMMDDThhmmss.nnnnnnnnnZ
-const TIME_STAMP_FORMAT: &str = "%Y%m%dT%H%M%S.%9fZ";
+const TIME_STAMP_FORMAT: &[FormatItem<'static>] = format_description!(
+    "[year repr:full][month repr:numerical][day]T[hour repr:24][minute][second].[subsecond digits:9]Z"
+);
 const TIME_STAMP_STRING_LEN: usize = 4 + 2 + 2 + 1 + 2 + 2 + 2 + 1 + 9 + 1;
 
 // 1 year, 1 file per day
@@ -104,8 +108,8 @@ impl RollingFileStatus {
             }
         }
         if let Some(interval) = interval {
-            let next_rollover = interval.next(&DateTime::<Utc>::from(*created_at));
-            if next_rollover <= DateTime::<Utc>::from(now) {
+            let next_rollover = interval.next_system_time(*created_at);
+            if next_rollover <= now {
                 return true;
             }
         }
@@ -134,20 +138,44 @@ impl From<FileNameTimeStamp> for SystemTime {
     }
 }
 
+impl FileNameTimeStamp {
+    #[must_use]
+    pub fn format(&self) -> String {
+        let formatted = Timestamp::from(self.0)
+            .to_utc()
+            .as_ref()
+            .format(TIME_STAMP_FORMAT)
+            .unwrap_or_default();
+        debug_assert_eq!(TIME_STAMP_STRING_LEN, formatted.len());
+        formatted
+    }
+
+    #[must_use]
+    pub fn format_into(&self, output: &mut [u8; TIME_STAMP_STRING_LEN]) -> usize {
+        let formatted_len = Timestamp::from(self.0)
+            .to_utc()
+            .as_ref()
+            .format_into(&mut Cursor::new(output.as_mut_slice()), TIME_STAMP_FORMAT)
+            .unwrap_or_default();
+        debug_assert_eq!(TIME_STAMP_STRING_LEN, formatted_len);
+        formatted_len
+    }
+}
+
 impl fmt::Display for FileNameTimeStamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let dt = DateTime::<Utc>::from(self.0);
-        write!(f, "{}", dt.format(TIME_STAMP_FORMAT))
+        let mut output = [0u8; TIME_STAMP_STRING_LEN];
+        let formatted_len = self.format_into(&mut output);
+        f.write_str(from_utf8(&output.as_slice()[..formatted_len]).unwrap_or_default())
     }
 }
 
 impl FromStr for FileNameTimeStamp {
-    type Err = chrono::ParseError;
+    type Err = time::error::Parse;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let dt =
-            DateTime::<Utc>::from_utc(NaiveDateTime::parse_from_str(s, TIME_STAMP_FORMAT)?, Utc);
-        Ok(Self(dt.into()))
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let date_time = PrimitiveDateTime::parse(input, TIME_STAMP_FORMAT)?.assume_utc();
+        Ok(Self(date_time.into()))
     }
 }
 
@@ -241,14 +269,8 @@ pub enum FileNameError {
     #[error("unrecognized file name pattern")]
     Pattern,
 
-    #[error("unrecognized date/time format")]
-    DateTime(chrono::ParseError),
-}
-
-impl From<chrono::ParseError> for FileNameError {
-    fn from(from: chrono::ParseError) -> Self {
-        Self::DateTime(from)
-    }
+    #[error(transparent)]
+    Parse(#[from] time::error::Parse),
 }
 
 #[derive(Clone, Debug)]

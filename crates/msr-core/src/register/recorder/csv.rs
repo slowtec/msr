@@ -1,7 +1,6 @@
 use std::{io, iter, num::NonZeroUsize, path::PathBuf, time::SystemTime};
 
 use ::csv::StringRecord as CsvStringRecord;
-use chrono::DateTime;
 
 use crate::{
     io::file::policy::RollingFileNameTemplate,
@@ -10,7 +9,7 @@ use crate::{
         self, csv, CreatedAtOffsetNanos, RecordPreludeFilter, RecordStorageBase, RecordStorageRead,
         RecordStorageWrite, StorageConfig, StorageDescriptor, StorageStatistics,
     },
-    time::SystemTimeInstant,
+    time::PointInTime,
     ScalarType, ToValueType, ValueType,
 };
 
@@ -39,10 +38,9 @@ impl csv::StringRecordDeserializer<StorageRecord> for StorageRecordDeserializer 
             .parse::<CreatedAtOffsetNanos>()
             .map_err(StorageRecordDeserializeError::ParseCreatedAtOffset)
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-        let observed_at = DateTime::parse_from_rfc3339(record_fields.next().unwrap())
+        let observed_at = Timestamp::parse_rfc3339(record_fields.next().unwrap())
             .map_err(StorageRecordDeserializeError::ParseObservedAt)
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?
-            .into();
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
         let mut register_values = Vec::with_capacity(self.registers.len());
         for (record_field, (register_index, register_type)) in record_fields.zip(&self.registers) {
             if record_field.is_empty() {
@@ -204,7 +202,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &SystemTimeInstant,
+        created_at: &PointInTime,
         record: Record<RegisterValue>,
     ) -> Result<StoredRecordPrelude> {
         for (register_type, register_value) in self

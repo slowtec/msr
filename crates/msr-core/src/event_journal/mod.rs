@@ -2,7 +2,6 @@
 
 use std::{fmt, num::NonZeroUsize, time::SystemTime};
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
@@ -12,7 +11,7 @@ use crate::{
         self, CreatedAtOffset, CreatedAtOffsetNanos, ReadableRecordPrelude, RecordPreludeFilter,
         RecordStorageBase, RecordStorageWrite, WritableRecordPrelude,
     },
-    time::SystemTimeInstant,
+    time::{PointInTime, Timestamp},
 };
 
 #[cfg(feature = "csv-event-journal")]
@@ -270,17 +269,17 @@ pub struct RecordFilter {
 }
 
 pub trait RecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(SystemTimeInstant, RecordPrelude)>;
+    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)>;
 }
 
 #[derive(Debug)]
 pub struct DefaultRecordPreludeGenerator;
 
 impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(SystemTimeInstant, RecordPrelude)> {
+    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)> {
         let id = RecordId::from(bs58::encode(Uuid::new_v4().as_bytes()).into_string());
         Ok((
-            SystemTimeInstant::now(),
+            PointInTime::now(),
             RecordPrelude {
                 id,
                 created_at_offset: Default::default(),
@@ -305,7 +304,7 @@ pub trait RecordStorage: RecordStorageBase + RecordStorageWrite<Record> {
 struct StorageRecord {
     created_at_offset_ns: CreatedAtOffsetNanos,
 
-    occurred_at: DateTime<Utc>,
+    occurred_at: Timestamp,
 
     severity: SeverityValue,
 
@@ -352,7 +351,7 @@ impl From<Record> for StorageRecord {
         } = from;
         Self {
             created_at_offset_ns: created_at_offset.into(),
-            occurred_at: DateTime::from(occurred_at),
+            occurred_at: Timestamp::from(occurred_at),
             severity: SeverityValue::from(severity),
             scope: scope.0,
             code: code.0,
@@ -393,7 +392,8 @@ impl StoredRecord {
             text,
             json,
         } = record;
-        let created_at = created_at_origin + CreatedAtOffset::from(created_at_offset_ns).into();
+        let created_at_offset = CreatedAtOffset::from(created_at_offset_ns);
+        let created_at = created_at_offset.system_time_from_origin(created_at_origin);
         let prelude = StoredRecordPrelude {
             id: id.into(),
             created_at,

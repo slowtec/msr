@@ -3,8 +3,6 @@ use std::{
     time::Duration,
 };
 
-use chrono::{Datelike, TimeZone, Timelike};
-
 use super::*;
 
 fn verify_file_path(
@@ -32,12 +30,12 @@ fn verify_file_path(
     assert!(actual_file_path_str.starts_with(base_path_str));
     assert!(actual_file_path_str.contains(MAIN_SEPARATOR));
     assert!(actual_file_path_str.contains(file_name_prefix));
-    let created_at = DateTime::<Utc>::from(SystemTime::from(created_at));
+    let created_at = Timestamp::from(SystemTime::from(created_at));
     let expected_file_name =format!(
             "{prefix}{year:04}{month:02}{day:02}T{hour:02}{minute:02}{second:02}.{nanosecond:09}Z{suffix}",
             prefix = file_name_prefix,
             year = created_at.year(),
-            month = created_at.month(),
+            month = created_at.month() as u8,
             day = created_at.day(),
             hour = created_at.hour(),
             minute = created_at.minute(),
@@ -72,7 +70,8 @@ fn format_file_name_from_config() {
         },
     };
 
-    let created_at = SystemTime::from(Utc.ymd(1978, 1, 2).and_hms_nano(23, 4, 5, 12345678)).into();
+    let created_at =
+        SystemTime::from(Timestamp::parse_rfc3339("1978-01-02T23:04:05.12345678Z").unwrap()).into();
     let file_path = cfg.new_file_path(created_at);
     verify_file_path(&file_path, &cfg, created_at);
 
