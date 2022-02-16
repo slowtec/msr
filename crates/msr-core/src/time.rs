@@ -2,7 +2,7 @@
 
 use std::{
     fmt,
-    ops::{Add, AddAssign, Deref, DerefMut},
+    ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign},
     time::{Duration, Instant, SystemTime},
 };
 
@@ -222,6 +222,9 @@ impl<'de> serde::Deserialize<'de> for Timestamp {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interval {
+    Nanos(u32),
+    Micros(u32),
+    Millis(u32),
     Seconds(u32),
     Minutes(u32),
     Hours(u32),
@@ -230,32 +233,54 @@ pub enum Interval {
 }
 
 impl Interval {
-    fn as_secs(self) -> u64 {
+    fn as_duration(self) -> Duration {
         match self {
-            Self::Seconds(secs) => u64::from(secs),
-            Self::Minutes(mins) => u64::from(mins) * 60,
-            Self::Hours(hrs) => u64::from(hrs) * 60 * 60,
-            Self::Days(days) => u64::from(days) * 60 * 60 * 24,
-            Self::Weeks(weeks) => u64::from(weeks) * 60 * 60 * 24 * 7,
+            Self::Nanos(nanos) => Duration::from_nanos(u64::from(nanos)),
+            Self::Micros(micros) => Duration::from_micros(u64::from(micros)),
+            Self::Millis(millis) => Duration::from_millis(u64::from(millis)),
+            Self::Seconds(secs) => Duration::from_secs(u64::from(secs)),
+            Self::Minutes(mins) => Duration::from_secs(u64::from(mins) * 60),
+            Self::Hours(hrs) => Duration::from_secs(u64::from(hrs) * 60 * 60),
+            Self::Days(days) => Duration::from_secs(u64::from(days) * 60 * 60 * 24),
+            Self::Weeks(weeks) => Duration::from_secs(u64::from(weeks) * 60 * 60 * 24 * 7),
         }
     }
 
-    fn as_duration(self) -> Duration {
-        Duration::from_secs(self.as_secs())
-    }
-
     #[must_use]
-    pub fn prev_system_time(&self, system_time: SystemTime) -> SystemTime {
+    pub fn system_time_before(&self, system_time: SystemTime) -> SystemTime {
         system_time - self.as_duration()
     }
 
     #[must_use]
-    pub fn next_system_time(&self, system_time: SystemTime) -> SystemTime {
+    pub fn system_time_after(&self, system_time: SystemTime) -> SystemTime {
         system_time + self.as_duration()
     }
+}
 
-    #[must_use]
-    pub fn next_timestamp(&self, previous: Timestamp) -> Timestamp {
-        (previous.to_inner() + self.as_duration()).into()
+impl Add<Interval> for Timestamp {
+    type Output = Timestamp;
+
+    fn add(self, interval: Interval) -> Self::Output {
+        (self.to_inner() + interval.as_duration()).into()
+    }
+}
+
+impl AddAssign<Interval> for Timestamp {
+    fn add_assign(&mut self, interval: Interval) {
+        *self = *self + interval;
+    }
+}
+
+impl Sub<Interval> for Timestamp {
+    type Output = Timestamp;
+
+    fn sub(self, interval: Interval) -> Self::Output {
+        (self.to_inner() - interval.as_duration()).into()
+    }
+}
+
+impl SubAssign<Interval> for Timestamp {
+    fn sub_assign(&mut self, interval: Interval) {
+        *self = *self - interval;
     }
 }

@@ -263,7 +263,7 @@ impl<RI, RO> RecordStorageBase for FileRecordStorage<RI, RO> {
 
     fn perform_housekeeping(&mut self) -> Result<()> {
         let created_since =
-            Interval::from(self.config.retention_time).prev_system_time(SystemTime::now());
+            Interval::from(self.config.retention_time).system_time_before(SystemTime::now());
         self.retain_all_records_created_since(created_since)
     }
 

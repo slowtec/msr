@@ -108,7 +108,7 @@ impl RollingFileStatus {
             }
         }
         if let Some(interval) = interval {
-            let next_rollover = interval.next_system_time(*created_at);
+            let next_rollover = interval.system_time_after(*created_at);
             if next_rollover <= now {
                 return true;
             }
