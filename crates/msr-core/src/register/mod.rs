@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{time::PointInTime, Measurement};
+use crate::{time::SystemInstant, Measurement};
 
 #[cfg(feature = "register-recorder")]
 pub mod recorder;
@@ -56,7 +56,7 @@ pub struct IndexedMeasurement<Value> {
 /// An observation of a single register value
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ObservedValue<Value> {
-    pub observed_at: PointInTime,
+    pub observed_at: SystemInstant,
     pub value: Value,
 }
 
@@ -67,6 +67,6 @@ pub struct ObservedValue<Value> {
 /// outer context.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ObservedValues<Value> {
-    pub observed_at: PointInTime,
+    pub observed_at: SystemInstant,
     pub values: Vec<Option<Value>>,
 }

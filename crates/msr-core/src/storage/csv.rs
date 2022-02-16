@@ -25,7 +25,7 @@ use crate::{
         StorageSegmentConfig, StorageSegmentStatistics, StorageStatistics, WritableRecordPrelude,
         MAX_PREALLOCATED_CAPACITY_LIMIT,
     },
-    time::{Interval, PointInTime, Timestamp},
+    time::{Interval, SystemInstant, Timestamp},
 };
 
 fn open_readable_file(file_path: &Path) -> IoResult<File> {
@@ -64,7 +64,7 @@ pub fn create_file_reader(file_path: &Path) -> IoResult<CsvReader<File>> {
 pub struct WritingStatus {
     pub rolling_file: RollingFileStatus,
     pub writer: RollingFileWriter,
-    pub first_record_created_at: PointInTime,
+    pub first_record_created_at: SystemInstant,
     pub last_record_created_at: SystemTime,
     pub flush_pending: bool,
 }
@@ -160,7 +160,7 @@ where
 {
     fn writer(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
     ) -> Result<(&mut RollingFileWriter, CreatedAtOffset)> {
         if self.writing_status.is_none() {
             // Perform housekeeping before initially
@@ -328,7 +328,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
         mut record: RI,
     ) -> Result<(WriteResult, CreatedAtOffset)> {
         let (writer, created_at_offset) = self.writer(created_at)?;
@@ -515,7 +515,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
         record: T,
     ) -> Result<(WriteResult, CreatedAtOffset)> {
         self.inner.append_record(created_at, record)

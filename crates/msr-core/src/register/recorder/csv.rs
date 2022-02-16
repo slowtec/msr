@@ -9,7 +9,7 @@ use crate::{
         self, csv, CreatedAtOffsetNanos, RecordPreludeFilter, RecordStorageBase, RecordStorageRead,
         RecordStorageWrite, StorageConfig, StorageDescriptor, StorageStatistics,
     },
-    time::PointInTime,
+    time::SystemInstant,
     ScalarType, ToValueType, ValueType,
 };
 
@@ -202,7 +202,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
         record: Record<RegisterValue>,
     ) -> Result<StoredRecordPrelude> {
         for (register_type, register_value) in self

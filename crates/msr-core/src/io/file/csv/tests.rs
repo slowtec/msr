@@ -29,7 +29,7 @@ fn write_records_with_max_bytes_written_limit() {
     assert_eq!(
         (Ok(()), None),
         writer
-            .write_record(&PointInTime::now(), 0, &["hello", "1.0"])
+            .write_record(&SystemInstant::now(), 0, &["hello", "1.0"])
             .unwrap()
     );
     // Flushing is required to clear the internal buffers and
@@ -41,7 +41,7 @@ fn write_records_with_max_bytes_written_limit() {
     let delta_t = Duration::from_secs(1);
     let (record_written, closed_file_info) = writer
         .write_record(
-            &(PointInTime::now() + delta_t),
+            &(SystemInstant::now() + delta_t),
             delta_t.as_nanos() as u64,
             &["world", "-1.0"],
         )
@@ -78,7 +78,7 @@ fn write_records_with_max_records_written_limits() {
     assert_eq!(
         (Ok(()), None),
         writer
-            .write_record(&PointInTime::now(), 0, &["hello", "1.0"])
+            .write_record(&SystemInstant::now(), 0, &["hello", "1.0"])
             .unwrap()
     );
     // Flushing is required to clear the internal buffers and
@@ -89,7 +89,7 @@ fn write_records_with_max_records_written_limits() {
     let delta_t = Duration::from_secs(1);
     let (record_written, closed_file_info) = writer
         .write_record(
-            &(PointInTime::now() + delta_t),
+            &(SystemInstant::now() + delta_t),
             delta_t.as_nanos() as u64,
             &["world", "-1.0"],
         )

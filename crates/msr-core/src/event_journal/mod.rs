@@ -11,7 +11,7 @@ use crate::{
         self, CreatedAtOffset, CreatedAtOffsetNanos, ReadableRecordPrelude, RecordPreludeFilter,
         RecordStorageBase, RecordStorageWrite, WritableRecordPrelude,
     },
-    time::{PointInTime, Timestamp},
+    time::{SystemInstant, Timestamp},
 };
 
 #[cfg(feature = "csv-event-journal")]
@@ -269,17 +269,17 @@ pub struct RecordFilter {
 }
 
 pub trait RecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)>;
+    fn generate_prelude(&self) -> Result<(SystemInstant, RecordPrelude)>;
 }
 
 #[derive(Debug)]
 pub struct DefaultRecordPreludeGenerator;
 
 impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)> {
+    fn generate_prelude(&self) -> Result<(SystemInstant, RecordPrelude)> {
         let id = RecordId::from(bs58::encode(Uuid::new_v4().as_bytes()).into_string());
         Ok((
-            PointInTime::now(),
+            SystemInstant::now(),
             RecordPrelude {
                 id,
                 created_at_offset: Default::default(),

@@ -13,7 +13,7 @@ use thiserror::Error;
 
 use crate::{
     io::file::WriteResult,
-    time::{Interval, PointInTime},
+    time::{Interval, SystemInstant},
 };
 
 // TODO: Currently unused
@@ -214,7 +214,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
         record: R,
     ) -> Result<(WriteResult, CreatedAtOffset)>;
 }
@@ -227,7 +227,7 @@ pub trait RecordStorageRead<R>: RecordStorageBase {
 pub struct InMemoryRecordStorage<R> {
     config: StorageConfig,
     descriptor: StorageDescriptor,
-    created_at_origin: PointInTime,
+    created_at_origin: SystemInstant,
     records: VecDeque<R>,
     _record_phantom: std::marker::PhantomData<R>,
 }
@@ -245,7 +245,7 @@ where
         Self {
             config,
             descriptor,
-            created_at_origin: PointInTime::now(),
+            created_at_origin: SystemInstant::now(),
             records: VecDeque::with_capacity(MAX_PREALLOCATED_CAPACITY_LIMIT),
             _record_phantom: Default::default(),
         }
@@ -308,7 +308,7 @@ where
 {
     fn append_record(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
         mut record: R,
     ) -> Result<(WriteResult, CreatedAtOffset)> {
         debug_assert!(created_at.instant() >= self.created_at_origin.instant());

@@ -13,7 +13,7 @@ use crate::{
         self, CreatedAtOffset, CreatedAtOffsetNanos, ReadableRecordPrelude, RecordPreludeFilter,
         RecordStorageBase, WritableRecordPrelude,
     },
-    time::{PointInTime, Timestamp},
+    time::{SystemInstant, Timestamp},
     ScalarValue, Value, ValueType,
 };
 
@@ -88,15 +88,15 @@ impl<Value> WritableRecordPrelude for Record<Value> {
 }
 
 pub trait RecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)>;
+    fn generate_prelude(&self) -> Result<(SystemInstant, RecordPrelude)>;
 }
 
 #[derive(Debug)]
 pub struct DefaultRecordPreludeGenerator;
 
 impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
-    fn generate_prelude(&self) -> Result<(PointInTime, RecordPrelude)> {
-        Ok((PointInTime::now(), Default::default()))
+    fn generate_prelude(&self) -> Result<(SystemInstant, RecordPrelude)> {
+        Ok((SystemInstant::now(), Default::default()))
     }
 }
 
@@ -125,7 +125,7 @@ impl StoredRecordPrelude {
 pub trait RecordStorage<RegisterValue>: RecordStorageBase {
     fn append_record(
         &mut self,
-        created_at: &PointInTime,
+        created_at: &SystemInstant,
         record: Record<RegisterValue>,
     ) -> Result<StoredRecordPrelude>;
 

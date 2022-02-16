@@ -15,12 +15,12 @@ use time::{
 /// This should only be used for anchoring values of Instant
 /// for conversion into system time.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PointInTime {
+pub struct SystemInstant {
     system_time: SystemTime,
     instant: Instant,
 }
 
-impl PointInTime {
+impl SystemInstant {
     #[must_use]
     pub const fn new(system_time: SystemTime, instant: Instant) -> Self {
         Self {
@@ -76,7 +76,7 @@ impl PointInTime {
     }
 }
 
-impl Add<Duration> for PointInTime {
+impl Add<Duration> for SystemInstant {
     type Output = Self;
 
     fn add(self, rhs: Duration) -> Self {
@@ -88,7 +88,7 @@ impl Add<Duration> for PointInTime {
     }
 }
 
-impl AddAssign<Duration> for PointInTime {
+impl AddAssign<Duration> for SystemInstant {
     fn add_assign(&mut self, rhs: Duration) {
         let Self {
             mut system_time,
