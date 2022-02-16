@@ -1,17 +1,17 @@
 [package]
 name = "csv-event-journal-msr-plugin"
-version = "0.0.0"
+version = "0.3.0"
 description = "Industrial Automation Toolbox - CSV Event Journal Plugin"
 authors = ["slowtec GmbH <post@slowtec.de>"]
 edition = "2021"
 publish = false
 
 [dependencies]
-anyhow = "1"
-log = "0.4"
-thiserror = "1"
-tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync"] }
+anyhow = "1.0.53"
+log = "0.4.14"
+thiserror = "1.0.30"
+tokio = { version = "1.16.1", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
-msr-core = { version = "*", default-features = false, features = ["csv-event-journal"] }
-msr-plugin = "*"
+msr-core = { version = "0.3.0", default-features = false, features = ["csv-event-journal"] }
+msr-plugin = "0.3.0"

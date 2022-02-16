@@ -6,21 +6,21 @@ edition = "2021"
 version = "0.3.0"
 
 [dependencies]
-log = "0.4"
-parking_lot = "0.12"
-thiserror = "1"
-time = { version = "0.3", features = ["local-offset", "macros"] }
+log = "0.4.14"
+parking_lot = "0.12.0"
+thiserror = "1.0.30"
+time = { version = "0.3.7", features = ["local-offset", "macros"] }
 
-anyhow = { version = "1", optional = true, default-features = false }
-bs58 = { version = "0.4", optional = true, default-features = false }
-csv = { version = "1", optional = true, default-features = false }
-serde = { version = "1", optional = true, default-features = false }
-serde_json = { version = "1", optional = true, default-features = false }
-thread-priority = { version = "0.7", optional = true, default-features = false }
-uuid = { version = "0.8", optional = true, default-features = false }
+anyhow = { version = "1.0.53", optional = true, default-features = false }
+bs58 = { version = "0.4.0", optional = true, default-features = false }
+csv = { version = "1.1.6", optional = true, default-features = false }
+serde = { version = "1.0.136", optional = true, default-features = false }
+serde_json = { version = "1.0.79", optional = true, default-features = false }
+thread-priority = { version = "0.7.0", optional = true, default-features = false }
+uuid = { version = "0.8.2", optional = true, default-features = false }
 
 [target.'cfg(loom)'.dependencies]
-loom = "0.5"
+loom = "0.5.4"
 
 [features]
 default = []
@@ -33,5 +33,5 @@ csv-register-recorder = ["register-recorder", "csv-storage"]
 realtime-worker-thread = ["anyhow/std", "thread-priority"]
 
 [dev-dependencies]
-tempfile = "3"
-msr-core = { version = "*", features = ["realtime-worker-thread", "csv-event-journal", "csv-register-recorder"] }
+tempfile = "3.3.0"
+msr-core = { version = "0.3.0", features = ["realtime-worker-thread", "csv-event-journal", "csv-register-recorder"] }

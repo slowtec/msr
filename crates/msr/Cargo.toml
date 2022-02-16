@@ -11,16 +11,16 @@ version = "0.3.0"
 
 [dependencies]
 # Workspace
-msr-core = "*"
-msr-plugin = { version = "*", optional = true }
+msr-core = "0.3.0"
+msr-plugin = { version = "0.3.0", optional = true }
 
 [features]
 default = []
 plugin = ["msr-plugin"]
 
 [dev-dependencies]
-msr = { version = "*", features = ["plugin"] }
-anyhow = "1"
-env_logger = "0.9"
-log = "0.4"
-tokio = { version = "1", features = ["full"] }
+msr = { version = "0.3.0", features = ["plugin"] }
+anyhow = "1.0.53"
+env_logger = "0.9.0"
+log = "0.4.14"
+tokio = { version = "1.16.1", features = ["full"] }

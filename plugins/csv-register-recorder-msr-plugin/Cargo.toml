@@ -1,18 +1,18 @@
 [package]
 name = "csv-register-recorder-msr-plugin"
-version = "0.0.0"
+version = "0.3.0"
 description = "slowtec Industrial Automation Runtime - CSV Register Recorder Plugin"
 authors = ["slowtec GmbH <post@slowtec.de>"]
 edition = "2021"
 publish = false
 
 [dependencies]
-anyhow = "1"
-bs58 = { version = "0.4", default-features = false }
-log = "0.4"
-thiserror = "1"
-tokio = { version = "1", default-features = false, features = ["rt-multi-thread"] }
+anyhow = "1.0.53"
+bs58 = { version = "0.4.0", default-features = false }
+log = "0.4.14"
+thiserror = "1.0.30"
+tokio = { version = "1.16.1", default-features = false, features = ["rt-multi-thread"] }
 
 # Workspace dependencies
-msr-core = { version = "*", default-features = false, features = ["csv-register-recorder"] }
-msr-plugin = "*"
+msr-core = { version = "0.3.0", default-features = false, features = ["csv-register-recorder"] }
+msr-plugin = "0.3.0"

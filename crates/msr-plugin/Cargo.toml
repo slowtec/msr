@@ -6,10 +6,9 @@ edition = "2021"
 version = "0.3.0"
 
 [dependencies]
-# Workspace
-msr-core = "*"
+log = "0.4.14"
+thiserror = "1.0.30"
+tokio = { version = "1.16.1", default-features = false, features = ["sync"] }
 
-# Other
-log = "0.4"
-thiserror = "1"
-tokio = { version = "1", default-features = false, features = ["sync"] }
+# Workspace dependencies
+msr-core = "0.3.0"
