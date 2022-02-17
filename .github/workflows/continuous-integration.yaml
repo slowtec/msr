@@ -53,17 +53,17 @@ jobs:
           command: check
           args: --locked --manifest-path crates/msr-legacy/Cargo.toml
 
-      - name: Check plugins/csv-event-journal-msr-plugin
+      - name: Check plugins/msr-plugin-csv-event-journal
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --manifest-path plugins/csv-event-journal-msr-plugin/Cargo.toml
+          args: --locked --manifest-path plugins/msr-plugin-csv-event-journal/Cargo.toml
 
-      - name: Check plugins/csv-register-recorder-msr-plugin
+      - name: Check plugins/msr-plugin-csv-register-recorder
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --manifest-path plugins/csv-register-recorder-msr-plugin/Cargo.toml
+          args: --locked --manifest-path plugins/msr-plugin-csv-register-recorder/Cargo.toml
 
       - name: Build tests with all features enabled
         uses: actions-rs/cargo@v1

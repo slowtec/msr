@@ -1,6 +1,6 @@
 [package]
 version = "0.3.0"
-name = "csv-register-recorder-msr-plugin"
+name = "msr-plugin-csv-register-recorder"
 description = "slowtec Industrial Automation Runtime - CSV Register Recorder Plugin"
 homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"

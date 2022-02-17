@@ -9,5 +9,5 @@ msr = { path = "crates/msr" }
 msr-core = { path = "crates/msr-core" }
 msr-legacy = { path = "crates/msr-legacy" }
 msr-plugin = { path = "crates/msr-plugin" }
-csv-event-journal-msr-plugin = { path = "plugins/csv-event-journal-msr-plugin" }
-csv-register-recorder-msr-plugin = { path = "plugins/csv-register-recorder-msr-plugin" }
+msr-plugin-csv-event-journal = { path = "plugins/csv-event-journal" }
+msr-plugin-csv-register-recorder = { path = "plugins/csv-register-recorder" }

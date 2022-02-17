@@ -1,6 +1,6 @@
 [package]
 version = "0.3.0"
-name = "csv-event-journal-msr-plugin"
+name = "msr-plugin-csv-event-journal"
 description = "Industrial Automation Toolbox - CSV Event Journal Plugin"
 homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"
