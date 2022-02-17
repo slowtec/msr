@@ -49,7 +49,7 @@ enum CyclicWorkerTiming {
 // on GitHub CI where real-time thread scheduling is not supported.
 const fn max_expected_jitter(timing: CyclicWorkerTiming) -> Duration {
     match timing {
-        CyclicWorkerTiming::Sleeping => Duration::from_millis(1),
+        CyclicWorkerTiming::Sleeping => Duration::from_millis(2),
         CyclicWorkerTiming::Waiting => Duration::from_millis(5),
     }
 }
