@@ -77,7 +77,7 @@ impl ThreadSchedulingScope {
         let saved_priority =
             thread_priority::unix::get_thread_priority(native_id).map_err(|err| {
                 anyhow::anyhow!(
-                    "Failed to save the priority of thread {:?} ({}): {:?}",
+                    "Failed to save the priority of thread {:?} ({:?}): {:?}",
                     thread_id,
                     native_id,
                     err,
@@ -86,7 +86,7 @@ impl ThreadSchedulingScope {
         let adjusted_priority = ThreadPriority::Max;
         if adjusted_priority != saved_priority {
             log::debug!(
-                "Adjusting priority of thread {:?} ({}): {:?} -> {:?}",
+                "Adjusting priority of thread {:?} ({:?}): {:?} -> {:?}",
                 thread_id,
                 native_id,
                 saved_priority,
@@ -99,7 +99,7 @@ impl ThreadSchedulingScope {
         );
         if adjusted_policy != saved_policy {
             log::debug!(
-                "Adjusting scheduling policy of thread {:?} ({}): {:?} -> {:?}",
+                "Adjusting scheduling policy of thread {:?} ({:?}): {:?} -> {:?}",
                 thread_id,
                 native_id,
                 saved_policy,
@@ -112,7 +112,7 @@ impl ThreadSchedulingScope {
             adjusted_policy,
         ) {
             log::warn!(
-                "Failed to adjust priority and scheduling policy of thread {:?} ({}): {:?}",
+                "Failed to adjust priority and scheduling policy of thread {:?} ({:?}): {:?}",
                 thread_id,
                 native_id,
                 err
@@ -120,7 +120,7 @@ impl ThreadSchedulingScope {
             // Fallback: Only try to adjust the priority
             thread_priority::set_current_thread_priority(adjusted_priority).map_err(|err| {
                 anyhow::anyhow!(
-                    "Failed to adjust priority of thread {:?} ({}): {:?}",
+                    "Failed to adjust priority of thread {:?} ({:?}): {:?}",
                     thread_id,
                     native_id,
                     err
@@ -141,7 +141,7 @@ impl ThreadSchedulingScope {
         let thread_id = thread::current().id();
         let saved_priority = thread_priority::unix::thread_priority().map_err(|err| {
             anyhow::anyhow!(
-                "Failed to save the priority of thread {:?} ({}): {:?}",
+                "Failed to save the priority of thread {:?} ({:?}): {:?}",
                 thread_id,
                 native_id,
                 err,
@@ -150,7 +150,7 @@ impl ThreadSchedulingScope {
         let adjusted_priority = ThreadPriority::Max;
         if adjusted_priority != saved_priority {
             log::debug!(
-                "Adjusting priority of thread {:?} ({}): {:?} -> {:?}",
+                "Adjusting priority of thread {:?} ({:?}): {:?} -> {:?}",
                 thread_id,
                 native_id,
                 saved_priority,
@@ -159,7 +159,7 @@ impl ThreadSchedulingScope {
         }
         thread_priority::set_current_thread_priority(adjusted_priority).map_err(|err| {
             anyhow::anyhow!(
-                "Failed to adjust priority of thread {:?} ({}): {:?}",
+                "Failed to adjust priority of thread {:?} ({:?}): {:?}",
                 thread_id,
                 native_id,
                 err
@@ -177,7 +177,7 @@ impl ThreadSchedulingScope {
         let thread_id = thread::current().id();
         let saved_priority = thread_priority::unix::thread_priority().map_err(|err| {
             anyhow::anyhow!(
-                "Failed to save the priority of thread {:?} ({}): {:?}",
+                "Failed to save the priority of thread {:?} ({:?}): {:?}",
                 thread_id,
                 native_id,
                 err,
@@ -186,7 +186,7 @@ impl ThreadSchedulingScope {
         let adjusted_priority = ThreadPriority::Max;
         if adjusted_priority != saved_priority {
             log::debug!(
-                "Adjusting priority of thread {:?} ({}): {:?} -> {:?}",
+                "Adjusting priority of thread {:?} ({:?}): {:?} -> {:?}",
                 thread_id,
                 native_id,
                 saved_priority,
@@ -195,7 +195,7 @@ impl ThreadSchedulingScope {
         }
         thread_priority::set_current_thread_priority(adjusted_priority).map_err(|err| {
             anyhow::anyhow!(
-                "Failed to adjust priority of thread {:?} ({}): {:?}",
+                "Failed to adjust priority of thread {:?} ({:?}): {:?}",
                 thread_id,
                 native_id,
                 err
@@ -225,7 +225,7 @@ impl Drop for ThreadSchedulingScope {
             self.saved_policy,
         ) {
             log::error!(
-                "Failed to restore priority and scheduling policy of thread {:?} ({}): {:?}",
+                "Failed to restore priority and scheduling policy of thread {:?} ({:?}): {:?}",
                 thread::current().id(),
                 self.native_id,
                 err
@@ -239,7 +239,7 @@ impl Drop for ThreadSchedulingScope {
         assert_eq!(self.native_id, thread_priority::thread_native_id());
         if let Err(err) = thread_priority::set_current_thread_priority(self.saved_priority) {
             log::error!(
-                "Failed to restore priority of thread {:?} ({}): {:?}",
+                "Failed to restore priority of thread {:?} ({:?}): {:?}",
                 thread::current().id(),
                 self.native_id,
                 err
