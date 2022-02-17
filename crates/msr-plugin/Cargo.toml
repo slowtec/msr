@@ -1,14 +1,16 @@
 [package]
+version = "0.3.0"
 name = "msr-plugin"
-description = "Industrial Automation Toolbox - Plugin Foundation"
+description = "Industrial Automation Toolbox - Plugin foundation"
+homepage = "https://github.com/slowtec/msr"
+repository = "https://github.com/slowtec/msr"
 license = "MIT/Apache-2.0"
 edition = "2021"
-version = "0.3.0"
 
 [dependencies]
 log = "0.4.14"
 thiserror = "1.0.30"
-tokio = { version = "1.16.1", default-features = false, features = ["sync"] }
+tokio = { version = "1.17.0", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
 msr-core = "0.3.0"

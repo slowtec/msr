@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{time::SystemInstant, Measurement};
 
-#[cfg(feature = "register-recorder")]
+#[cfg(feature = "with-register-recorder")]
 pub mod recorder;
 
 /// Address of a register

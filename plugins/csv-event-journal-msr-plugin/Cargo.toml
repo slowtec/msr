@@ -1,17 +1,18 @@
 [package]
-name = "csv-event-journal-msr-plugin"
 version = "0.3.0"
+name = "csv-event-journal-msr-plugin"
 description = "Industrial Automation Toolbox - CSV Event Journal Plugin"
-authors = ["slowtec GmbH <post@slowtec.de>"]
+homepage = "https://github.com/slowtec/msr"
+repository = "https://github.com/slowtec/msr"
+license = "MIT/Apache-2.0"
 edition = "2021"
-publish = false
 
 [dependencies]
 anyhow = "1.0.53"
 log = "0.4.14"
 thiserror = "1.0.30"
-tokio = { version = "1.16.1", default-features = false, features = ["rt-multi-thread", "sync"] }
+tokio = { version = "1.17.0", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
-msr-core = { version = "0.3.0", default-features = false, features = ["csv-event-journal"] }
+msr-core = { version = "0.3.0", features = ["with-csv-event-journal"] }
 msr-plugin = "0.3.0"

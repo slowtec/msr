@@ -9,6 +9,10 @@ A [Rust](https://www.rust-lang.org) library for industrial automation.
 [![Apache 2.0 licensed](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE-APACHE)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE-MIT)
 
+## DISCLAIMER
+
+**_Version 0.3.x is an experimental release for early prototyping. Breaking changes might occur even between minor releases._**
+
 ## Installation
 
 Add this to your `Cargo.toml`:
@@ -21,7 +25,7 @@ msr = "0.3"
 ## Development
 
 For executing common development tasks install [cargo just](https://github.com/casey/just)
-and run it without arguments to print the list of predefined *recipes*:
+and run it without arguments to print the list of predefined _recipes_:
 
 ```shell
 cargo install just

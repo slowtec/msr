@@ -1,15 +1,17 @@
 [package]
+version = "0.3.0"
 name = "msr-core"
-description = "Industrial Automation Toolbox - Core Components"
+description = "Industrial Automation Toolbox - Common core components"
+homepage = "https://github.com/slowtec/msr"
+repository = "https://github.com/slowtec/msr"
 license = "MIT/Apache-2.0"
 edition = "2021"
-version = "0.3.0"
 
 [dependencies]
 log = "0.4.14"
 parking_lot = "0.12.0"
 thiserror = "1.0.30"
-time = { version = "0.3.7", features = ["local-offset", "macros"] }
+time = { version = "0.3.7", features = ["local-offset", "macros", "formatting", "parsing"] }
 
 anyhow = { version = "1.0.53", optional = true, default-features = false }
 bs58 = { version = "0.4.0", optional = true, default-features = false }
@@ -24,14 +26,16 @@ loom = "0.5.4"
 
 [features]
 default = []
+full = ["with-csv-event-journal", "with-csv-register-recorder", "with-realtime-worker-thread"]
 with-serde = ["serde", "time/serde-well-known"]
-event-journal = ["with-serde", "serde/derive", "anyhow/std", "bs58/std", "uuid/v4"]
-register-recorder = ["with-serde", "serde/derive", "anyhow/std", "bs58/std", "serde_json/std"]
-csv-storage = ["csv", "serde"]
-csv-event-journal = ["event-journal", "csv-storage"]
-csv-register-recorder = ["register-recorder", "csv-storage"]
-realtime-worker-thread = ["anyhow/std", "thread-priority"]
+with-event-journal = ["with-serde", "serde/derive", "anyhow/std", "bs58/std", "uuid/v4"]
+with-register-recorder = ["with-serde", "serde/derive", "anyhow/std", "bs58/std"]
+with-csv-storage = ["with-serde", "csv"]
+with-csv-event-journal = ["with-event-journal", "with-csv-storage"]
+with-csv-register-recorder = ["with-register-recorder", "with-csv-storage"]
+with-realtime-worker-thread = ["anyhow/std", "thread-priority"]
 
 [dev-dependencies]
+serde_json = "1.0.79"
 tempfile = "3.3.0"
-msr-core = { version = "0.3.0", features = ["realtime-worker-thread", "csv-event-journal", "csv-register-recorder"] }
+msr-core = { path = ".", features = ["full"] }

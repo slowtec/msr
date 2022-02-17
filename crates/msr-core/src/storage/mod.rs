@@ -19,13 +19,13 @@ use crate::{
 // TODO: Currently unused
 pub mod field;
 
-#[cfg(feature = "csv-storage")]
+#[cfg(feature = "with-csv-storage")]
 pub mod csv;
 
-#[cfg(feature = "csv-storage")]
+#[cfg(feature = "with-csv-storage")]
 use ::csv::Error as CsvError;
 
-#[cfg(feature = "csv-storage")]
+#[cfg(feature = "with-csv-storage")]
 use crate::io::file::csv::Error as CsvFileError;
 
 #[derive(Error, Debug)]
@@ -33,12 +33,12 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] IoError),
 
-    #[cfg(feature = "csv-storage")]
+    #[cfg(feature = "with-csv-storage")]
     #[error(transparent)]
     Csv(#[from] CsvError),
 }
 
-#[cfg(feature = "csv-storage")]
+#[cfg(feature = "with-csv-storage")]
 impl From<CsvFileError> for Error {
     fn from(err: CsvFileError) -> Self {
         use CsvFileError::*;

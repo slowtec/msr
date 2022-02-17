@@ -1,8 +1,5 @@
 # just manual: https://github.com/casey/just/#readme
 
-# Ignore the .env file that is only used by the web service
-set dotenv-load := false
-
 _default:
     @just --list
 
@@ -10,7 +7,7 @@ _default:
 fmt:
     cargo fmt --all
 
-# Run clippy
+# Run clippy for various feature combinations: default, no default, all
 check:
     cargo clippy --locked --workspace --bins --examples --tests -- -D warnings
     cargo clippy --locked --workspace --no-default-features --bins --examples --tests -- -D warnings
@@ -21,7 +18,7 @@ fix:
     cargo fix --workspace --all-features --bins --examples --tests
     cargo clippy --workspace --all-features --bins --examples --tests --fix
 
-# Run unit tests
+# Run unit tests for various feature combinations: default, no default, all
 test:
     cargo test --locked --workspace -- --nocapture
     cargo test --locked --workspace --no-default-features -- --nocapture

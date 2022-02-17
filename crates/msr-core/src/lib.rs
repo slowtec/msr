@@ -14,7 +14,7 @@
 #![cfg_attr(not(test), deny(clippy::panic_in_result_fn))]
 #![cfg_attr(not(debug_assertions), deny(clippy::used_underscore_binding))]
 
-//! Industrial Automation Toolbox - Core Components
+//! Industrial Automation Toolbox - Common core components
 
 mod measure;
 mod value;
@@ -30,8 +30,8 @@ pub mod sync;
 pub mod thread;
 pub mod time;
 
-#[cfg(feature = "realtime-worker-thread")]
+#[cfg(feature = "with-realtime-worker-thread")]
 pub mod realtime;
 
-#[cfg(feature = "event-journal")]
+#[cfg(feature = "with-event-journal")]
 pub mod event_journal;

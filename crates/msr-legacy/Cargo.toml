@@ -1,9 +1,9 @@
 [package]
+version = "0.2.0"
 name = "msr-legacy"
 description = "Industrial Automation Toolbox - Legacy"
 license = "MIT/Apache-2.0"
 edition = "2021"
-version = "0.2.0"
 # Reserved for internal use and migration purposes
 publish = false
 

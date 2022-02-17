@@ -101,6 +101,7 @@ impl AddAssign<Duration> for SystemInstant {
 
 type TimestampInner = OffsetDateTime;
 
+/// A timestamp
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Timestamp(TimestampInner);
 
@@ -121,6 +122,14 @@ impl Timestamp {
         Self(self.to_inner().to_offset(UtcOffset::UTC))
     }
 
+    /// Current system time with offset
+    ///
+    /// Tries to obtain the current system time with the local time zone
+    /// offset. Returns an UTC timestamp as a fallback if the local time
+    /// zone is unknown or could not be determined.
+    ///
+    /// Prefer to use [`now_utc()`] if the local time zone offset doesn't
+    /// matter.
     #[must_use]
     pub fn now() -> Self {
         TimestampInner::now_local()
@@ -128,6 +137,7 @@ impl Timestamp {
             .into()
     }
 
+    /// Current system time (UTC)
     #[must_use]
     pub fn now_utc() -> Self {
         TimestampInner::now_utc().into()

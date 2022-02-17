@@ -83,23 +83,37 @@ impl fmt::Display for ValueType {
 }
 
 /// A value representation within a MSR system.
+///
+/// TODO: Split into a separate type for simple, copyable values and
+/// an enclosing type that includes the complex, non-real-time-safe
+/// values?
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Scalar value (real-time safe)
+    ///
+    /// This variant can safely be used in real-time contexts.
     Scalar(ScalarValue),
 
     /// Duration, e.g. a timeout
+    ///
+    /// This variant can safely be used in real-time contexts.
     Duration(Duration),
 
     /// Variable-size text data
     ///
-    /// Should not be used in real-time contexts!
+    /// This variant must not be used in real-time contexts.
     String(String),
 
     /// Variable-size binary data
     ///
-    /// Should not be used in real-time contexts!
+    /// This variant must not be used in real-time contexts.
     Bytes(Vec<u8>),
+}
+
+impl From<Duration> for Value {
+    fn from(from: Duration) -> Value {
+        Self::Duration(from)
+    }
 }
 
 impl From<String> for Value {
@@ -111,12 +125,6 @@ impl From<String> for Value {
 impl From<Vec<u8>> for Value {
     fn from(from: Vec<u8>) -> Value {
         Self::Bytes(from)
-    }
-}
-
-impl From<Duration> for Value {
-    fn from(from: Duration) -> Value {
-        Self::Duration(from)
     }
 }
 

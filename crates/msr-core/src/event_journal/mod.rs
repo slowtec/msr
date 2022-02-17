@@ -14,7 +14,7 @@ use crate::{
     time::{SystemInstant, Timestamp},
 };
 
-#[cfg(feature = "csv-event-journal")]
+#[cfg(feature = "with-csv-event-journal")]
 pub mod csv;
 
 #[derive(Debug, Error)]
