@@ -191,7 +191,7 @@ impl From<Code> for CodeValue {
 /// Stores information about events or incidents that happened in the system.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Entry {
-    pub occurred_at: SystemTime,
+    pub occurred_at: Timestamp,
 
     pub severity: Severity,
 
@@ -351,7 +351,7 @@ impl From<Record> for StorageRecord {
         } = from;
         Self {
             created_at_offset_ns: created_at_offset.into(),
-            occurred_at: Timestamp::from(occurred_at),
+            occurred_at,
             severity: SeverityValue::from(severity),
             scope: scope.0,
             code: code.0,
@@ -401,7 +401,7 @@ impl StoredRecord {
         Ok(Self {
             prelude,
             entry: Entry {
-                occurred_at: occurred_at.into(),
+                occurred_at,
                 severity: severity.try_into().map_err(anyhow::Error::from)?,
                 scope: scope.into(),
                 code: code.into(),

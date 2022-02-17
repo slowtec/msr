@@ -1,17 +1,17 @@
 //! Structs used for auditing
-use std::time::SystemTime;
+use crate::time::Timestamp;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Activity<S> {
-    pub who: S,
-    pub when: SystemTime,
+pub struct Activity<T> {
+    pub when: Timestamp,
+    pub who: T,
 }
 
-impl<S> Activity<S> {
-    pub fn now(who: impl Into<S>) -> Self {
+impl<T> Activity<T> {
+    pub fn now(who: impl Into<T>) -> Self {
         Self {
+            when: Timestamp::now(),
             who: who.into(),
-            when: SystemTime::now(),
         }
     }
 }

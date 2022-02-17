@@ -40,7 +40,7 @@ pub type Result<T> = StdResult<T, Error>;
 /// An observation of register values
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObservedRegisterValues<RegisterValue> {
-    pub observed_at: SystemTime,
+    pub observed_at: Timestamp,
 
     pub register_values: Vec<Option<RegisterValue>>,
 }
@@ -55,7 +55,7 @@ impl<RegisterValue> From<register::ObservedValues<RegisterValue>>
         } = from;
         Self {
             // Drop the Instant part
-            observed_at: observed_at.system_time(),
+            observed_at: observed_at.timestamp_utc(),
             register_values: values,
         }
     }
@@ -310,7 +310,7 @@ where
         } = from;
         Self {
             created_at_offset_ns: created_at_offset.into(),
-            observed_at: observed_at.into(),
+            observed_at,
             register_values: register_values
                 .into_iter()
                 .map(|v| v.map(Into::into))
@@ -334,7 +334,7 @@ where
                 created_at_offset: created_at_offset_ns.into(),
             },
             observation: ObservedRegisterValues {
-                observed_at: observed_at.into(),
+                observed_at,
                 register_values: register_values
                     .into_iter()
                     .map(|v| v.map(Into::into))

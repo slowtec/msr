@@ -3,7 +3,6 @@ use std::{
     fmt, fs,
     num::NonZeroUsize,
     path::{Path, PathBuf},
-    time::SystemTime,
 };
 
 use msr_core::{
@@ -18,7 +17,7 @@ use msr_core::{
         RecordPreludeFilter, RecordStorageBase, Result as StorageResult, StorageConfig,
         StorageStatus,
     },
-    time::SystemInstant,
+    time::{SystemInstant, Timestamp},
     ScalarType, ScalarValue,
 };
 
@@ -469,7 +468,7 @@ impl Context {
             self.replace_register_group_config(register_group_id.clone(), register_group_config)?;
         let recorded_observations = vec![
             ObservedRegisterValues {
-                observed_at: SystemTime::now(),
+                observed_at: Timestamp::now(),
                 register_values: vec![
                     None,
                     Some(ScalarValue::I64(0).into()),
@@ -479,7 +478,7 @@ impl Context {
                 ],
             },
             ObservedRegisterValues {
-                observed_at: SystemTime::now(),
+                observed_at: Timestamp::now(),
                 register_values: vec![
                     Some(ScalarValue::Bool(false).into()),
                     Some(ScalarValue::I64(-1).into()),
@@ -489,7 +488,7 @@ impl Context {
                 ],
             },
             ObservedRegisterValues {
-                observed_at: SystemTime::now(),
+                observed_at: Timestamp::now(),
                 register_values: vec![
                     Some(ScalarValue::Bool(true).into()),
                     Some(ScalarValue::I64(1).into()),
@@ -499,7 +498,7 @@ impl Context {
                 ],
             },
             ObservedRegisterValues {
-                observed_at: SystemTime::now(),
+                observed_at: Timestamp::now(),
                 register_values: vec![None, None, None, None, None],
             },
         ];
