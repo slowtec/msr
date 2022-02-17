@@ -49,8 +49,8 @@ enum CyclicWorkerTiming {
 // on GitHub CI where real-time thread scheduling is not supported.
 const fn max_expected_jitter(timing: CyclicWorkerTiming) -> Duration {
     match timing {
-        CyclicWorkerTiming::Sleeping => Duration::from_millis(2),
-        CyclicWorkerTiming::Waiting => Duration::from_millis(5),
+        CyclicWorkerTiming::Sleeping => Duration::from_millis(1),
+        CyclicWorkerTiming::Waiting => Duration::from_millis(3),
     }
 }
 
@@ -233,6 +233,9 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
 }
 
 #[test]
+// This test often fails on GitHub CI due to timing issues
+// and is only supposed to be executed locally.
+#[ignore]
 fn cyclic_realtime_worker_timing() -> anyhow::Result<()> {
     for timing in [CyclicWorkerTiming::Sleeping, CyclicWorkerTiming::Waiting] {
         let params = CyclicWorkerParams {

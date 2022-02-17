@@ -20,9 +20,9 @@ fix:
 
 # Run unit tests for various feature combinations: default, no default, all
 test:
-    cargo test --locked --workspace -- --nocapture
-    cargo test --locked --workspace --no-default-features -- --nocapture
-    cargo test --locked --workspace --all-features -- --nocapture
+    cargo test --locked --workspace -- --nocapture --include-ignored
+    cargo test --locked --workspace --no-default-features -- --nocapture --include-ignored
+    cargo test --locked --workspace --all-features -- --nocapture --include-ignored
 
 # Update depenencies and pre-commit hooks
 update:
