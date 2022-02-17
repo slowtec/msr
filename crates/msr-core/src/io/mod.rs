@@ -1,5 +1,4 @@
 //! I/O related utilities
-pub mod file;
 
 use std::io::{Result, Write};
 
@@ -46,7 +45,7 @@ impl<W: Write> CountingWrite<W> {
 impl<W: Write> Write for CountingWrite<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let bytes_written = self.writer.write(buf)?;
-        // self has exclusive mutable access on the number of octest written, i.e.
+        // self has exclusive mutable access on the number of octets written, i.e.
         // we can safely get-modify-set this value without race conditions here!
         let mut sum_bytes_written = self.bytes_written.load(Ordering::Relaxed);
         sum_bytes_written = sum_bytes_written.saturating_add(bytes_written as u64);

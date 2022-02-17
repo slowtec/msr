@@ -12,7 +12,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    io::file::WriteResult,
+    fs::WriteResult,
     time::{Interval, SystemInstant},
 };
 
@@ -22,12 +22,6 @@ pub mod field;
 #[cfg(feature = "with-csv-storage")]
 pub mod csv;
 
-#[cfg(feature = "with-csv-storage")]
-use ::csv::Error as CsvError;
-
-#[cfg(feature = "with-csv-storage")]
-use crate::io::file::csv::Error as CsvFileError;
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -35,13 +29,13 @@ pub enum Error {
 
     #[cfg(feature = "with-csv-storage")]
     #[error(transparent)]
-    Csv(#[from] CsvError),
+    Csv(#[from] ::csv::Error),
 }
 
 #[cfg(feature = "with-csv-storage")]
-impl From<CsvFileError> for Error {
-    fn from(err: CsvFileError) -> Self {
-        use CsvFileError::*;
+impl From<crate::fs::csv::Error> for Error {
+    fn from(err: crate::fs::csv::Error) -> Self {
+        use crate::fs::csv::Error::*;
         match err {
             Io(err) => Error::Io(err),
             Csv(err) => Error::Csv(err),

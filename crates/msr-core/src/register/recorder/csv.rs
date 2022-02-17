@@ -3,7 +3,7 @@ use std::{io, iter, num::NonZeroUsize, path::PathBuf, time::SystemTime};
 use ::csv::StringRecord as CsvStringRecord;
 
 use crate::{
-    io::file::policy::RollingFileNameTemplate,
+    fs::policy::RollingFileNameTemplate,
     register,
     storage::{
         self, csv, CreatedAtOffsetNanos, RecordPreludeFilter, RecordStorageBase, RecordStorageRead,

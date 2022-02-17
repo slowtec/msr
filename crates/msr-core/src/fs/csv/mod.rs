@@ -1,28 +1,29 @@
-use crate::{
-    io::{
-        file::{
-            policy::{
-                OpenRollingFile, RollingFileConfig, RollingFileInfo, RollingFileInfoWithSize,
-                RollingFileLimits, RollingFileStatus as PolicyRollingFileStatus,
-            },
-            WriteError, WriteResult,
-        },
-        BytesWritten, CountingWrite,
-    },
-    time::SystemInstant,
-};
-use ::csv::{
-    Error as CsvError, ErrorKind, StringRecord, Writer as CsvWriter,
-    WriterBuilder as CsvWriterBuilder,
-};
-use serde::Serialize;
 use std::{
     fs::File,
     io::{Error as IoError, ErrorKind as IoErrorKind},
     result::Result as StdResult,
     time::SystemTime,
 };
+
+use ::csv::{
+    Error as CsvError, ErrorKind, StringRecord, Writer as CsvWriter,
+    WriterBuilder as CsvWriterBuilder,
+};
+use serde::Serialize;
 use thiserror::Error;
+
+use crate::{
+    io::{BytesWritten, CountingWrite},
+    time::SystemInstant,
+};
+
+use super::{
+    policy::{
+        OpenRollingFile, RollingFileConfig, RollingFileInfo, RollingFileInfoWithSize,
+        RollingFileLimits, RollingFileStatus as PolicyRollingFileStatus,
+    },
+    WriteError, WriteResult,
+};
 
 type CountingFileWriter = CsvWriter<CountingWrite<File>>;
 

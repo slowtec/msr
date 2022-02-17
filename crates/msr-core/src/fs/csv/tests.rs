@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use tempfile::TempDir;
 
-use crate::io::file::policy::{RollingFileNameTemplate, RollingFileSystem};
+use crate::fs::policy::{RollingFileNameTemplate, RollingFileSystem};
 
 use super::*;
 

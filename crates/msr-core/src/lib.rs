@@ -23,6 +23,7 @@ pub use self::{measure::*, value::*};
 
 pub mod audit;
 pub mod control;
+pub mod fs;
 pub mod io;
 pub mod register;
 pub mod storage;

@@ -11,7 +11,7 @@ use csv::{Reader as CsvReader, StringRecord as CsvStringRecord};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    io::file::{
+    fs::{
         csv::RollingFileWriter,
         policy::{
             FileInfoFilter, RollingFileConfig, RollingFileInfoWithSize, RollingFileLimits,

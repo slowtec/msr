@@ -1,11 +1,9 @@
-use super::*;
-
 use std::{num::NonZeroUsize, path::PathBuf, time::SystemTime};
 
 use ::csv::Reader as CsvReader;
 
 use crate::{
-    io::file::{
+    fs::{
         policy::{RollingFileInfo, RollingFileNameTemplate},
         WriteResult,
     },
@@ -15,6 +13,8 @@ use crate::{
     },
     time::SystemInstant,
 };
+
+use super::{Error, Record, RecordFilter, RecordStorage, Result, StorageRecord, StoredRecord};
 
 #[allow(missing_debug_implementations)]
 pub struct FileRecordStorage {
