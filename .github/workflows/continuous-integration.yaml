@@ -35,35 +35,35 @@ jobs:
         with:
           command: generate-lockfile
 
-      - name: Check crates/msr-core
+      - name: Check msr-core
         uses: actions-rs/cargo@v1
         with:
           command: check
           args: --locked --manifest-path crates/msr-core/Cargo.toml
 
-      - name: Check crates/msr-plugin
+      - name: Check msr-plugin
         uses: actions-rs/cargo@v1
         with:
           command: check
           args: --locked --manifest-path crates/msr-plugin/Cargo.toml
 
-      - name: Check crates/msr-legacy
+      - name: Check msr-legacy
         uses: actions-rs/cargo@v1
         with:
           command: check
           args: --locked --manifest-path crates/msr-legacy/Cargo.toml
 
-      - name: Check plugins/msr-plugin-csv-event-journal
+      - name: Check msr-plugin-csv-event-journal
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --manifest-path plugins/msr-plugin-csv-event-journal/Cargo.toml
+          args: --locked --manifest-path plugins/csv-event-journal/Cargo.toml
 
-      - name: Check plugins/msr-plugin-csv-register-recorder
+      - name: Check msr-plugin-csv-register-recorder
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --locked --manifest-path plugins/msr-plugin-csv-register-recorder/Cargo.toml
+          args: --locked --manifest-path plugins/csv-register-recorder/Cargo.toml
 
       - name: Build tests with all features enabled
         uses: actions-rs/cargo@v1
