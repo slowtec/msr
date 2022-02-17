@@ -201,11 +201,11 @@ pub struct Entry {
     /// Scope-dependent code
     pub code: Code,
 
-    /// Textual context description
+    /// Textual context description (human-readable)
     pub text: Option<String>,
 
-    /// Serialized JSON context data
-    pub json: Option<String>,
+    /// Serialized, stringified context data (machine-readable), e.g. JSON
+    pub data: Option<String>,
 }
 
 pub type RecordIdType = String;
@@ -316,7 +316,7 @@ struct StorageRecord {
 
     text: Option<String>,
 
-    json: Option<String>,
+    data: Option<String>,
 }
 
 impl ReadableRecordPrelude for StorageRecord {
@@ -346,7 +346,7 @@ impl From<Record> for StorageRecord {
                     scope,
                     code,
                     text,
-                    json,
+                    data,
                 },
         } = from;
         Self {
@@ -357,7 +357,7 @@ impl From<Record> for StorageRecord {
             code: code.0,
             id: id.0,
             text,
-            json,
+            data,
         }
     }
 }
@@ -390,7 +390,7 @@ impl StoredRecord {
             code,
             id,
             text,
-            json,
+            data,
         } = record;
         let created_at_offset = CreatedAtOffset::from(created_at_offset_ns);
         let created_at = created_at_offset.system_time_from_origin(created_at_origin);
@@ -406,7 +406,7 @@ impl StoredRecord {
                 scope: scope.into(),
                 code: code.into(),
                 text,
-                json,
+                data,
             },
         })
     }
