@@ -9,17 +9,19 @@ edition = "2021"
 version = "0.3.0"
 
 [dependencies]
-# Workspace
-msr-core = "0.3.0"
-msr-plugin = { version = "0.3.0", optional = true }
+# Workspace dependencies
+msr-core = "=0.3.0"
+msr-plugin = { version = "=0.3.0", optional = true }
 
 [features]
 default = []
 with-plugin = ["msr-plugin"]
 
 [dev-dependencies]
-msr = { version = "0.3.0", features = ["with-plugin"] }
 anyhow = "1.0.55"
 env_logger = "0.9.0"
 log = "0.4.14"
 tokio = { version = "1.17.0", features = ["full"] }
+
+# Workspace dev-dependencies
+msr = { version = "=0.3.0", features = ["with-plugin"] }
