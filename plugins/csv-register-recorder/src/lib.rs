@@ -55,6 +55,7 @@ pub fn default_storage_config() -> StorageConfig {
             time_interval: TimeInterval::Days(NonZeroU32::new(1).unwrap()), // daily
             size_limit: MemorySize::Bytes(NonZeroU64::new(1_048_576).unwrap()), // 1 MiB
         },
+        binary_data_format: Default::default(), // no binary data
     }
 }
 

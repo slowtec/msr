@@ -172,12 +172,16 @@ impl FileRecordStorage {
 }
 
 impl RecordStorageBase for FileRecordStorage {
-    fn descriptor(&self) -> &StorageDescriptor {
-        self.inner.descriptor()
+    fn config(&self) -> &StorageConfig {
+        self.inner.config()
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         self.inner.replace_config(new_config)
+    }
+
+    fn descriptor(&self) -> &StorageDescriptor {
+        self.inner.descriptor()
     }
 
     fn perform_housekeeping(&mut self) -> storage::Result<()> {

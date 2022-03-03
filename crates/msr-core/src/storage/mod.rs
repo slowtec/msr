@@ -30,6 +30,9 @@ pub enum Error {
     #[cfg(feature = "with-csv-storage")]
     #[error(transparent)]
     Csv(#[from] ::csv::Error),
+
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 #[cfg(feature = "with-csv-storage")]
@@ -89,6 +92,7 @@ pub enum MemorySize {
 pub struct StorageConfig {
     pub retention_time: TimeInterval,
     pub segmentation: StorageSegmentConfig,
+    pub binary_data_format: BinaryDataFormat,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -190,9 +194,11 @@ pub struct RecordPreludeFilter {
 }
 
 pub trait RecordStorageBase {
-    fn descriptor(&self) -> &StorageDescriptor;
+    fn config(&self) -> &StorageConfig;
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig;
+
+    fn descriptor(&self) -> &StorageDescriptor;
 
     fn perform_housekeeping(&mut self) -> Result<()>;
 
@@ -200,6 +206,62 @@ pub trait RecordStorageBase {
     fn retain_all_records_created_since(&mut self, created_since: SystemTime) -> Result<()>;
 
     fn report_statistics(&mut self) -> Result<StorageStatistics>;
+}
+
+/// Format of custom, binary data
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum BinaryDataFormat {
+    /// Arbitrary binary data
+    ///
+    /// Serialized as Base64 with standard alphabet and no padding.
+    Bytes,
+
+    /// Serialized UTF-8 data
+    ///
+    /// A typical use case is the tunneling of UTF-8 JSON data.
+    Utf8,
+}
+
+impl Default for BinaryDataFormat {
+    fn default() -> Self {
+        Self::Bytes
+    }
+}
+
+fn encode_binary_data_bytes(input: impl AsRef<[u8]>) -> String {
+    base64::encode_config(&input, base64::STANDARD_NO_PAD)
+}
+
+fn encode_binary_data_utf8(input: Vec<u8>) -> anyhow::Result<String> {
+    String::from_utf8(input).map_err(Into::into)
+}
+
+pub fn encode_binary_data_into_string(
+    input: Vec<u8>,
+    format: BinaryDataFormat,
+) -> anyhow::Result<String> {
+    match format {
+        BinaryDataFormat::Bytes => Ok(encode_binary_data_bytes(&input)),
+        BinaryDataFormat::Utf8 => encode_binary_data_utf8(input),
+    }
+}
+
+fn decode_binary_data_bytes(input: impl AsRef<[u8]>) -> anyhow::Result<Vec<u8>> {
+    base64::decode_config(input, base64::STANDARD_NO_PAD).map_err(anyhow::Error::from)
+}
+
+fn decode_binary_data_utf8(input: String) -> Vec<u8> {
+    input.into_bytes()
+}
+
+pub fn decode_binary_data_from_string(
+    input: String,
+    format: BinaryDataFormat,
+) -> anyhow::Result<Vec<u8>> {
+    match format {
+        BinaryDataFormat::Bytes => decode_binary_data_bytes(&input),
+        BinaryDataFormat::Utf8 => Ok(decode_binary_data_utf8(input)),
+    }
 }
 
 pub trait RecordStorageWrite<R>: RecordStorageBase
@@ -261,12 +323,16 @@ impl<R> RecordStorageBase for InMemoryRecordStorage<R>
 where
     R: ReadableRecordPrelude,
 {
-    fn descriptor(&self) -> &StorageDescriptor {
-        &self.descriptor
+    fn config(&self) -> &StorageConfig {
+        &self.config
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         std::mem::replace(&mut self.config, new_config)
+    }
+
+    fn descriptor(&self) -> &StorageDescriptor {
+        &self.descriptor
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {

@@ -118,10 +118,6 @@ impl<RI, RO> FileRecordStorage<RI, RO> {
         file_name_template: RollingFileNameTemplate,
         custom_header: Option<CsvStringRecord>,
     ) -> Result<Self> {
-        let descriptor = StorageDescriptor {
-            kind: "csv-file".to_string(),
-            base_path: Some(base_path.clone()),
-        };
         let StorageConfig {
             segmentation:
                 StorageSegmentConfig {
@@ -130,6 +126,10 @@ impl<RI, RO> FileRecordStorage<RI, RO> {
                 },
             ..
         } = config;
+        let descriptor = StorageDescriptor {
+            kind: "csv-file".to_string(),
+            base_path: Some(base_path.clone()),
+        };
         Ok(Self {
             config,
             descriptor,
@@ -253,12 +253,16 @@ where
 }
 
 impl<RI, RO> RecordStorageBase for FileRecordStorage<RI, RO> {
-    fn descriptor(&self) -> &StorageDescriptor {
-        &self.descriptor
+    fn config(&self) -> &StorageConfig {
+        &self.config
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         std::mem::replace(&mut self.config, new_config)
+    }
+
+    fn descriptor(&self) -> &StorageDescriptor {
+        &self.descriptor
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {
@@ -488,12 +492,16 @@ impl<D, T> FileRecordStorageWithDeserializer<D, T> {
 }
 
 impl<D, T> RecordStorageBase for FileRecordStorageWithDeserializer<D, T> {
-    fn descriptor(&self) -> &StorageDescriptor {
-        self.inner.descriptor()
+    fn config(&self) -> &StorageConfig {
+        self.inner.config()
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         self.inner.replace_config(new_config)
+    }
+
+    fn descriptor(&self) -> &StorageDescriptor {
+        self.inner.descriptor()
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {

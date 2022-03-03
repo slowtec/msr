@@ -8,8 +8,9 @@ use crate::{
         WriteResult,
     },
     storage::{
-        self, csv, CreatedAtOffset, RecordStorageBase, RecordStorageRead, RecordStorageWrite,
-        StorageConfig, StorageDescriptor, StorageStatistics, MAX_PREALLOCATED_CAPACITY_LIMIT,
+        self, csv, BinaryDataFormat, CreatedAtOffset, RecordStorageBase, RecordStorageRead,
+        RecordStorageWrite, StorageConfig, StorageDescriptor, StorageStatistics,
+        MAX_PREALLOCATED_CAPACITY_LIMIT,
     },
     time::SystemInstant,
 };
@@ -40,8 +41,9 @@ impl FileRecordStorage {
 fn filter_map_storage_record(
     created_at_origin: SystemTime,
     record: StorageRecord,
+    binary_data_format: BinaryDataFormat,
 ) -> Option<StoredRecord> {
-    match StoredRecord::try_restore(created_at_origin, record) {
+    match StoredRecord::try_restore(created_at_origin, record, binary_data_format) {
         Ok(record) => Some(record),
         Err(err) => {
             // This should never happen
@@ -53,12 +55,16 @@ fn filter_map_storage_record(
 }
 
 impl RecordStorageBase for FileRecordStorage {
-    fn descriptor(&self) -> &StorageDescriptor {
-        self.inner.descriptor()
+    fn config(&self) -> &StorageConfig {
+        self.inner.config()
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         self.inner.replace_config(new_config)
+    }
+
+    fn descriptor(&self) -> &StorageDescriptor {
+        self.inner.descriptor()
     }
 
     fn perform_housekeeping(&mut self) -> storage::Result<()> {
@@ -83,8 +89,8 @@ impl RecordStorageWrite<Record> for FileRecordStorage {
         created_at: &SystemInstant,
         record: Record,
     ) -> storage::Result<(WriteResult, CreatedAtOffset)> {
-        self.inner
-            .append_record(created_at, StorageRecord::from(record))
+        let storage_record = StorageRecord::try_new(record, self.config().binary_data_format)?;
+        self.inner.append_record(created_at, storage_record)
     }
 }
 
@@ -100,7 +106,11 @@ impl RecordStorage for FileRecordStorage {
                     // requested from self.inner (see above)! This should not happen
                     // and an error is logged.
                     .filter_map(|(create_at_origin, record)| {
-                        filter_map_storage_record(create_at_origin, record)
+                        filter_map_storage_record(
+                            create_at_origin,
+                            record,
+                            self.config().binary_data_format,
+                        )
                     })
                     .collect()
             })
@@ -132,6 +142,7 @@ impl RecordStorage for FileRecordStorage {
                 reader,
                 file_info.created_at.into(),
                 filter.clone(),
+                self.config().binary_data_format,
             )
             .take(remaining_limit)
             .fold(records, |mut records, entry| {
@@ -147,6 +158,7 @@ fn reader_into_filtered_record_iter<R>(
     reader: CsvReader<R>,
     created_at_origin: SystemTime,
     filter: RecordFilter,
+    binary_data_format: BinaryDataFormat,
 ) -> impl Iterator<Item = StoredRecord>
 where
     R: std::io::Read,
@@ -158,7 +170,9 @@ where
         min_severity,
     } = filter;
     csv::reader_into_filtered_record_iter(reader, created_at_origin, prelude_filter)
-        .filter_map(move |record| filter_map_storage_record(created_at_origin, record))
+        .filter_map(move |record| {
+            filter_map_storage_record(created_at_origin, record, binary_data_format)
+        })
         .filter(move |StoredRecord { prelude: _, entry }| {
             if let Some(min_severity) = min_severity {
                 if entry.severity < min_severity {

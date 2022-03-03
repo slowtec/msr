@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 use crate::{
     storage::{
-        self, CreatedAtOffset, CreatedAtOffsetNanos, ReadableRecordPrelude, RecordPreludeFilter,
+        self, decode_binary_data_from_string, encode_binary_data_into_string, BinaryDataFormat,
+        CreatedAtOffset, CreatedAtOffsetNanos, ReadableRecordPrelude, RecordPreludeFilter,
         RecordStorageBase, RecordStorageWrite, WritableRecordPrelude,
     },
     time::{SystemInstant, Timestamp},
@@ -204,8 +205,10 @@ pub struct Entry {
     /// Textual context description (human-readable)
     pub text: Option<String>,
 
-    /// Serialized, stringified context data (machine-readable), e.g. JSON
-    pub data: Option<String>,
+    /// Binary context data (machine-readable)
+    ///
+    /// Example: Custom JSON data serialized as UTF-8
+    pub data: Option<Vec<u8>>,
 }
 
 pub type RecordIdType = String;
@@ -319,20 +322,8 @@ struct StorageRecord {
     data: Option<String>,
 }
 
-impl ReadableRecordPrelude for StorageRecord {
-    fn created_at_offset(&self) -> CreatedAtOffset {
-        self.created_at_offset_ns.into()
-    }
-}
-
-impl WritableRecordPrelude for StorageRecord {
-    fn set_created_at_offset(&mut self, created_at_offset: CreatedAtOffset) {
-        self.created_at_offset_ns = created_at_offset.into();
-    }
-}
-
-impl From<Record> for StorageRecord {
-    fn from(from: Record) -> Self {
+impl StorageRecord {
+    pub fn try_new(record: Record, binary_data_format: BinaryDataFormat) -> anyhow::Result<Self> {
         let Record {
             prelude:
                 RecordPrelude {
@@ -348,8 +339,11 @@ impl From<Record> for StorageRecord {
                     text,
                     data,
                 },
-        } = from;
-        Self {
+        } = record;
+        let data = data
+            .map(|data| encode_binary_data_into_string(data, binary_data_format))
+            .transpose()?;
+        Ok(Self {
             created_at_offset_ns: created_at_offset.into(),
             occurred_at,
             severity: SeverityValue::from(severity),
@@ -358,7 +352,19 @@ impl From<Record> for StorageRecord {
             id: id.0,
             text,
             data,
-        }
+        })
+    }
+}
+
+impl ReadableRecordPrelude for StorageRecord {
+    fn created_at_offset(&self) -> CreatedAtOffset {
+        self.created_at_offset_ns.into()
+    }
+}
+
+impl WritableRecordPrelude for StorageRecord {
+    fn set_created_at_offset(&mut self, created_at_offset: CreatedAtOffset) {
+        self.created_at_offset_ns = created_at_offset.into();
     }
 }
 
@@ -381,7 +387,11 @@ pub struct StoredRecord {
 impl StoredRecord {
     // Only used when a storage backend like CSV is enabled
     #[allow(dead_code)]
-    fn try_restore(created_at_origin: SystemTime, record: StorageRecord) -> Result<Self> {
+    fn try_restore(
+        created_at_origin: SystemTime,
+        record: StorageRecord,
+        binary_data_format: BinaryDataFormat,
+    ) -> Result<Self> {
         let StorageRecord {
             created_at_offset_ns,
             occurred_at,
@@ -398,6 +408,9 @@ impl StoredRecord {
             id: id.into(),
             created_at,
         };
+        let data = data
+            .map(|data| decode_binary_data_from_string(data, binary_data_format))
+            .transpose()?;
         Ok(Self {
             prelude,
             entry: Entry {
