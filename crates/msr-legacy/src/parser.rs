@@ -63,7 +63,7 @@ impl FromStr for Source {
             return Err(Error::new(ErrorKind::InvalidInput, "empty str"));
         }
         if s.contains('\'') {
-            return Ok(Source::Const(Value::Text(s.replace("'", ""))));
+            return Ok(Source::Const(Value::Text(s.replace('\'', ""))));
         }
         if let Ok(v) = s.parse::<i64>() {
             return Ok(Source::Const(v.into()));

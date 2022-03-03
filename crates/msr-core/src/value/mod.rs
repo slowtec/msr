@@ -59,14 +59,12 @@ impl ValueType {
 
     #[must_use]
     pub fn try_from_str(s: &str) -> Option<Self> {
-        ScalarType::try_from_str(s)
-            .map(Into::into)
-            .or_else(|| match s {
-                TYPE_STR_DURATION => Some(Self::Duration),
-                TYPE_STR_STRING => Some(Self::String),
-                TYPE_STR_BYTES => Some(Self::Bytes),
-                _ => None,
-            })
+        ScalarType::try_from_str(s).map(Into::into).or(match s {
+            TYPE_STR_DURATION => Some(Self::Duration),
+            TYPE_STR_STRING => Some(Self::String),
+            TYPE_STR_BYTES => Some(Self::Bytes),
+            _ => None,
+        })
     }
 }
 
