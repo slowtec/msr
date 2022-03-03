@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.53"
+anyhow = "1.0.55"
 log = "0.4.14"
 thiserror = "1.0.30"
 tokio = { version = "1.17.0", default-features = false, features = ["rt-multi-thread", "sync"] }

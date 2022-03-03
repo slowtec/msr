@@ -19,7 +19,7 @@ with-plugin = ["msr-plugin"]
 
 [dev-dependencies]
 msr = { version = "0.3.0", features = ["with-plugin"] }
-anyhow = "1.0.53"
+anyhow = "1.0.55"
 env_logger = "0.9.0"
 log = "0.4.14"
 tokio = { version = "1.17.0", features = ["full"] }
