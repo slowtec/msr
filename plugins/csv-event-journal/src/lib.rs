@@ -52,7 +52,6 @@ pub fn default_storage_config() -> StorageConfig {
             time_interval: TimeInterval::Days(NonZeroU32::new(1).unwrap()), // daily
             size_limit: MemorySize::Bytes(NonZeroU64::new(1_048_576).unwrap()), // 1 MiB
         },
-        binary_data_format: BinaryDataFormat::Utf8, // assume serialized string data
     }
 }
 
@@ -66,6 +65,7 @@ pub fn default_config() -> api::Config {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PluginSetup {
+    pub binary_data_format: BinaryDataFormat,
     pub initial_config: api::Config,
     pub initial_state: api::State,
 }
@@ -73,6 +73,7 @@ pub struct PluginSetup {
 impl Default for PluginSetup {
     fn default() -> Self {
         Self {
+            binary_data_format: BinaryDataFormat::Utf8, // assume JSON/UTF-8 data
             initial_config: default_config(),
             initial_state: api::State::Inactive,
         }
@@ -129,6 +130,7 @@ pub fn create_plugin(
         custom_file_name_prefix,
     } = environment;
     let PluginSetup {
+        binary_data_format,
         initial_config,
         initial_state,
     } = plugin_setup;
@@ -140,6 +142,7 @@ pub fn create_plugin(
         data_dir,
         file_name_prefix,
         event_pubsub,
+        binary_data_format,
         initial_config,
         initial_state,
     )?;

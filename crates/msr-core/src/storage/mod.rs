@@ -92,7 +92,6 @@ pub enum MemorySize {
 pub struct StorageConfig {
     pub retention_time: TimeInterval,
     pub segmentation: StorageSegmentConfig,
-    pub binary_data_format: BinaryDataFormat,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -105,6 +104,7 @@ pub struct StorageSegmentConfig {
 pub struct StorageDescriptor {
     pub kind: String,
     pub base_path: Option<PathBuf>,
+    pub binary_data_format: BinaryDataFormat,
 }
 
 #[derive(Debug, Clone)]
@@ -194,11 +194,11 @@ pub struct RecordPreludeFilter {
 }
 
 pub trait RecordStorageBase {
+    fn descriptor(&self) -> &StorageDescriptor;
+
     fn config(&self) -> &StorageConfig;
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig;
-
-    fn descriptor(&self) -> &StorageDescriptor;
 
     fn perform_housekeeping(&mut self) -> Result<()>;
 
@@ -297,6 +297,7 @@ where
         let descriptor = StorageDescriptor {
             kind: "in-memory".to_string(),
             base_path: None,
+            binary_data_format: Default::default(), // no serialization
         };
         Self {
             config,
@@ -323,16 +324,16 @@ impl<R> RecordStorageBase for InMemoryRecordStorage<R>
 where
     R: ReadableRecordPrelude,
 {
+    fn descriptor(&self) -> &StorageDescriptor {
+        &self.descriptor
+    }
+
     fn config(&self) -> &StorageConfig {
         &self.config
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         std::mem::replace(&mut self.config, new_config)
-    }
-
-    fn descriptor(&self) -> &StorageDescriptor {
-        &self.descriptor
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {

@@ -28,6 +28,8 @@ use crate::{
     time::{Interval, SystemInstant, Timestamp},
 };
 
+use super::BinaryDataFormat;
+
 fn open_readable_file(file_path: &Path) -> IoResult<File> {
     let mut open_options = fs::OpenOptions::new();
     open_options.read(true).create(false);
@@ -113,11 +115,17 @@ impl<RI, RO> FileRecordStorage<RI, RO> {
     }
 
     pub fn try_new(
+        binary_data_format: BinaryDataFormat,
         config: StorageConfig,
         base_path: PathBuf,
         file_name_template: RollingFileNameTemplate,
         custom_header: Option<CsvStringRecord>,
     ) -> Result<Self> {
+        let descriptor = StorageDescriptor {
+            kind: "csv-file".to_string(),
+            base_path: Some(base_path.clone()),
+            binary_data_format,
+        };
         let StorageConfig {
             segmentation:
                 StorageSegmentConfig {
@@ -126,10 +134,6 @@ impl<RI, RO> FileRecordStorage<RI, RO> {
                 },
             ..
         } = config;
-        let descriptor = StorageDescriptor {
-            kind: "csv-file".to_string(),
-            base_path: Some(base_path.clone()),
-        };
         Ok(Self {
             config,
             descriptor,
@@ -253,16 +257,16 @@ where
 }
 
 impl<RI, RO> RecordStorageBase for FileRecordStorage<RI, RO> {
+    fn descriptor(&self) -> &StorageDescriptor {
+        &self.descriptor
+    }
+
     fn config(&self) -> &StorageConfig {
         &self.config
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         std::mem::replace(&mut self.config, new_config)
-    }
-
-    fn descriptor(&self) -> &StorageDescriptor {
-        &self.descriptor
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {
@@ -464,14 +468,20 @@ pub struct FileRecordStorageWithDeserializer<D, T> {
 
 impl<D, T> FileRecordStorageWithDeserializer<D, T> {
     pub fn try_new(
+        binary_data_format: BinaryDataFormat,
         config: StorageConfig,
         base_path: PathBuf,
         file_name_template: RollingFileNameTemplate,
         custom_header: Option<CsvStringRecord>,
         deserializer: D,
     ) -> Result<Self> {
-        let inner =
-            FileRecordStorage::try_new(config, base_path, file_name_template, custom_header)?;
+        let inner = FileRecordStorage::try_new(
+            binary_data_format,
+            config,
+            base_path,
+            file_name_template,
+            custom_header,
+        )?;
         Ok(Self {
             inner,
             deserializer,
@@ -492,16 +502,16 @@ impl<D, T> FileRecordStorageWithDeserializer<D, T> {
 }
 
 impl<D, T> RecordStorageBase for FileRecordStorageWithDeserializer<D, T> {
+    fn descriptor(&self) -> &StorageDescriptor {
+        self.inner.descriptor()
+    }
+
     fn config(&self) -> &StorageConfig {
         self.inner.config()
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         self.inner.replace_config(new_config)
-    }
-
-    fn descriptor(&self) -> &StorageDescriptor {
-        self.inner.descriptor()
     }
 
     fn perform_housekeeping(&mut self) -> Result<()> {

@@ -6,7 +6,10 @@ use msr_core::{
         Record, RecordFilter, RecordPreludeGenerator, RecordStorage, Result, Severity,
         StoredRecord, StoredRecordPrelude,
     },
-    storage::{RecordStorageBase as _, RecordStorageWrite as _, StorageConfig, StorageStatus},
+    storage::{
+        BinaryDataFormat, RecordStorageBase as _, RecordStorageWrite as _, StorageConfig,
+        StorageStatus,
+    },
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -50,12 +53,14 @@ impl Context {
     pub fn try_new(
         data_dir: PathBuf,
         file_name_prefix: String,
+        binary_data_format: BinaryDataFormat,
         initial_config: Config,
         initial_state: State,
     ) -> Result<Self> {
         let storage = CsvFileRecordStorage::try_new(
             data_dir,
             file_name_prefix,
+            binary_data_format,
             initial_config.storage.clone(),
         )?;
         Ok(Self {

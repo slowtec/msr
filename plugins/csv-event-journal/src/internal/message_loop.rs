@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use msr_core::storage::BinaryDataFormat;
 use msr_plugin::{message_channel, MessageLoop};
 
 use crate::{
@@ -13,11 +14,18 @@ pub fn create_message_loop(
     data_dir: PathBuf,
     file_name_prefix: String,
     event_pubsub: EventPubSub,
+    binary_data_format: BinaryDataFormat,
     initial_config: Config,
     initial_state: State,
 ) -> Result<(MessageLoop, MessageSender)> {
     let (message_tx, mut message_rx) = message_channel();
-    let mut context = Context::try_new(data_dir, file_name_prefix, initial_config, initial_state)?;
+    let mut context = Context::try_new(
+        data_dir,
+        file_name_prefix,
+        binary_data_format,
+        initial_config,
+        initial_state,
+    )?;
     let message_loop = async move {
         let mut exit_message_loop = false;
         log::info!("Starting message loop");

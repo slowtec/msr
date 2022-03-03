@@ -26,14 +26,20 @@ impl FileRecordStorage {
     pub fn try_new(
         base_path: PathBuf,
         file_name_prefix: String,
+        binary_data_format: BinaryDataFormat,
         initial_config: StorageConfig,
     ) -> Result<Self> {
         let file_name_template = RollingFileNameTemplate {
             prefix: file_name_prefix,
             suffix: ".csv".to_string(),
         };
-        let inner =
-            csv::FileRecordStorage::try_new(initial_config, base_path, file_name_template, None)?;
+        let inner = csv::FileRecordStorage::try_new(
+            binary_data_format,
+            initial_config,
+            base_path,
+            file_name_template,
+            None,
+        )?;
         Ok(Self { inner })
     }
 }
@@ -55,16 +61,16 @@ fn filter_map_storage_record(
 }
 
 impl RecordStorageBase for FileRecordStorage {
+    fn descriptor(&self) -> &StorageDescriptor {
+        self.inner.descriptor()
+    }
+
     fn config(&self) -> &StorageConfig {
         self.inner.config()
     }
 
     fn replace_config(&mut self, new_config: StorageConfig) -> StorageConfig {
         self.inner.replace_config(new_config)
-    }
-
-    fn descriptor(&self) -> &StorageDescriptor {
-        self.inner.descriptor()
     }
 
     fn perform_housekeeping(&mut self) -> storage::Result<()> {
@@ -89,7 +95,7 @@ impl RecordStorageWrite<Record> for FileRecordStorage {
         created_at: &SystemInstant,
         record: Record,
     ) -> storage::Result<(WriteResult, CreatedAtOffset)> {
-        let storage_record = StorageRecord::try_new(record, self.config().binary_data_format)?;
+        let storage_record = StorageRecord::try_new(record, self.descriptor().binary_data_format)?;
         self.inner.append_record(created_at, storage_record)
     }
 }
@@ -109,7 +115,7 @@ impl RecordStorage for FileRecordStorage {
                         filter_map_storage_record(
                             create_at_origin,
                             record,
-                            self.config().binary_data_format,
+                            self.descriptor().binary_data_format,
                         )
                     })
                     .collect()
@@ -142,7 +148,7 @@ impl RecordStorage for FileRecordStorage {
                 reader,
                 file_info.created_at.into(),
                 filter.clone(),
-                self.config().binary_data_format,
+                self.descriptor().binary_data_format,
             )
             .take(remaining_limit)
             .fold(records, |mut records, entry| {
