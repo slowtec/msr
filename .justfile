@@ -28,12 +28,12 @@ test:
 update:
     rustup self update
     cargo install cargo-edit
-    cargo upgrade --workspace --exclude \
-        msr \
-        msr-core \
-        msr-plugin \
-        msr-plugin-csv-event-journal \
-        msr-plugin-csv-register-recorder
+    cargo upgrade --workspace \
+        --exclude msr \
+        --exclude msr-core \
+        --exclude msr-plugin \
+        --exclude msr-plugin-csv-event-journal \
+        --exclude msr-plugin-csv-register-recorder
     cargo update
     pip install -U pre-commit
     pre-commit autoupdate
