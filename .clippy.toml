@@ -1,3 +1,5 @@
+msrv = "1.60"
+
 disallowed-methods = [
 ]
 

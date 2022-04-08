@@ -6,8 +6,8 @@ use crate::{
     fs::policy::RollingFileNameTemplate,
     register,
     storage::{
-        self, csv, CreatedAtOffsetNanos, RecordPreludeFilter, RecordStorageBase, RecordStorageRead,
-        RecordStorageWrite, StorageConfig, StorageDescriptor, StorageStatistics,
+        self, csv, CreatedAtOffsetNanos, RecordPreludeFilter, RecordStorageRead as _,
+        RecordStorageWrite as _, StorageConfig, StorageDescriptor, StorageStatistics,
     },
     time::SystemInstant,
     ScalarType, ToValueType, ValueType,

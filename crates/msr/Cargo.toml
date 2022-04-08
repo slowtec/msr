@@ -15,7 +15,7 @@ msr-plugin = { version = "=0.3.1", optional = true }
 
 [features]
 default = []
-with-plugin = ["msr-plugin"]
+plugin = ["msr-plugin"]
 
 [dev-dependencies]
 anyhow = "1.0.56"
@@ -24,4 +24,4 @@ log = "0.4.16"
 tokio = { version = "1.17.0", features = ["full"] }
 
 # Workspace dev-dependencies
-msr = { version = "=0.3.1", features = ["with-plugin"] }
+msr = { version = "=0.3.1", features = ["plugin"] }

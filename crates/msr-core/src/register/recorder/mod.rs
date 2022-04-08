@@ -17,7 +17,7 @@ use crate::{
     ScalarValue, Value, ValueType,
 };
 
-#[cfg(feature = "with-csv-register-recorder")]
+#[cfg(feature = "csv-register-recorder")]
 pub mod csv;
 
 #[derive(Error, Debug)]

@@ -31,8 +31,8 @@ pub mod sync;
 pub mod thread;
 pub mod time;
 
-#[cfg(feature = "with-realtime-worker-thread")]
+#[cfg(feature = "realtime-worker-thread")]
 pub mod realtime;
 
-#[cfg(feature = "with-event-journal")]
+#[cfg(feature = "event-journal")]
 pub mod event_journal;
