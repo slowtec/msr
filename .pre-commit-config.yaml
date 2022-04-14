@@ -33,7 +33,7 @@ repos:
   - id: codespell
     args: [--ignore-words=.codespellignore]
 - repo: https://github.com/sirosen/check-jsonschema
-  rev: 0.14.2
+  rev: 0.14.3
   hooks:
   - id: check-github-actions
   - id: check-github-workflows
@@ -43,13 +43,8 @@ repos:
   - id: fmt
     args: [
       --all,
+      --check,
       --,
-    ]
-  - id: cargo-check
-    args: [
-      --workspace,
-      --all-features,
-      --all-targets,
     ]
   - id: clippy
     args: [
