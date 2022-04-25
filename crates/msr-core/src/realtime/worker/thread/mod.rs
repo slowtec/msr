@@ -64,7 +64,7 @@ struct ThreadSchedulingScope {
 
 impl ThreadSchedulingScope {
     #[cfg(target_os = "linux")]
-    pub fn enter() -> anyhow::Result<Self> {
+    fn enter() -> anyhow::Result<Self> {
         log::debug!("Entering real-time scope");
         let native_id = thread_priority::thread_native_id();
         let thread_id = thread::current().id();

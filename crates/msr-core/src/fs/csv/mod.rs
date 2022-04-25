@@ -49,7 +49,7 @@ struct RollingFileStatus {
 }
 
 impl RollingFileStatus {
-    pub fn new(created_at: SystemTime, bytes_written: BytesWritten) -> Self {
+    fn new(created_at: SystemTime, bytes_written: BytesWritten) -> Self {
         debug_assert_eq!(0, bytes_written.value());
         Self {
             created_at,
@@ -58,7 +58,7 @@ impl RollingFileStatus {
         }
     }
 
-    pub fn should_roll(
+    fn should_roll(
         &self,
         now: SystemTime,
         now_nanoseconds_offset: u64,

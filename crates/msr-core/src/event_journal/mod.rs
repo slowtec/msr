@@ -323,7 +323,7 @@ struct StorageRecord {
 }
 
 impl StorageRecord {
-    pub fn try_new(record: Record, binary_data_format: BinaryDataFormat) -> anyhow::Result<Self> {
+    fn try_new(record: Record, binary_data_format: BinaryDataFormat) -> anyhow::Result<Self> {
         let Record {
             prelude:
                 RecordPrelude {

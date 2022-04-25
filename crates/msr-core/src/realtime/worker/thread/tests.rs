@@ -13,7 +13,7 @@ struct SmokeTestWorker {
 }
 
 impl SmokeTestWorker {
-    pub fn new(expected_perform_work_invocations: usize) -> Self {
+    fn new(expected_perform_work_invocations: usize) -> Self {
         Self {
             expected_perform_work_invocations,
             ..Default::default()
@@ -70,7 +70,7 @@ struct SmokeTestEvents {
 }
 
 impl SmokeTestEvents {
-    pub fn new(progress_hint_tx: ProgressHintSender) -> Self {
+    fn new(progress_hint_tx: ProgressHintSender) -> Self {
         Self {
             progress_hint_tx,
             state_changed_count: Default::default(),

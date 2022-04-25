@@ -154,7 +154,7 @@ pub enum ModbusEvent {
 }
 
 impl ModbusPlugin {
-    pub fn setup() -> Result<Self> {
+    fn setup() -> Result<Self> {
         let (message_tx, mut message_rx) = mpsc::unbounded_channel();
         let (broadcast_tx, _) = broadcast::channel(100);
 
@@ -231,7 +231,7 @@ pub enum RecorderMessage {
 pub enum RecorderEvent {}
 
 impl RecorderPlugin {
-    pub fn setup() -> Result<Self> {
+    fn setup() -> Result<Self> {
         let (message_tx, mut message_rx) = mpsc::unbounded_channel();
         let (broadcast_tx, _) = broadcast::channel(100);
         let message_loop = Box::pin(async move {

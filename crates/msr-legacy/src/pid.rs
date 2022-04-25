@@ -197,15 +197,15 @@ impl DurationInSeconds {
     // Number of nanoseconds in a second.
     const NANOS_PER_SEC: f64 = 1e9;
 
-    pub fn is_empty(self) -> bool {
+    fn is_empty(self) -> bool {
         self.0 == 0.0
     }
 
-    pub fn is_valid(self) -> bool {
+    fn is_valid(self) -> bool {
         self.0 >= 0.0
     }
 
-    pub fn seconds(self) -> f64 {
+    fn seconds(self) -> f64 {
         self.0
     }
 }

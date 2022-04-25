@@ -30,7 +30,7 @@ pub struct Config {
     pub storage: StorageConfig,
 }
 
-pub struct Context {
+pub(crate) struct Context {
     config: Config,
 
     state: State,
@@ -50,7 +50,7 @@ pub enum EntryNotRecorded {
 pub type RecordEntryOutcome = StdResult<EntryRecorded, EntryNotRecorded>;
 
 impl Context {
-    pub fn try_new(
+    pub(crate) fn try_new(
         data_dir: PathBuf,
         file_name_prefix: String,
         binary_data_format: BinaryDataFormat,
@@ -70,15 +70,15 @@ impl Context {
         })
     }
 
-    pub fn config(&self) -> &Config {
+    pub(crate) fn config(&self) -> &Config {
         &self.config
     }
 
-    pub fn state(&self) -> State {
+    pub(crate) fn state(&self) -> State {
         self.state
     }
 
-    pub fn status(&mut self, with_storage_statistics: bool) -> Result<Status> {
+    pub(crate) fn status(&mut self, with_storage_statistics: bool) -> Result<Status> {
         let storage_statistics = if with_storage_statistics {
             Some(self.storage.report_statistics()?)
         } else {
@@ -94,11 +94,11 @@ impl Context {
         })
     }
 
-    pub fn recent_records(&mut self, limit: NonZeroUsize) -> Result<Vec<StoredRecord>> {
+    pub(crate) fn recent_records(&mut self, limit: NonZeroUsize) -> Result<Vec<StoredRecord>> {
         self.storage.recent_records(limit)
     }
 
-    pub fn filter_records(
+    pub(crate) fn filter_records(
         &mut self,
         limit: NonZeroUsize,
         filter: RecordFilter,
@@ -109,7 +109,7 @@ impl Context {
     /// Switch the current configuration
     ///
     /// Returns the previous configuration.
-    pub fn replace_config(&mut self, new_config: Config) -> Result<Config> {
+    pub(crate) fn replace_config(&mut self, new_config: Config) -> Result<Config> {
         if self.config == new_config {
             return Ok(new_config);
         }
@@ -121,7 +121,7 @@ impl Context {
     /// Switch the current state
     ///
     /// Returns the previous state.
-    pub fn switch_state(&mut self, new_state: State) -> Result<State> {
+    pub(crate) fn switch_state(&mut self, new_state: State) -> Result<State> {
         if self.state == new_state {
             return Ok(new_state);
         }
@@ -129,7 +129,7 @@ impl Context {
         Ok(std::mem::replace(&mut self.state, new_state))
     }
 
-    pub fn record_entry(&mut self, new_entry: Entry) -> Result<RecordEntryOutcome> {
+    pub(crate) fn record_entry(&mut self, new_entry: Entry) -> Result<RecordEntryOutcome> {
         match self.state {
             State::Inactive => {
                 log::debug!("Discarding new entry while inactive: {:?}", new_entry);

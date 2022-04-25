@@ -144,13 +144,13 @@ impl AtomicProgressHint {
     ///
     /// Creates a new value in accordance to `ProgressHint::default()`.
     #[cfg(not(loom))]
-    pub const fn default() -> Self {
+    const fn default() -> Self {
         Self::new(ProgressHint::default())
     }
 
     // The loom atomic does not provide a const fn new()
     #[cfg(loom)]
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self::new(ProgressHint::default())
     }
 
@@ -166,12 +166,12 @@ impl AtomicProgressHint {
     }
 
     /// Switch from [`ProgressHint::Continue`] to [`ProgressHint::Suspend`]
-    pub fn suspend(&self) -> SwitchAtomicStateResult<ProgressHint> {
+    fn suspend(&self) -> SwitchAtomicStateResult<ProgressHint> {
         self.switch_from_expected_to_desired(ProgressHint::Continue, ProgressHint::Suspend)
     }
 
     /// Switch from [`ProgressHint::Suspend`] to [`ProgressHint::Continue`]
-    pub fn resume(&self) -> SwitchAtomicStateResult<ProgressHint> {
+    fn resume(&self) -> SwitchAtomicStateResult<ProgressHint> {
         self.switch_from_expected_to_desired(ProgressHint::Suspend, ProgressHint::Continue)
     }
 
@@ -179,14 +179,14 @@ impl AtomicProgressHint {
     ///
     /// Currently, finishing is permitted in any state. But this
     /// may change in the future.
-    pub fn finish(&self) -> SwitchAtomicStateResult<ProgressHint> {
+    fn finish(&self) -> SwitchAtomicStateResult<ProgressHint> {
         Ok(self.switch_to_desired(ProgressHint::Finish))
     }
 
     /// Reset to [`ProgressHint::default()`]
     ///
     /// Resetting is enforced regardless of the current state and never fails.
-    pub fn reset(&self) -> SwitchAtomicStateOk<ProgressHint> {
+    fn reset(&self) -> SwitchAtomicStateOk<ProgressHint> {
         self.switch_to_desired(ProgressHint::default())
     }
 }
@@ -218,7 +218,7 @@ struct ProgressHintHandover {
 }
 
 impl ProgressHintHandover {
-    pub const fn default() -> Self {
+    const fn default() -> Self {
         Self {
             latest_progress_hint: AtomicProgressHint::default(),
             update_notification_relay: Relay::new(),
@@ -277,11 +277,11 @@ impl From<SwitchAtomicStateErr<ProgressHint>> for SwitchProgressHintError {
 pub type SwitchProgressHintResult = Result<SwitchProgressHintOk, SwitchProgressHintError>;
 
 impl ProgressHintHandover {
-    pub fn peek(&self) -> ProgressHint {
+    fn peek(&self) -> ProgressHint {
         self.latest_progress_hint.peek()
     }
 
-    pub fn load(&self) -> ProgressHint {
+    fn load(&self) -> ProgressHint {
         self.latest_progress_hint.load()
     }
 
@@ -305,44 +305,44 @@ impl ProgressHintHandover {
         ok.into()
     }
 
-    pub fn suspend(&self) -> SwitchProgressHintResult {
+    fn suspend(&self) -> SwitchProgressHintResult {
         self.after_latest_progress_hint_switched_result(self.latest_progress_hint.suspend())
     }
 
-    pub fn resume(&self) -> SwitchProgressHintResult {
+    fn resume(&self) -> SwitchProgressHintResult {
         self.after_latest_progress_hint_switched_result(self.latest_progress_hint.resume())
     }
 
-    pub fn finish(&self) -> SwitchProgressHintResult {
+    fn finish(&self) -> SwitchProgressHintResult {
         self.after_latest_progress_hint_switched_result(self.latest_progress_hint.finish())
     }
 
-    pub fn wait(&self) {
+    fn wait(&self) {
         self.update_notification_relay.wait();
     }
 
-    pub fn wait_for(&self, timeout: Duration) -> bool {
+    fn wait_for(&self, timeout: Duration) -> bool {
         self.update_notification_relay.wait_for(timeout).is_some()
     }
 
-    pub fn wait_until(&self, deadline: Instant) -> bool {
+    fn wait_until(&self, deadline: Instant) -> bool {
         self.update_notification_relay
             .wait_until(deadline)
             .is_some()
     }
 
-    pub fn reset(&self) {
+    fn reset(&self) {
         self.latest_progress_hint.reset();
         self.update_notification_relay.take();
     }
 
-    pub fn try_suspending(&self) -> bool {
+    fn try_suspending(&self) -> bool {
         // No update notification needed nor intended as this function
         // is supposed to be invoked only by the single receiver!
         self.latest_progress_hint.suspend().is_ok()
     }
 
-    pub fn try_finishing(&self) -> bool {
+    fn try_finishing(&self) -> bool {
         // No update notification needed nor intended as this function
         // is supposed to be invoked only by the single receiver!
         self.latest_progress_hint.finish().is_ok()

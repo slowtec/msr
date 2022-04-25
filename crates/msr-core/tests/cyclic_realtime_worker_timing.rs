@@ -65,10 +65,10 @@ impl fmt::Display for CyclicWorkerTiming {
 
 #[derive(Debug, Clone)]
 struct CyclicWorkerParams {
-    pub busy_time: Duration,
-    pub cycle_time: Duration,
-    pub rounds: u32,
-    pub timing: CyclicWorkerTiming,
+    busy_time: Duration,
+    cycle_time: Duration,
+    rounds: u32,
+    timing: CyclicWorkerTiming,
 }
 
 #[derive(Debug, Default)]
@@ -87,7 +87,7 @@ struct CyclicWorker {
 }
 
 impl CyclicWorker {
-    pub fn new(params: CyclicWorkerParams) -> Self {
+    fn new(params: CyclicWorkerParams) -> Self {
         Self {
             params,
             measurements: Default::default(),

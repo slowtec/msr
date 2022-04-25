@@ -31,7 +31,7 @@ impl context::ContextEventCallback for ContextEventCallback {
     }
 }
 
-pub fn create_message_loop(
+pub(crate) fn create_message_loop(
     data_dir: PathBuf,
     file_name_prefix: String,
     event_pubsub: EventPubSub,

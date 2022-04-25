@@ -51,6 +51,7 @@ repos:
       --workspace,
       --all-features,
       --all-targets,
+      --no-deps,
       --,
       -D,
       warnings,

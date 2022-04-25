@@ -14,7 +14,7 @@ use crate::{
 
 use super::context::Context;
 
-pub fn command_replace_config(
+pub(crate) fn command_replace_config(
     context: &mut Context,
     event_pubsub: &EventPubSub,
     reply_tx: ResultSender<Config>,
@@ -34,7 +34,7 @@ pub fn command_replace_config(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
-pub fn command_switch_state(
+pub(crate) fn command_switch_state(
     context: &mut Context,
     event_pubsub: &EventPubSub,
     reply_tx: ResultSender<()>,
@@ -53,7 +53,7 @@ pub fn command_switch_state(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
-pub fn command_record_entry(
+pub(crate) fn command_record_entry(
     context: &mut Context,
     event_pubsub: &EventPubSub,
     reply_tx: ResultSender<RecordEntryOutcome>,
@@ -77,16 +77,16 @@ pub fn command_record_entry(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
-pub fn command_shutdown(_context: &mut Context, reply_tx: ResultSender<()>) {
+pub(crate) fn command_shutdown(_context: &mut Context, reply_tx: ResultSender<()>) {
     send_reply(reply_tx, Ok(()));
 }
 
-pub fn query_config(context: &Context, reply_tx: ResultSender<Config>) {
+pub(crate) fn query_config(context: &Context, reply_tx: ResultSender<Config>) {
     let result = task::block_in_place(|| Ok(context.config().to_owned()));
     send_reply(reply_tx, result);
 }
 
-pub fn query_status(
+pub(crate) fn query_status(
     context: &mut Context,
     reply_tx: ResultSender<Status>,
     request: query::StatusRequest,
@@ -103,7 +103,7 @@ pub fn query_status(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
-pub fn query_recent_records(
+pub(crate) fn query_recent_records(
     context: &mut Context,
     reply_tx: ResultSender<Vec<StoredRecord>>,
     request: query::RecentRecordsRequest,
@@ -118,7 +118,7 @@ pub fn query_recent_records(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
-pub fn query_filter_records(
+pub(crate) fn query_filter_records(
     context: &mut Context,
     reply_tx: ResultSender<Vec<StoredRecord>>,
     request: query::FilterRecordsRequest,

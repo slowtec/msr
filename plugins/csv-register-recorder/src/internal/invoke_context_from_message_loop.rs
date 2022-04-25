@@ -12,7 +12,7 @@ use crate::{
 
 use super::context::Context;
 
-pub fn command_replace_config(
+pub(crate) fn command_replace_config(
     context: &mut Context,
     event_pubsub: &EventPubSub,
     reply_tx: ResultSender<Config>,
@@ -32,7 +32,7 @@ pub fn command_replace_config(
     send_reply(reply_tx, response);
 }
 
-pub fn command_replace_register_group_config(
+pub(crate) fn command_replace_register_group_config(
     context: &mut Context,
     event_pubsub: &EventPubSub,
     reply_tx: ResultSender<Option<RegisterGroupConfig>>,
@@ -59,7 +59,7 @@ pub fn command_replace_register_group_config(
     send_reply(reply_tx, response);
 }
 
-pub fn command_switch_state(
+pub(crate) fn command_switch_state(
     context: &mut Context,
     event_pubsub: &EventPubSub,
     reply_tx: ResultSender<()>,
@@ -78,7 +78,7 @@ pub fn command_switch_state(
     send_reply(reply_tx, response);
 }
 
-pub fn command_record_observed_register_group_values(
+pub(crate) fn command_record_observed_register_group_values(
     context: &mut Context,
     reply_tx: ResultSender<()>,
     register_group_id: RegisterGroupId,
@@ -96,16 +96,16 @@ pub fn command_record_observed_register_group_values(
     send_reply(reply_tx, response);
 }
 
-pub fn command_shutdown(reply_tx: ResultSender<()>) {
+pub(crate) fn command_shutdown(reply_tx: ResultSender<()>) {
     send_reply(reply_tx, Ok(()));
 }
 
-pub fn query_config(context: &Context, reply_tx: ResultSender<Config>) {
+pub(crate) fn query_config(context: &Context, reply_tx: ResultSender<Config>) {
     let response = task::block_in_place(|| Ok(context.config().to_owned()));
     send_reply(reply_tx, response);
 }
 
-pub fn query_register_group_config(
+pub(crate) fn query_register_group_config(
     context: &Context,
     reply_tx: ResultSender<Option<RegisterGroupConfig>>,
     register_group_id: &RegisterGroupId,
@@ -115,7 +115,7 @@ pub fn query_register_group_config(
     send_reply(reply_tx, response);
 }
 
-pub fn query_status(
+pub(crate) fn query_status(
     context: &mut Context,
     reply_tx: ResultSender<Status>,
     request: query::StatusRequest,
@@ -135,7 +135,7 @@ pub fn query_status(
     send_reply(reply_tx, response);
 }
 
-pub fn query_recent_records(
+pub(crate) fn query_recent_records(
     context: &mut Context,
     reply_tx: ResultSender<Vec<StoredRegisterRecord>>,
     register_group_id: &RegisterGroupId,
@@ -153,7 +153,7 @@ pub fn query_recent_records(
     send_reply(reply_tx, response);
 }
 
-pub fn query_filter_records(
+pub(crate) fn query_filter_records(
     context: &mut Context,
     reply_tx: ResultSender<Vec<StoredRegisterRecord>>,
     register_group_id: &RegisterGroupId,

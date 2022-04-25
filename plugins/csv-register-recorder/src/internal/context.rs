@@ -29,10 +29,10 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct PartitionId(String);
+pub(crate) struct PartitionId(String);
 
 impl PartitionId {
-    pub fn encode(s: &str) -> Self {
+    pub(crate) fn encode(s: &str) -> Self {
         Self(bs58::encode(s).into_string())
     }
 }
@@ -74,7 +74,7 @@ pub struct Config {
     pub register_groups: HashMap<RegisterGroupId, RegisterGroupConfig>,
 }
 
-pub struct Context {
+pub(crate) struct Context {
     data_path: PathBuf, // immutable
 
     file_name_prefix: String,
@@ -88,7 +88,7 @@ pub struct Context {
     event_cb: Box<dyn ContextEventCallback + Send>,
 }
 
-pub trait ContextEventCallback {
+pub(crate) trait ContextEventCallback {
     fn data_directory_created(&self, register_group_id: &RegisterGroupId, data_dir: &Path);
 }
 
@@ -151,7 +151,7 @@ impl RegisterGroupContext {
     }
 }
 
-pub trait RecordPreludeGenerator {
+pub(crate) trait RecordPreludeGenerator {
     fn generate_prelude(&self) -> Result<(SystemInstant, RecordPrelude)>;
 }
 
@@ -164,7 +164,7 @@ impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
     }
 }
 
-pub trait RecordRepo {
+pub(crate) trait RecordRepo {
     fn append_record(&mut self, record: RegisterRecord) -> Result<()>;
 
     fn recent_records(&self, limit: NonZeroUsize) -> Result<Vec<StoredRegisterRecord>>;
@@ -199,7 +199,7 @@ fn create_register_group_contexts(
 }
 
 impl Context {
-    pub fn try_new(
+    pub(crate) fn try_new(
         data_path: PathBuf,
         file_name_prefix: String,
         initial_config: Config,
@@ -222,19 +222,22 @@ impl Context {
         })
     }
 
-    pub fn config(&self) -> &Config {
+    pub(crate) fn config(&self) -> &Config {
         &self.config
     }
 
-    pub fn state(&self) -> State {
+    pub(crate) fn state(&self) -> State {
         self.state
     }
 
-    pub fn register_group_config(&self, id: &RegisterGroupId) -> Option<&RegisterGroupConfig> {
+    pub(crate) fn register_group_config(
+        &self,
+        id: &RegisterGroupId,
+    ) -> Option<&RegisterGroupConfig> {
         self.config.register_groups.get(id)
     }
 
-    pub fn status(
+    pub(crate) fn status(
         &mut self,
         with_register_groups: bool,
         with_storage_statistics: bool,
@@ -258,7 +261,7 @@ impl Context {
         })
     }
 
-    pub fn recent_records(
+    pub(crate) fn recent_records(
         &mut self,
         register_group_id: &RegisterGroupId,
         limit: NonZeroUsize,
@@ -270,7 +273,7 @@ impl Context {
         Ok(context.storage.recent_records(limit)?)
     }
 
-    pub fn filter_records(
+    pub(crate) fn filter_records(
         &mut self,
         register_group_id: &RegisterGroupId,
         limit: NonZeroUsize,
@@ -286,7 +289,7 @@ impl Context {
     /// Switch the current configuration
     ///
     /// Returns the previous configuration.
-    pub fn replace_config(&mut self, new_config: Config) -> Result<Config> {
+    pub(crate) fn replace_config(&mut self, new_config: Config) -> Result<Config> {
         if self.config == new_config {
             return Ok(new_config);
         }
@@ -309,7 +312,7 @@ impl Context {
     /// Switch the current configuration of a single register group
     ///
     /// Returns the previous configuration.
-    pub fn replace_register_group_config(
+    pub(crate) fn replace_register_group_config(
         &mut self,
         register_group_id: RegisterGroupId,
         new_config: RegisterGroupConfig,
@@ -364,7 +367,7 @@ impl Context {
     /// Switch the current state
     ///
     /// Returns the previous state.
-    pub fn switch_state(&mut self, new_state: State) -> Result<State> {
+    pub(crate) fn switch_state(&mut self, new_state: State) -> Result<State> {
         if self.state == new_state {
             return Ok(new_state);
         }
@@ -372,7 +375,7 @@ impl Context {
         Ok(std::mem::replace(&mut self.state, new_state))
     }
 
-    pub fn record_observed_register_group_values(
+    pub(crate) fn record_observed_register_group_values(
         &mut self,
         register_group_id: &RegisterGroupId,
         observed_register_values: ObservedRegisterValues,
@@ -449,7 +452,7 @@ impl Context {
 
     // FIXME: Replace with an integration test
     #[allow(clippy::panic_in_result_fn)] // just a test
-    pub fn smoke_test(&mut self) -> Result<()> {
+    pub(crate) fn smoke_test(&mut self) -> Result<()> {
         let register_group_id = RegisterGroupId::from_value("smoke-test-register-group".into());
         let register_group_config = RegisterGroupConfig {
             registers: vec![
