@@ -1,7 +1,6 @@
 // FIXME: Enable and switch `missing_docs` from `warn` to `deny` before release
 //#![warn(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(test, deny(warnings))]
 
 //! Industrial Automation Toolbox - Plugin Foundation
 

@@ -218,7 +218,7 @@ struct ProgressHintHandover {
 }
 
 impl ProgressHintHandover {
-    const fn default() -> Self {
+    fn default() -> Self {
         Self {
             latest_progress_hint: AtomicProgressHint::default(),
             update_notification_relay: Relay::new(),

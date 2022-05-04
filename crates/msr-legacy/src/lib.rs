@@ -1,7 +1,6 @@
 // FIXME: Enable all warnings before the release
 //#![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(test, deny(warnings))]
 
 use std::{
     collections::HashMap,

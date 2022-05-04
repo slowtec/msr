@@ -1,4 +1,3 @@
-#![cfg_attr(not(debug_assertions), deny(warnings))]
 // FIXME: Enable `deny(missing_docs)` before release
 //#![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]

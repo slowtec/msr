@@ -2,4 +2,11 @@
 clippy-lints = "clippy --all-targets --no-deps -- --cap-lints warn"
 
 [build]
-rustflags = "-D warnings -W unsafe-code -W unreachable-pub -W missing-debug-implementations -W rust_2018_idioms -W rust-2021-compatibility"
+rustflags = [
+    "-D", "warnings",
+    "-W", "missing-debug-implementations",
+    "-W", "rust-2018-idioms",
+    "-W", "rust-2021-compatibility",
+    "-W", "unreachable-pub",
+    "-W", "unsafe-code",
+]

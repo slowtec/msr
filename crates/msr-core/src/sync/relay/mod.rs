@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crate::sync::{const_mutex, Condvar, Mutex};
+use crate::sync::{Condvar, Mutex};
 
 /// Move single values between threads
 ///
@@ -23,16 +23,17 @@ pub struct Relay<T> {
 
 impl<T> Relay<T> {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            mutex: const_mutex(None),
+            mutex: Mutex::new(None),
             condvar: Condvar::new(),
         }
     }
 
-    pub const fn with_value(value: T) -> Self {
+    #[must_use]
+    pub fn with_value(value: T) -> Self {
         Self {
-            mutex: const_mutex(Some(value)),
+            mutex: Mutex::new(Some(value)),
             condvar: Condvar::new(),
         }
     }
@@ -50,7 +51,7 @@ impl<T> Relay<T> {
     /// Returns the previous value or `None`. If `None` is returned
     /// then a notification has been triggered.
     pub fn replace_notify_one(&self, value: T) -> Option<T> {
-        let mut guard = self.mutex.lock();
+        let mut guard = self.mutex.lock().expect("not poisened");
         let replaced = guard.replace(value);
         // Dropping the guard before notifying consumers might
         // cause spurious wakeups. These are handled appropriately.
@@ -68,7 +69,7 @@ impl<T> Relay<T> {
     /// Returns the previous value or `None`. If `None` is returned
     /// then a notification has been triggered.
     pub fn replace_notify_all(&self, value: T) -> Option<T> {
-        let mut guard = self.mutex.lock();
+        let mut guard = self.mutex.lock().expect("not poisened");
         let replaced = guard.replace(value);
         // Dropping the guard before notifying consumers might
         // cause spurious wakeups. These are handled appropriately.
@@ -87,7 +88,7 @@ impl<T> Relay<T> {
     ///
     /// Returns the previous value or `None`.
     pub fn take(&self) -> Option<T> {
-        let mut guard = self.mutex.lock();
+        let mut guard = self.mutex.lock().expect("not poisened");
         guard.take()
     }
 
@@ -97,13 +98,13 @@ impl<T> Relay<T> {
     ///
     /// Returns the previous value.
     pub fn wait(&self) -> T {
-        let mut guard = self.mutex.lock();
+        let mut guard = self.mutex.lock().expect("not poisened");
         // The loop is required to handle spurious wakeups
         loop {
             if let Some(value) = guard.take() {
                 return value;
             }
-            self.condvar.wait(&mut guard);
+            guard = self.condvar.wait(guard).expect("not poisened");
         }
     }
 
@@ -141,10 +142,23 @@ impl<T> Relay<T> {
     ///
     /// Returns the value if available or `None` if the deadline expired.
     pub fn wait_until(&self, deadline: Instant) -> Option<T> {
-        let mut guard = self.mutex.lock();
+        let mut guard = self.mutex.lock().expect("not poisened");
         // The loop is required to handle spurious wakeups
-        while guard.is_none() && !self.condvar.wait_until(&mut guard, deadline).timed_out() {
-            continue; // Continue on spurious wakeup
+        while guard.is_none() {
+            let now = Instant::now();
+            if now >= deadline {
+                break;
+            }
+            let timeout = deadline.duration_since(now);
+            let (replaced_guard, wait_result) = self
+                .condvar
+                .wait_timeout(guard, timeout)
+                .expect("not poisened");
+            guard = replaced_guard;
+            if wait_result.timed_out() {
+                break;
+            }
+            // Continue on spurious wakeup
         }
         guard.take()
     }

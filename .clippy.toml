@@ -6,9 +6,4 @@ disallowed-methods = [
 disallowed-types = [
     # Probably not suitable for any use case
     "std::collections::LinkedList",
-
-    # Use the faster, simpler, and non-poisonable primitives in `parking_lot` instead
-    "std::sync::Mutex",
-    "std::sync::RwLock",
-    "std::sync::Condvar",
 ]

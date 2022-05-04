@@ -8,8 +8,10 @@ pub use self::relay::Relay;
 #[allow(unused_imports)]
 pub(crate) use std::sync::{Arc, Weak};
 
-// loom only provides drop-in replacements for the std::sync
-// primitives, but unfortunately not for the parking_lot
-// variants that are using a different API.
+#[cfg(loom)]
 #[allow(unused_imports)]
-pub(crate) use parking_lot::{const_mutex, Condvar, Mutex};
+pub(crate) use loom::sync::{Condvar, Mutex};
+
+#[cfg(not(loom))]
+#[allow(unused_imports)]
+pub(crate) use std::sync::{Condvar, Mutex};
