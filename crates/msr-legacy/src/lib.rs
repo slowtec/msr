@@ -1,6 +1,6 @@
 // FIXME: Enable all warnings before the release
 //#![deny(missing_docs)]
-#![deny(rustdoc::broken_intra_doc_links)]
+#![allow(clippy::must_use_candidate)]
 
 use std::{
     collections::HashMap,

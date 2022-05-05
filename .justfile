@@ -9,9 +9,9 @@ fmt:
 
 # Run clippy for various feature combinations: default, no default, all
 check:
-    cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
-    cargo clippy --locked --workspace --no-deps --no-default-features --all-targets -- -D warnings
-    cargo clippy --locked --workspace --no-deps --all-features --all-targets -- -D warnings
+    cargo clippy --locked --workspace --no-deps --all-targets
+    cargo clippy --locked --workspace --no-deps --no-default-features --all-targets
+    cargo clippy --locked --workspace --no-deps --all-features --all-targets
 
 # Fix lint warnings
 fix:

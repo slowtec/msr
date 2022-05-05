@@ -1,6 +1,5 @@
 // FIXME: Enable and switch `missing_docs` from `warn` to `deny` before release
 //#![warn(missing_docs)]
-#![deny(rustdoc::broken_intra_doc_links)]
 
 //! Industrial Automation Toolbox - Plugin Foundation
 
@@ -85,6 +84,7 @@ pub type PluginResult<T, E> = Result<T, PluginError<E>>;
 pub type MessageSender<T> = mpsc::UnboundedSender<T>;
 pub type MessageReceiver<T> = mpsc::UnboundedReceiver<T>;
 
+#[must_use]
 pub fn message_channel<T>() -> (MessageSender<T>, MessageReceiver<T>) {
     mpsc::unbounded_channel()
 }
@@ -96,6 +96,7 @@ pub fn message_channel<T>() -> (MessageSender<T>, MessageReceiver<T>) {
 pub type ReplySender<T> = oneshot::Sender<T>;
 pub type ReplyReceiver<T> = oneshot::Receiver<T>;
 
+#[must_use]
 pub fn reply_channel<T>() -> (oneshot::Sender<T>, oneshot::Receiver<T>) {
     oneshot::channel()
 }
@@ -116,15 +117,18 @@ pub struct BroadcastSubscriber<T> {
 }
 
 impl<T> BroadcastSubscriber<T> {
+    #[must_use]
     pub fn new(sender: BroadcastSender<T>) -> Self {
         Self { sender }
     }
 
+    #[must_use]
     pub fn subscribe(&self) -> BroadcastReceiver<T> {
         self.sender.subscribe()
     }
 }
 
+#[must_use]
 pub fn broadcast_channel<T>(channel_capacity: usize) -> (BroadcastSender<T>, BroadcastSubscriber<T>)
 where
     T: Clone,
@@ -152,10 +156,12 @@ pub type EventPublisherIndexValue = usize;
 pub struct EventPublisherIndex(EventPublisherIndexValue);
 
 impl EventPublisherIndex {
+    #[must_use]
     pub const fn from_value(value: EventPublisherIndexValue) -> Self {
         Self(value)
     }
 
+    #[must_use]
     pub const fn to_value(self) -> EventPublisherIndexValue {
         self.0
     }
@@ -183,6 +189,7 @@ pub type EventSender<E> = broadcast::Sender<PublishedEvent<E>>;
 pub type EventReceiver<E> = broadcast::Receiver<PublishedEvent<E>>;
 pub type EventSubscriber<E> = BroadcastSubscriber<PublishedEvent<E>>;
 
+#[must_use]
 pub fn event_channel<E>(channel_capacity: usize) -> (EventSender<E>, EventSubscriber<E>)
 where
     E: Clone,
