@@ -9,4 +9,10 @@ rustflags = [
     "-W", "rust-2021-compatibility",
     "-W", "unreachable-pub",
     "-W", "unsafe-code",
+    "-W", "rustdoc::broken-intra-doc-links",
+    "-W", "clippy::all",
+    "-W", "clippy::explicit-deref-methods",
+    "-W", "clippy::explicit-into-iter-loop",
+    "-W", "clippy::explicit-iter-loop",
+    "-W", "clippy::must-use-candidate",
 ]
