@@ -8,10 +8,10 @@ license = "MIT/Apache-2.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.57"
+anyhow = "1.0.58"
 log = "0.4.17"
 thiserror = "1.0.31"
-tokio = { version = "1.18.1", default-features = false, features = ["rt-multi-thread", "sync"] }
+tokio = { version = "1.19.2", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
 msr-core = { version = "=0.3.1", features = ["csv-event-journal"] }

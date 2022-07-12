@@ -24,19 +24,26 @@ test:
     cargo test --locked --workspace --no-default-features -- --nocapture --include-ignored
     cargo test --locked --workspace --all-features -- --nocapture --include-ignored
 
-# Update depenencies and pre-commit hooks
-update:
-    rustup self update
+# Set up (and update) tooling
+setup:
+    # Ignore rustup failures, because not everyone might use it
+    rustup self update || true
+    # cargo-edit is needed for `cargo upgrade`
     cargo install cargo-edit
-    cargo upgrade --workspace \
+    pip install -U pre-commit
+    pre-commit autoupdate
+    pre-commit install --hook-type commit-msg --hook-type pre-commit
+
+# Upgrade (and update) dependencies
+upgrade:
+    RUST_BACKTRACE=1 cargo upgrade --workspace \
         --exclude msr \
         --exclude msr-core \
         --exclude msr-plugin \
         --exclude msr-plugin-csv-event-journal \
         --exclude msr-plugin-csv-register-recorder
     cargo update
-    pip install -U pre-commit
-    pre-commit autoupdate
+    #cargo minimal-versions check --workspace
 
 # Run pre-commit hooks
 pre-commit:

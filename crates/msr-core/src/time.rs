@@ -128,7 +128,7 @@ impl Timestamp {
     /// offset. Returns an UTC timestamp as a fallback if the local time
     /// zone is unknown or could not be determined.
     ///
-    /// Prefer to use [`now_utc()`] if the local time zone offset doesn't
+    /// Prefer to use [`Self::now_utc()`] if the local time zone offset doesn't
     /// matter.
     #[must_use]
     pub fn now() -> Self {

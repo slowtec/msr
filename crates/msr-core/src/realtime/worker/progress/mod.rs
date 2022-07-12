@@ -20,11 +20,11 @@ pub enum ProgressHint {
     Continue,
 
     /// Worker should complete the current unit of work asap
-    /// with [`Completion::Suspending`].
+    /// with [`super::CompletionStatus::Suspending`].
     Suspend,
 
     /// Worker should complete the current unit of work asap
-    /// with [`Completion::Finishing`].
+    /// with [`super::CompletionStatus::Finishing`].
     Finish,
 }
 

@@ -1,9 +1,0 @@
-msrv = "1.60"
-
-disallowed-methods = [
-]
-
-disallowed-types = [
-    # Probably not suitable for any use case
-    "std::collections::LinkedList",
-]

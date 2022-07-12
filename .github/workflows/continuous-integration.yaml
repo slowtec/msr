@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
 
-name: Continuous integration
+name: continuous-integration
 
 on:
   pull_request:

@@ -310,7 +310,7 @@ fn thread_fn<W: Worker, E: Events>(
     Ok(())
 }
 
-/// Outcome of [`Thread::join()`]
+/// Outcome of [`WorkerThread::join()`]
 #[allow(missing_debug_implementations)]
 pub struct TerminatedThread<W: Worker, E> {
     /// The result of the thread function
@@ -320,7 +320,7 @@ pub struct TerminatedThread<W: Worker, E> {
     pub recovered_params: RecoverableParams<W, E>,
 }
 
-/// Outcome of [`Thread::join()`]
+/// Outcome of [`WorkerThread::join()`]
 #[allow(missing_debug_implementations)]
 pub enum JoinedThread<W: Worker, E> {
     Terminated(TerminatedThread<W, E>),

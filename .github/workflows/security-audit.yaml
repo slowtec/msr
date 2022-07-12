@@ -1,12 +1,14 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
 
-name: Security audit
+name: security-audit
+
+permissions:
+  contents: read
 
 on:
   push:
     paths:
       - '**/Cargo.toml'
-      - '**/Cargo.lock'
   #schedule:
   #  - cron: '0 0 * * *'
   workflow_dispatch:
@@ -16,6 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      # TODO: Remove manual installation of toolchain after
+      # https://github.com/actions-rs/audit-check/issues/215
+      # has been resolved.
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
