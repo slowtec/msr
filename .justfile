@@ -36,14 +36,19 @@ setup:
 
 # Upgrade (and update) dependencies
 upgrade:
-    RUST_BACKTRACE=1 cargo upgrade --workspace \
+    cargo upgrade --workspace \
         --exclude msr \
         --exclude msr-core \
         --exclude msr-plugin \
         --exclude msr-plugin-csv-event-journal \
         --exclude msr-plugin-csv-register-recorder
     cargo update
-    #cargo minimal-versions check --workspace
+    cargo upgrade --workspace --to-lockfile \
+        --exclude msr \
+        --exclude msr-core \
+        --exclude msr-plugin \
+        --exclude msr-plugin-csv-event-journal \
+        --exclude msr-plugin-csv-register-recorder
 
 # Run pre-commit hooks
 pre-commit:
