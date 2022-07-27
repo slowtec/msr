@@ -36,19 +36,9 @@ setup:
 
 # Upgrade (and update) dependencies
 upgrade:
-    cargo upgrade --workspace \
-        --exclude msr \
-        --exclude msr-core \
-        --exclude msr-plugin \
-        --exclude msr-plugin-csv-event-journal \
-        --exclude msr-plugin-csv-register-recorder
+    cargo upgrade --workspace
     cargo update
     cargo upgrade --workspace --to-lockfile \
-        --exclude msr \
-        --exclude msr-core \
-        --exclude msr-plugin \
-        --exclude msr-plugin-csv-event-journal \
-        --exclude msr-plugin-csv-register-recorder
 
 # Run pre-commit hooks
 pre-commit:
