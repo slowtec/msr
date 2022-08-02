@@ -1,5 +1,5 @@
 [package]
-version = "0.3.1"
+version = "0.3.2"
 name = "msr-core"
 description = "Industrial Automation Toolbox - Common core components"
 homepage = "https://github.com/slowtec/msr"

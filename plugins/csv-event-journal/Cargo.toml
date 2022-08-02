@@ -1,5 +1,5 @@
 [package]
-version = "0.3.1"
+version = "0.3.2"
 name = "msr-plugin-csv-event-journal"
 description = "Industrial Automation Toolbox - CSV Event Journal Plugin"
 homepage = "https://github.com/slowtec/msr"
@@ -14,5 +14,5 @@ thiserror = "1.0"
 tokio = { version = "1.20", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
-msr-core = { version = "=0.3.1", features = ["csv-event-journal"] }
-msr-plugin = "=0.3.1"
+msr-core = { version = "=0.3.2", features = ["csv-event-journal"] }
+msr-plugin = "=0.3.2"
