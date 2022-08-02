@@ -93,26 +93,3 @@ pub trait Worker {
     /// finalizing results, releasing resources, and performing cleanup.
     fn finish_working(&mut self, env: &mut Self::Environment) -> Result<()>;
 }
-
-/// Wraps a [`Worker`] as a boxed trait object
-pub type WorkerBoxed<E> = Box<dyn Worker<Environment = E> + Send + 'static>;
-
-impl<E> Worker for WorkerBoxed<E> {
-    type Environment = E;
-
-    fn start_working(&mut self, env: &mut Self::Environment) -> Result<()> {
-        (&mut **self).start_working(env)
-    }
-
-    fn perform_work(
-        &mut self,
-        env: &Self::Environment,
-        progress_hint_rx: &ProgressHintReceiver,
-    ) -> Result<CompletionStatus> {
-        (&mut **self).perform_work(env, progress_hint_rx)
-    }
-
-    fn finish_working(&mut self, env: &mut Self::Environment) -> Result<()> {
-        (&mut **self).finish_working(env)
-    }
-}

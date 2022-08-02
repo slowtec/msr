@@ -37,14 +37,6 @@ pub trait Events {
     fn on_state_changed(&self, state: State);
 }
 
-pub type EventsBoxed = Box<dyn Events + Send + 'static>;
-
-impl Events for EventsBoxed {
-    fn on_state_changed(&self, state: State) {
-        (&**self).on_state_changed(state)
-    }
-}
-
 /// Spawn parameters
 ///
 /// The parameters are passed into the worker thread when spawned
