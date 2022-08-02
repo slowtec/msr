@@ -34,14 +34,14 @@ impl State {
 
 /// Event callbacks
 pub trait Events {
-    fn on_state_changed(&mut self, state: State);
+    fn on_state_changed(&self, state: State);
 }
 
 pub type EventsBoxed = Box<dyn Events + Send + 'static>;
 
 impl Events for EventsBoxed {
-    fn on_state_changed(&mut self, state: State) {
-        (&mut **self).on_state_changed(state)
+    fn on_state_changed(&self, state: State) {
+        (&**self).on_state_changed(state)
     }
 }
 

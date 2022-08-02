@@ -22,7 +22,7 @@ struct CyclicWorkerEnvironment;
 struct CyclicWorkerEvents;
 
 impl Events for CyclicWorkerEvents {
-    fn on_state_changed(&mut self, _state: State) {}
+    fn on_state_changed(&self, _state: State) {}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

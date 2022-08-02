@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use crate::realtime::worker::progress::{ProgressHint, ProgressHintSender, SwitchProgressHintOk};
 
 use super::*;
@@ -57,11 +59,11 @@ impl Worker for SmokeTestWorker {
 
 #[derive(Default)]
 struct StateChangedCount {
-    starting: usize,
-    running: usize,
-    suspending: usize,
-    finishing: usize,
-    stopping: usize,
+    starting: AtomicUsize,
+    running: AtomicUsize,
+    suspending: AtomicUsize,
+    finishing: AtomicUsize,
+    stopping: AtomicUsize,
 }
 
 struct SmokeTestEvents {
@@ -79,17 +81,23 @@ impl SmokeTestEvents {
 }
 
 impl Events for SmokeTestEvents {
-    fn on_state_changed(&mut self, state: State) {
+    fn on_state_changed(&self, state: State) {
         match state {
             State::Unknown => unreachable!(),
             State::Starting => {
-                self.state_changed_count.starting += 1;
+                self.state_changed_count
+                    .starting
+                    .fetch_add(1, Ordering::SeqCst);
             }
             State::Running => {
-                self.state_changed_count.running += 1;
+                self.state_changed_count
+                    .running
+                    .fetch_add(1, Ordering::SeqCst);
             }
             State::Suspending => {
-                self.state_changed_count.suspending += 1;
+                self.state_changed_count
+                    .suspending
+                    .fetch_add(1, Ordering::SeqCst);
                 assert_eq!(
                     SwitchProgressHintOk::Accepted {
                         previous_state: ProgressHint::Suspend,
@@ -98,10 +106,14 @@ impl Events for SmokeTestEvents {
                 );
             }
             State::Finishing => {
-                self.state_changed_count.finishing += 1;
+                self.state_changed_count
+                    .finishing
+                    .fetch_add(1, Ordering::SeqCst);
             }
             State::Stopping => {
-                self.state_changed_count.stopping += 1;
+                self.state_changed_count
+                    .stopping
+                    .fetch_add(1, Ordering::SeqCst);
             }
         }
     }
@@ -140,16 +152,26 @@ fn smoke_test() -> anyhow::Result<()> {
                     expected_perform_work_invocations,
                     worker.actual_perform_work_invocations
                 );
-                assert_eq!(1, events.state_changed_count.starting);
-                assert_eq!(1, events.state_changed_count.stopping);
+                assert_eq!(
+                    1,
+                    events.state_changed_count.starting.load(Ordering::SeqCst)
+                );
+                assert_eq!(
+                    1,
+                    events.state_changed_count.stopping.load(Ordering::SeqCst)
+                );
                 assert_eq!(
                     expected_perform_work_invocations,
-                    events.state_changed_count.running
+                    events.state_changed_count.running.load(Ordering::SeqCst)
                 );
-                assert_eq!(1, events.state_changed_count.finishing);
                 assert_eq!(
-                    events.state_changed_count.running - events.state_changed_count.finishing,
-                    events.state_changed_count.suspending
+                    1,
+                    events.state_changed_count.finishing.load(Ordering::SeqCst)
+                );
+                assert_eq!(
+                    events.state_changed_count.running.load(Ordering::SeqCst)
+                        - events.state_changed_count.finishing.load(Ordering::SeqCst),
+                    events.state_changed_count.suspending.load(Ordering::SeqCst)
                 );
             }
             JoinedThread::JoinError(err) => {
