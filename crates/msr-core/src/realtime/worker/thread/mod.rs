@@ -8,13 +8,28 @@ use thread_priority::{ThreadId as NativeThreadId, ThreadPriority, ThreadSchedule
 
 use super::{progress::ProgressHintReceiver, CompletionStatus, Worker};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, num_derive::FromPrimitive)]
+#[repr(u8)]
 pub enum State {
+    #[default]
+    Unknown,
     Starting,
     Running,
     Suspending,
     Finishing,
     Stopping,
+}
+
+impl State {
+    #[must_use]
+    pub const fn to_u8(self) -> u8 {
+        self as u8
+    }
+
+    #[must_use]
+    pub fn from_u8(value: u8) -> Option<Self> {
+        num_traits::FromPrimitive::from_u8(value)
+    }
 }
 
 /// Event callbacks

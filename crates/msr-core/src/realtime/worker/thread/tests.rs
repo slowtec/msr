@@ -81,6 +81,7 @@ impl SmokeTestEvents {
 impl Events for SmokeTestEvents {
     fn on_state_changed(&mut self, state: State) {
         match state {
+            State::Unknown => unreachable!(),
             State::Starting => {
                 self.state_changed_count.starting += 1;
             }

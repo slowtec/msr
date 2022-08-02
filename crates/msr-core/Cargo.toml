@@ -11,6 +11,8 @@ edition = "2021"
 anyhow = "1.0"
 base64 = "0.13"
 log = "0.4"
+num-derive =  { version = "0.3", default-features = false }
+num-traits =  { version = "0.2", default-features = false }
 thiserror = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "formatting", "parsing"] }
 
