@@ -1,11 +1,16 @@
 use std::{
     fmt,
+    ops::Deref,
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        mpsc, Arc,
+    },
     time::{Duration, Instant},
 };
 
 use msr_core::{
     realtime::worker::{
-        progress::{ProgressHint, ProgressHintReceiver},
+        progress::{ProgressHint, ProgressHintReceiver, ProgressHintSender},
         thread::{
             Events, JoinedThread, RecoverableParams, State, TerminatedThread, ThreadScheduling,
             WorkerThread,
@@ -18,11 +23,49 @@ use msr_core::{
 #[derive(Default)]
 struct CyclicWorkerEnvironment;
 
-#[derive(Default)]
-struct CyclicWorkerEvents;
+struct CyclicWorkerEvents {
+    state: AtomicU8,
+}
+
+impl CyclicWorkerEvents {
+    pub const fn new() -> Self {
+        Self {
+            state: AtomicU8::new(State::Unknown.to_u8()),
+        }
+    }
+
+    pub fn state(&self) -> State {
+        State::from_u8(self.state.load(Ordering::Acquire)).expect("valid value")
+    }
+}
+
+impl Default for CyclicWorkerEvents {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Events for CyclicWorkerEvents {
-    fn on_state_changed(&self, _state: State) {}
+    fn on_state_changed(&self, state: State) {
+        self.state.store(state.to_u8(), Ordering::Release);
+    }
+}
+
+#[derive(Clone, Default)]
+struct SharedCyclicWorkerEvents(Arc<CyclicWorkerEvents>);
+
+impl Deref for SharedCyclicWorkerEvents {
+    type Target = CyclicWorkerEvents;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Events for SharedCyclicWorkerEvents {
+    fn on_state_changed(&self, state: State) {
+        self.deref().on_state_changed(state);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,14 +110,13 @@ impl fmt::Display for CyclicWorkerTiming {
 struct CyclicWorkerParams {
     busy_time: Duration,
     cycle_time: Duration,
-    rounds: u32,
     timing: CyclicWorkerTiming,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct CyclicWorkerMeasurements {
-    completed_cycles: u32,
-    skipped_cycles: u32,
+    cycles_completed: u32,
+    cycles_skipped: u32,
     earliness_sum: Duration,
     earliness_max: Duration,
     lateness_sum: Duration,
@@ -84,13 +126,18 @@ struct CyclicWorkerMeasurements {
 struct CyclicWorker {
     params: CyclicWorkerParams,
     measurements: CyclicWorkerMeasurements,
+    measurements_tx: mpsc::Sender<CyclicWorkerMeasurements>,
 }
 
 impl CyclicWorker {
-    fn new(params: CyclicWorkerParams) -> Self {
+    fn new(
+        params: CyclicWorkerParams,
+        measurements_tx: mpsc::Sender<CyclicWorkerMeasurements>,
+    ) -> Self {
         Self {
             params,
             measurements: Default::default(),
+            measurements_tx,
         }
     }
 
@@ -126,7 +173,7 @@ impl CyclicWorker {
             actual_cycle_start,
         )
         .unwrap_or_else(|(expected_cycle_start, missed_cycles)| {
-            self.measurements.skipped_cycles += missed_cycles;
+            self.measurements.cycles_skipped += missed_cycles;
             expected_cycle_start
         })
     }
@@ -149,9 +196,7 @@ impl Worker for CyclicWorker {
         progress_hint_rx: &ProgressHintReceiver,
     ) -> anyhow::Result<CompletionStatus> {
         let mut cycle_deadline = Instant::now();
-        while self.measurements.completed_cycles + self.measurements.skipped_cycles
-            < self.params.rounds
-        {
+        loop {
             // Idle: Wait for the current cycle to end
             match self.params.timing {
                 CyclicWorkerTiming::Sleeping => {
@@ -196,23 +241,91 @@ impl Worker for CyclicWorker {
             // Busy: Perform work (simulated by sleeping)
             thread::sleep(self.params.busy_time);
 
-            self.measurements.completed_cycles += 1;
+            self.measurements.cycles_completed += 1;
+            if self
+                .measurements_tx
+                .send(self.measurements.clone())
+                .is_err()
+            {
+                // Abort if all receivers disappeared. This should never happen during tests.
+                unreachable!("Failed to submit results from worker thread");
+                //return Ok(CompletionStatus::Finishing);
+            }
         }
-        Ok(CompletionStatus::Finishing)
     }
 }
 
 fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerMeasurements> {
-    let worker = CyclicWorker::new(params);
+    let (measurements_tx, measurements_rx) = mpsc::channel();
+    let cycle_time = params.cycle_time;
+    let worker = CyclicWorker::new(params, measurements_tx);
     let progress_hint_rx = ProgressHintReceiver::default();
+    let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
+    let events = SharedCyclicWorkerEvents::default();
     let recoverable_params = RecoverableParams {
         progress_hint_rx,
         worker,
         environment: CyclicWorkerEnvironment,
-        events: CyclicWorkerEvents,
+        events: events.clone(),
     };
     let worker_thread =
         WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, recoverable_params);
+    let mut exit_loop = false;
+    let mut suspended = false;
+    let mut resumed = false;
+    let mut finished = false;
+    let mut cycles_completed: u32 = 0;
+    while !exit_loop {
+        match events.state() {
+            State::Unknown | State::Starting | State::Running => (),
+            State::Suspending => {
+                if !resumed {
+                    progress_hint_tx.resume().expect("resumed");
+                    resumed = true;
+                }
+            }
+            State::Stopping | State::Finishing => {
+                exit_loop = true;
+                // Drain the channel one last time after the worker thread has
+                // exited its process_work() function. This is required to not
+                // discard any results!
+            }
+        }
+        // Keep draining the channel until no more results are received.
+        // The timeout is tunable, here we use twice the expected cycle time.
+        // If the timeout is shorter the outer loop will repeat more often
+        // and the latency for detecting state changed is reduced at the
+        // cost of consuming more CPU cycles.
+        loop {
+            match measurements_rx.recv_timeout(2 * cycle_time) {
+                Ok(measurements) => {
+                    assert_eq!(cycles_completed + 1, measurements.cycles_completed);
+                    cycles_completed = measurements.cycles_completed;
+                    if !finished && cycles_completed >= CYCLES {
+                        // Request the worker to finish asap.
+                        progress_hint_tx.finish().expect("finished");
+                        finished = true;
+                        // Continue receiving measurements until the worker
+                        // the worker has finished.
+                    } else if !suspended && cycles_completed >= CYCLES / 2 {
+                        // Suspend the worker halfway through
+                        progress_hint_tx.suspend().expect("suspended");
+                        suspended = true;
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    // Start over, i.e. exit the inner loop and continue in the outer loop
+                    break;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    unreachable!();
+                }
+            }
+        }
+    }
+    assert!(suspended);
+    assert!(resumed);
+    assert!(finished);
     match worker_thread.join() {
         JoinedThread::Terminated(TerminatedThread {
             recovered_params:
@@ -232,23 +345,26 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     }
 }
 
+const CYCLES: u32 = 1000;
+
 #[test]
 // This test often fails on GitHub CI due to timing issues
 // and is only supposed to be executed locally.
 #[ignore]
-fn cyclic_realtime_worker_timing() -> anyhow::Result<()> {
+fn cyclic_realtime_worker_timing_no_cycles_skipped() -> anyhow::Result<()> {
     for timing in [CyclicWorkerTiming::Sleeping, CyclicWorkerTiming::Waiting] {
         let params = CyclicWorkerParams {
             busy_time: Duration::from_millis(3),
             cycle_time: Duration::from_millis(5),
-            rounds: 1000,
             timing,
         };
         assert!(params.busy_time <= params.cycle_time);
 
         let measurements = run_cyclic_worker(params.clone())?;
+        assert!(measurements.cycles_completed >= CYCLES);
+        assert_eq!(measurements.cycles_skipped, 0);
 
-        let lateness_avg = measurements.lateness_sum / params.rounds;
+        let lateness_avg = measurements.lateness_sum / CYCLES;
         println!(
             "Lateness ({}): max = {:.3} ms, avg = {:.3} ms",
             params.timing,
@@ -264,42 +380,36 @@ fn cyclic_realtime_worker_timing() -> anyhow::Result<()> {
         // ||<- ... ->|<- earliness_max ->||<- lateness_max ->|<- ... ->||
         let max_actual_jitter = measurements.earliness_max + measurements.lateness_max;
         assert!(max_actual_jitter <= max_expected_jitter(params.timing));
-
-        assert_eq!(params.rounds, measurements.completed_cycles);
-        assert_eq!(0, measurements.skipped_cycles);
     }
 
     Ok(())
 }
 
 #[test]
-fn cyclic_realtime_worker_skipped_cycles() -> anyhow::Result<()> {
+fn cyclic_realtime_worker_timing_with_cycles_skipped() -> anyhow::Result<()> {
     for timing in [CyclicWorkerTiming::Sleeping, CyclicWorkerTiming::Waiting] {
         let params = CyclicWorkerParams {
             busy_time: Duration::from_millis(7),
             cycle_time: Duration::from_millis(5),
-            rounds: 1000,
             timing,
         };
+        // Check precondition for this test that ensures to skip some cycles.
         assert!(params.busy_time > params.cycle_time);
 
         let measurements = run_cyclic_worker(params.clone())?;
+        assert!(measurements.cycles_completed >= CYCLES);
+        // We are expecting to miss at least 1 cycle
+        assert!(measurements.cycles_skipped > 0);
 
         assert_eq!(Duration::ZERO, measurements.earliness_max);
         assert_eq!(Duration::ZERO, measurements.earliness_sum);
 
-        // We are expecting to miss at least 1 cycle
+        // The maximum lateness must exceed the cycle time after missing
+        // at least 1 cycle.
         assert!(measurements.lateness_max > params.cycle_time);
+        // And it must also be greater or equal than the busy_time, which
+        // exceeds the cycle_time for this tests.
         assert!(measurements.lateness_max >= params.busy_time);
-        assert!(params.rounds > measurements.completed_cycles);
-
-        // The number of actual cycles might be higher than the number of rounds
-        // if we miss cycles during the last round!
-        assert!(params.rounds <= measurements.completed_cycles + measurements.skipped_cycles);
-
-        let max_completed_cycles =
-            params.rounds as f64 * params.cycle_time.as_secs_f64() / params.busy_time.as_secs_f64();
-        assert!(measurements.completed_cycles <= max_completed_cycles.floor() as u32);
     }
 
     Ok(())
