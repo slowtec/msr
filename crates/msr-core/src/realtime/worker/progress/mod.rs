@@ -14,9 +14,13 @@ use crate::sync::{
 ///
 /// Non-compulsary intention or request on how the worker should
 /// proceed with the pending work.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ProgressHint {
     /// Worker should continue uninterrupted
+    ///
+    /// This default should be used when no other information is available,
+    /// i.e. processing should continue running uninterrupted.
+    #[default]
     Continue,
 
     /// Worker should complete the current unit of work asap
@@ -26,23 +30,6 @@ pub enum ProgressHint {
     /// Worker should complete the current unit of work asap
     /// with [`super::CompletionStatus::Finishing`].
     Finish,
-}
-
-impl ProgressHint {
-    /// Default value
-    ///
-    /// The default should be used when no other information is available,
-    /// i.e. processing should continue running uninterrupted.
-    #[must_use]
-    pub const fn default() -> Self {
-        Self::Continue
-    }
-}
-
-impl Default for ProgressHint {
-    fn default() -> Self {
-        Self::default()
-    }
 }
 
 type AtomicValue = u8;
@@ -143,13 +130,6 @@ impl AtomicProgressHint {
     /// Default value
     ///
     /// Creates a new value in accordance to `ProgressHint::default()`.
-    #[cfg(not(loom))]
-    const fn default() -> Self {
-        Self::new(ProgressHint::default())
-    }
-
-    // The loom atomic does not provide a const fn new()
-    #[cfg(loom)]
     fn default() -> Self {
         Self::new(ProgressHint::default())
     }
@@ -162,7 +142,7 @@ impl AtomicProgressHint {
     // The loom atomic does not provide a const fn new()
     #[cfg(loom)]
     fn new(progress_hint: ProgressHint) -> Self {
-        Self(AtomicU8::new(Self::to_atomic_state(progress_hint)))
+        Self(AtomicU8::new(progress_hint_to_atomic_state(progress_hint)))
     }
 
     /// Switch from [`ProgressHint::Continue`] to [`ProgressHint::Suspend`]
@@ -211,25 +191,10 @@ struct UpdateNotificationToken;
 /// notification from a sender. A progress hint update notification
 /// is buffered until consumed by the receiver. Subsequent updates
 /// will only trigger a single notifications.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ProgressHintHandover {
     latest_progress_hint: AtomicProgressHint,
     update_notification_relay: Relay<UpdateNotificationToken>,
-}
-
-impl ProgressHintHandover {
-    fn default() -> Self {
-        Self {
-            latest_progress_hint: AtomicProgressHint::default(),
-            update_notification_relay: Relay::new(),
-        }
-    }
-}
-
-impl Default for ProgressHintHandover {
-    fn default() -> Self {
-        Self::default()
-    }
 }
 
 /// The observed effect of switching the progress hint

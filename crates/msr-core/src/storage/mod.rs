@@ -209,23 +209,18 @@ pub trait RecordStorageBase {
 }
 
 /// Format of custom, binary data
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
 pub enum BinaryDataFormat {
     /// Arbitrary binary data
     ///
     /// Serialized as Base64 with standard alphabet and no padding.
+    #[default]
     Bytes,
 
     /// Serialized UTF-8 data
     ///
     /// A typical use case is the tunneling of UTF-8 JSON data.
     Utf8,
-}
-
-impl Default for BinaryDataFormat {
-    fn default() -> Self {
-        Self::Bytes
-    }
 }
 
 fn encode_binary_data_bytes(input: impl AsRef<[u8]>) -> String {
