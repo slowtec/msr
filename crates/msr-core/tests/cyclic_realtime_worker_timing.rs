@@ -115,7 +115,7 @@ struct CyclicWorkerParams {
 
 #[derive(Debug, Clone, Default)]
 struct CyclicWorkerMeasurements {
-    cycles_completed: u32,
+    cycles_completed_count: u32,
     cycles_skipped: u32,
     earliness_sum: Duration,
     earliness_max: Duration,
@@ -241,7 +241,7 @@ impl Worker for CyclicWorker {
             // Busy: Perform work (simulated by sleeping)
             thread::sleep(self.params.busy_time);
 
-            self.measurements.cycles_completed += 1;
+            self.measurements.cycles_completed_count += 1;
             if self
                 .measurements_tx
                 .send(self.measurements.clone())
@@ -270,18 +270,19 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     };
     let worker_thread =
         WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, recoverable_params);
-    let mut exit_loop = false;
-    let mut suspended = false;
-    let mut resumed = false;
+    let mut suspended_count = 0;
+    let mut resumed_count = 0;
+    let mut cycles_completed_count = 0;
     let mut finished = false;
-    let mut cycles_completed: u32 = 0;
+    let mut exit_loop = false;
     while !exit_loop {
         match events.state() {
             State::Unknown | State::Starting | State::Running => (),
             State::Suspending => {
-                if !resumed {
+                assert!(resumed_count <= suspended_count);
+                if resumed_count < suspended_count {
                     progress_hint_tx.resume().expect("resumed");
-                    resumed = true;
+                    resumed_count += 1;
                 }
             }
             State::Stopping | State::Finishing => {
@@ -299,18 +300,23 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
         loop {
             match measurements_rx.recv_timeout(2 * cycle_time) {
                 Ok(measurements) => {
-                    assert_eq!(cycles_completed + 1, measurements.cycles_completed);
-                    cycles_completed = measurements.cycles_completed;
-                    if !finished && cycles_completed >= CYCLES {
-                        // Request the worker to finish asap.
-                        progress_hint_tx.finish().expect("finished");
-                        finished = true;
-                        // Continue receiving measurements until the worker
-                        // the worker has finished.
-                    } else if !suspended && cycles_completed >= CYCLES / 2 {
-                        // Suspend the worker halfway through
-                        progress_hint_tx.suspend().expect("suspended");
-                        suspended = true;
+                    assert_eq!(
+                        cycles_completed_count + 1,
+                        measurements.cycles_completed_count
+                    );
+                    cycles_completed_count = measurements.cycles_completed_count;
+                    if !finished && suspended_count == resumed_count {
+                        if cycles_completed_count >= CYCLES {
+                            // Request the worker to finish asap.
+                            progress_hint_tx.finish().expect("finished");
+                            finished = true;
+                            // Continue receiving measurements until the worker
+                            // the worker has finished.
+                        } else if cycles_completed_count % 100 == 0 {
+                            // Suspend/resume the worker periodically
+                            progress_hint_tx.suspend().expect("suspended");
+                            suspended_count += 1;
+                        }
                     }
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -323,8 +329,7 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
             }
         }
     }
-    assert!(suspended);
-    assert!(resumed);
+    assert_eq!(suspended_count, resumed_count);
     assert!(finished);
     match worker_thread.join() {
         JoinedThread::Terminated(TerminatedThread {
@@ -361,7 +366,7 @@ fn cyclic_realtime_worker_timing_no_cycles_skipped() -> anyhow::Result<()> {
         assert!(params.busy_time <= params.cycle_time);
 
         let measurements = run_cyclic_worker(params.clone())?;
-        assert!(measurements.cycles_completed >= CYCLES);
+        assert!(measurements.cycles_completed_count >= CYCLES);
         assert_eq!(measurements.cycles_skipped, 0);
 
         let lateness_avg = measurements.lateness_sum / CYCLES;
@@ -397,7 +402,7 @@ fn cyclic_realtime_worker_timing_with_cycles_skipped() -> anyhow::Result<()> {
         assert!(params.busy_time > params.cycle_time);
 
         let measurements = run_cyclic_worker(params.clone())?;
-        assert!(measurements.cycles_completed >= CYCLES);
+        assert!(measurements.cycles_completed_count >= CYCLES);
         // We are expecting to miss at least 1 cycle
         assert!(measurements.cycles_skipped > 0);
 
