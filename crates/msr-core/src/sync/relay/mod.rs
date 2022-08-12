@@ -51,7 +51,7 @@ impl<T> Relay<T> {
     /// Returns the previous value or `None`. If `None` is returned
     /// then a notification has been triggered.
     pub fn replace_notify_one(&self, value: T) -> Option<T> {
-        let mut guard = self.mutex.lock().expect("not poisened");
+        let mut guard = self.mutex.lock().expect("not poisoned");
         let replaced = guard.replace(value);
         // Dropping the guard before notifying consumers might
         // cause spurious wakeups. These are handled appropriately.
@@ -69,7 +69,7 @@ impl<T> Relay<T> {
     /// Returns the previous value or `None`. If `None` is returned
     /// then a notification has been triggered.
     pub fn replace_notify_all(&self, value: T) -> Option<T> {
-        let mut guard = self.mutex.lock().expect("not poisened");
+        let mut guard = self.mutex.lock().expect("not poisoned");
         let replaced = guard.replace(value);
         // Dropping the guard before notifying consumers might
         // cause spurious wakeups. These are handled appropriately.
@@ -88,7 +88,7 @@ impl<T> Relay<T> {
     ///
     /// Returns the previous value or `None`.
     pub fn take(&self) -> Option<T> {
-        let mut guard = self.mutex.lock().expect("not poisened");
+        let mut guard = self.mutex.lock().expect("not poisoned");
         guard.take()
     }
 
@@ -98,13 +98,13 @@ impl<T> Relay<T> {
     ///
     /// Returns the previous value.
     pub fn wait(&self) -> T {
-        let mut guard = self.mutex.lock().expect("not poisened");
+        let mut guard = self.mutex.lock().expect("not poisoned");
         // The loop is required to handle spurious wakeups
         loop {
             if let Some(value) = guard.take() {
                 return value;
             }
-            guard = self.condvar.wait(guard).expect("not poisened");
+            guard = self.condvar.wait(guard).expect("not poisoned");
         }
     }
 
@@ -142,7 +142,7 @@ impl<T> Relay<T> {
     ///
     /// Returns the value if available or `None` if the deadline expired.
     pub fn wait_until(&self, deadline: Instant) -> Option<T> {
-        let mut guard = self.mutex.lock().expect("not poisened");
+        let mut guard = self.mutex.lock().expect("not poisoned");
         // The loop is required to handle spurious wakeups
         while guard.is_none() {
             let now = Instant::now();
@@ -153,7 +153,7 @@ impl<T> Relay<T> {
             let (replaced_guard, wait_result) = self
                 .condvar
                 .wait_timeout(guard, timeout)
-                .expect("not poisened");
+                .expect("not poisoned");
             guard = replaced_guard;
             if wait_result.timed_out() {
                 break;
