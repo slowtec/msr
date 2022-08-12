@@ -1,5 +1,5 @@
 [package]
-version = "0.3.2"
+version = "0.3.3"
 name = "msr-plugin"
 description = "Industrial Automation Toolbox - Plugin foundation"
 homepage = "https://github.com/slowtec/msr"
@@ -13,4 +13,4 @@ thiserror = "1.0"
 tokio = { version = "1.20", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
-msr-core = "=0.3.2"
+msr-core = "=0.3.3"

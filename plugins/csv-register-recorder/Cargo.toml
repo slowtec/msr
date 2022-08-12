@@ -1,5 +1,5 @@
 [package]
-version = "0.3.2"
+version = "0.3.3"
 name = "msr-plugin-csv-register-recorder"
 description = "slowtec Industrial Automation Runtime - CSV Register Recorder Plugin"
 homepage = "https://github.com/slowtec/msr"
@@ -15,5 +15,5 @@ thiserror = "1.0"
 tokio = { version = "1.20", default-features = false, features = ["rt-multi-thread"] }
 
 # Workspace dependencies
-msr-core = { version = "=0.3.2", features = ["csv-register-recorder"] }
-msr-plugin = "=0.3.2"
+msr-core = { version = "=0.3.3", features = ["csv-register-recorder"] }
+msr-plugin = "=0.3.3"
