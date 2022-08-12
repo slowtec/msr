@@ -29,7 +29,10 @@ setup:
     # Ignore rustup failures, because not everyone might use it
     rustup self update || true
     # cargo-edit is needed for `cargo upgrade`
-    cargo install just cargo-edit
+    cargo install \
+        just \
+        cargo-edit \
+        cargo-hack
     pip install -U pre-commit
     pre-commit autoupdate
     pre-commit install --hook-type commit-msg --hook-type pre-commit
@@ -43,3 +46,11 @@ upgrade:
 # Run pre-commit hooks
 pre-commit:
     pre-commit run --all-files
+
+# Check all lib/bin projects individually with selected features (takes a long time)
+check-crates:
+    cargo hack --feature-powerset check --locked --all-targets -p msr-core
+    RUSTFLAGS="--cfg loom" cargo hack --feature-powerset check --locked --all-targets -p msr-core
+    cargo hack --feature-powerset check --locked --all-targets -p msr-plugin
+    cargo hack --feature-powerset check --locked --all-targets -p msr-plugin-csv-event-journal
+    cargo hack --feature-powerset check --locked --all-targets -p msr-plugin-csv-register-recorder

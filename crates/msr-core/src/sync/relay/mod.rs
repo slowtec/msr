@@ -23,6 +23,7 @@ pub struct Relay<T> {
 
 impl<T> Relay<T> {
     #[must_use]
+    #[cfg(not(loom))]
     pub const fn new() -> Self {
         Self {
             mutex: Mutex::new(None),
@@ -31,7 +32,26 @@ impl<T> Relay<T> {
     }
 
     #[must_use]
+    #[cfg(loom)]
+    pub fn new() -> Self {
+        Self {
+            mutex: Mutex::new(None),
+            condvar: Condvar::new(),
+        }
+    }
+
+    #[must_use]
+    #[cfg(not(loom))]
     pub const fn with_value(value: T) -> Self {
+        Self {
+            mutex: Mutex::new(Some(value)),
+            condvar: Condvar::new(),
+        }
+    }
+
+    #[must_use]
+    #[cfg(loom)]
+    pub fn with_value(value: T) -> Self {
         Self {
             mutex: Mutex::new(Some(value)),
             condvar: Condvar::new(),
