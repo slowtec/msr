@@ -64,7 +64,7 @@ pub fn default_config() -> api::Config {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginSetup {
     pub binary_data_format: BinaryDataFormat,
     pub initial_config: api::Config,

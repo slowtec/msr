@@ -67,7 +67,7 @@ pub fn default_config() -> Config {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginSetup {
     pub initial_config: api::Config,
     pub initial_state: api::State,

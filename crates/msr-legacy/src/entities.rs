@@ -157,7 +157,7 @@ pub struct Action {
 }
 
 /// An action to modify the state or behaviour of a controller.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ControllerAction {
     /// Reset controlle state
     pub reset: bool,

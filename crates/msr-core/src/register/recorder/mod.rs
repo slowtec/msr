@@ -38,7 +38,7 @@ pub enum Error {
 pub type Result<T> = StdResult<T, Error>;
 
 /// An observation of register values
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObservedRegisterValues<RegisterValue> {
     pub observed_at: Timestamp,
 
@@ -74,7 +74,7 @@ impl WritableRecordPrelude for RecordPrelude {
 }
 
 /// An observation of register values
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record<Value> {
     pub prelude: RecordPrelude,
 
@@ -226,7 +226,7 @@ impl From<SerdeRegisterValue> for crate::Value {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredRecord<RegisterValue> {
     pub prelude: StoredRecordPrelude,
 
