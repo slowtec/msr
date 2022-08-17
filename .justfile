@@ -34,11 +34,11 @@ setup:
         cargo-edit \
         cargo-hack
     pip install -U pre-commit
-    pre-commit autoupdate
     pre-commit install --hook-type commit-msg --hook-type pre-commit
 
 # Upgrade (and update) dependencies
-upgrade:
+upgrade: setup
+    pre-commit autoupdate
     cargo upgrade --workspace
     cargo update
     cargo upgrade --workspace --to-lockfile \
