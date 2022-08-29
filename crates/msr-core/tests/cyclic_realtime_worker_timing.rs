@@ -12,8 +12,7 @@ use msr_core::{
     realtime::worker::{
         progress::{ProgressHint, ProgressHintReceiver, ProgressHintSender},
         thread::{
-            Events, JoinedThread, RecoverableParams, State, TerminatedThread, ThreadScheduling,
-            WorkerThread,
+            Context, Event, JoinedThread, State, TerminatedThread, ThreadScheduling, WorkerThread,
         },
         CompletionStatus, Worker,
     },
@@ -37,17 +36,19 @@ impl CyclicWorkerEvents {
     pub fn state(&self) -> State {
         State::from_u8(self.state.load(Ordering::Acquire)).expect("valid value")
     }
+
+    fn on_event(&self, event: Event) {
+        match event {
+            Event::StateChanged(state) => {
+                self.state.store(state.to_u8(), Ordering::Release);
+            }
+        }
+    }
 }
 
 impl Default for CyclicWorkerEvents {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Events for CyclicWorkerEvents {
-    fn on_state_changed(&self, state: State) {
-        self.state.store(state.to_u8(), Ordering::Release);
     }
 }
 
@@ -59,12 +60,6 @@ impl Deref for SharedCyclicWorkerEvents {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Events for SharedCyclicWorkerEvents {
-    fn on_state_changed(&self, state: State) {
-        self.deref().on_state_changed(state);
     }
 }
 
@@ -261,22 +256,27 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     let worker = CyclicWorker::new(params, measurements_tx);
     let progress_hint_rx = ProgressHintReceiver::default();
     let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
-    let events = SharedCyclicWorkerEvents::default();
-    let recoverable_params = RecoverableParams {
+    let event_handler = SharedCyclicWorkerEvents::default();
+    let emit_event = {
+        let event_handler = event_handler.clone();
+        move |event| {
+            event_handler.on_event(event);
+        }
+    };
+    let context = Context {
         progress_hint_rx,
         worker,
         environment: CyclicWorkerEnvironment,
-        events: events.clone(),
+        emit_event,
     };
-    let worker_thread =
-        WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, recoverable_params);
+    let worker_thread = WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, context);
     let mut suspended_count = 0;
     let mut resumed_count = 0;
     let mut cycles_completed_count = 0;
     let mut finished = false;
     let mut exit_loop = false;
     while !exit_loop {
-        match events.state() {
+        match event_handler.state() {
             State::Unknown | State::Starting | State::Running => (),
             State::Suspending => {
                 assert!(resumed_count <= suspended_count);
@@ -333,12 +333,12 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     assert!(finished);
     match worker_thread.join() {
         JoinedThread::Terminated(TerminatedThread {
-            recovered_params:
-                RecoverableParams {
+            context:
+                Context {
                     progress_hint_rx: _,
                     worker,
                     environment: _,
-                    events: _,
+                    emit_event: _,
                 },
             result,
         }) => result

@@ -32,9 +32,11 @@ impl State {
     }
 }
 
-/// Event callbacks
-pub trait Events {
-    fn on_state_changed(&self, state: State);
+/// Events emitted by the thread
+#[derive(Debug)]
+pub enum Event {
+    /// The new state
+    StateChanged(State),
 }
 
 /// Spawn parameters
@@ -45,11 +47,11 @@ pub trait Events {
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
 #[allow(missing_debug_implementations)]
-pub struct RecoverableParams<W: Worker, E> {
+pub struct Context<W: Worker, E> {
     pub progress_hint_rx: ProgressHintReceiver,
     pub worker: W,
     pub environment: <W as Worker>::Environment,
-    pub events: E,
+    pub emit_event: E,
 }
 
 #[derive(Debug)]
@@ -255,19 +257,20 @@ impl Drop for ThreadSchedulingScope {
     }
 }
 
-fn thread_fn<W: Worker, E: Events>(
-    thread_scheduling: ThreadScheduling,
-    recoverable_params: &mut RecoverableParams<W, E>,
-) -> Result<()> {
-    let RecoverableParams {
+fn thread_fn<W, E>(thread_scheduling: ThreadScheduling, context: &mut Context<W, E>) -> Result<()>
+where
+    W: Worker,
+    E: FnMut(Event),
+{
+    let Context {
         progress_hint_rx,
         worker,
         environment,
-        events,
-    } = recoverable_params;
+        emit_event,
+    } = context;
 
     log::debug!("Starting");
-    events.on_state_changed(State::Starting);
+    emit_event(Event::StateChanged(State::Starting));
 
     worker.start_working(environment)?;
 
@@ -278,7 +281,7 @@ fn thread_fn<W: Worker, E: Events>(
     };
     loop {
         log::debug!("Running");
-        events.on_state_changed(State::Running);
+        emit_event(Event::StateChanged(State::Running));
         match worker.perform_work(environment, progress_hint_rx)? {
             CompletionStatus::Suspending => {
                 // The worker may have decided to suspend itself independent
@@ -289,7 +292,7 @@ fn thread_fn<W: Worker, E: Events>(
                     continue;
                 }
                 log::debug!("Suspending");
-                events.on_state_changed(State::Suspending);
+                emit_event(Event::StateChanged(State::Suspending));
                 progress_hint_rx.wait_while_suspending();
             }
             CompletionStatus::Finishing => {
@@ -303,7 +306,7 @@ fn thread_fn<W: Worker, E: Events>(
                 // Leave real-time scheduling scope
                 drop(rt_sched_scope);
                 log::debug!("Finishing");
-                events.on_state_changed(State::Finishing);
+                emit_event(Event::StateChanged(State::Finishing));
                 worker.finish_working(environment)?;
                 // Exit loop
                 break;
@@ -312,7 +315,7 @@ fn thread_fn<W: Worker, E: Events>(
     }
 
     log::debug!("Stopping");
-    events.on_state_changed(State::Stopping);
+    emit_event(Event::StateChanged(State::Stopping));
 
     Ok(())
 }
@@ -324,7 +327,7 @@ pub struct TerminatedThread<W: Worker, E> {
     pub result: Result<()>,
 
     /// The recovered parameters
-    pub recovered_params: RecoverableParams<W, E>,
+    pub context: Context<W, E>,
 }
 
 /// Outcome of [`WorkerThread::join()`]
@@ -362,23 +365,17 @@ impl<W, E> WorkerThread<W, E>
 where
     W: Worker + Send + 'static,
     <W as Worker>::Environment: Send + 'static,
-    E: Events + Send + 'static,
+    E: FnMut(Event) + Send + 'static,
 {
-    pub fn spawn(
-        thread_scheduling: ThreadScheduling,
-        recoverable_params: RecoverableParams<W, E>,
-    ) -> Self {
+    pub fn spawn(thread_scheduling: ThreadScheduling, context: Context<W, E>) -> Self {
         let join_handle = {
             std::thread::spawn({
                 move || {
                     // The function parameters need to be mutable within the real-time thread
-                    let mut recoverable_params = recoverable_params;
-                    let result = thread_fn(thread_scheduling, &mut recoverable_params);
-                    let recovered_params = recoverable_params;
-                    TerminatedThread {
-                        result,
-                        recovered_params,
-                    }
+                    let mut context = context;
+                    let result = thread_fn(thread_scheduling, &mut context);
+                    let context = context;
+                    TerminatedThread { result, context }
                 }
             })
         };
