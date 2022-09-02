@@ -12,7 +12,8 @@ use msr_core::{
     realtime::worker::{
         progress::{ProgressHint, ProgressHintReceiver, ProgressHintSender},
         thread::{
-            Context, Event, JoinedThread, State, TerminatedThread, ThreadScheduling, WorkerThread,
+            Context, EmitEvent, Event, JoinedThread, State, TerminatedThread, ThreadScheduling,
+            WorkerThread,
         },
         CompletionStatus, Worker,
     },
@@ -54,6 +55,12 @@ impl Default for CyclicWorkerEvents {
 
 #[derive(Clone, Default)]
 struct SharedCyclicWorkerEvents(Arc<CyclicWorkerEvents>);
+
+impl EmitEvent for SharedCyclicWorkerEvents {
+    fn emit_event(&mut self, event: Event) {
+        self.on_event(event);
+    }
+}
 
 impl Deref for SharedCyclicWorkerEvents {
     type Target = CyclicWorkerEvents;
@@ -257,17 +264,11 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     let progress_hint_rx = ProgressHintReceiver::default();
     let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
     let event_handler = SharedCyclicWorkerEvents::default();
-    let emit_event = {
-        let event_handler = event_handler.clone();
-        move |event| {
-            event_handler.on_event(event);
-        }
-    };
     let context = Context {
         progress_hint_rx,
         worker,
         environment: CyclicWorkerEnvironment,
-        emit_event,
+        emit_event: event_handler.clone(),
     };
     let worker_thread = WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, context);
     let mut suspended_count = 0;

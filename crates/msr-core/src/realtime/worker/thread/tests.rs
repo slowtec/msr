@@ -1,7 +1,4 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::realtime::worker::progress::{ProgressHint, ProgressHintSender, SwitchProgressHintOk};
 
@@ -122,25 +119,23 @@ impl SmokeTestEvents {
     }
 }
 
+impl EmitEvent for SmokeTestEvents {
+    fn emit_event(&mut self, event: Event) {
+        self.on_event(event);
+    }
+}
+
 #[test]
 fn smoke_test() -> anyhow::Result<()> {
     for expected_perform_work_invocations in 1..10 {
         let worker = SmokeTestWorker::new(expected_perform_work_invocations);
         let progress_hint_rx = ProgressHintReceiver::default();
-        let event_handler = Arc::new(SmokeTestEvents::new(ProgressHintSender::attach(
-            &progress_hint_rx,
-        )));
-        let emit_event = {
-            let event_handler = Arc::clone(&event_handler);
-            move |event| {
-                event_handler.on_event(event);
-            }
-        };
+        let event_handler = SmokeTestEvents::new(ProgressHintSender::attach(&progress_hint_rx));
         let context = Context {
             progress_hint_rx,
             worker,
             environment: SmokeTestEnvironment,
-            emit_event,
+            emit_event: event_handler,
         };
         // Real-time thread scheduling might not be supported when running the tests
         // in containers on CI platforms.
@@ -152,7 +147,7 @@ fn smoke_test() -> anyhow::Result<()> {
                         progress_hint_rx: _,
                         worker,
                         environment: _,
-                        emit_event: _,
+                        emit_event: event_handler,
                     },
                 result,
             }) => {

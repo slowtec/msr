@@ -45,7 +45,7 @@ repos:
         args: [--ignore-words=.codespellignore]
         exclude: '^LICENSE-.*$'
   - repo: https://github.com/sirosen/check-jsonschema
-    rev: 0.18.1
+    rev: 0.18.2
     hooks:
       - id: check-github-actions
       - id: check-github-workflows

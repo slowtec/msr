@@ -32,11 +32,15 @@ impl State {
     }
 }
 
-/// Events emitted by the thread
+/// Emitted event
 #[derive(Debug)]
 pub enum Event {
     /// The new state
     StateChanged(State),
+}
+
+pub trait EmitEvent {
+    fn emit_event(&mut self, event: Event);
 }
 
 /// Spawn parameters
@@ -47,7 +51,7 @@ pub enum Event {
 /// If joining the work thread fails these parameters will be lost
 /// inevitably!
 #[allow(missing_debug_implementations)]
-pub struct Context<W: Worker, E> {
+pub struct Context<W: Worker, E: EmitEvent> {
     pub progress_hint_rx: ProgressHintReceiver,
     pub worker: W,
     pub environment: <W as Worker>::Environment,
@@ -55,7 +59,7 @@ pub struct Context<W: Worker, E> {
 }
 
 #[derive(Debug)]
-pub struct WorkerThread<W: Worker, E> {
+pub struct WorkerThread<W: Worker, E: EmitEvent> {
     join_handle: JoinHandle<TerminatedThread<W, E>>,
 }
 
@@ -260,7 +264,7 @@ impl Drop for ThreadSchedulingScope {
 fn thread_fn<W, E>(thread_scheduling: ThreadScheduling, context: &mut Context<W, E>) -> Result<()>
 where
     W: Worker,
-    E: FnMut(Event),
+    E: EmitEvent,
 {
     let Context {
         progress_hint_rx,
@@ -270,7 +274,7 @@ where
     } = context;
 
     log::debug!("Starting");
-    emit_event(Event::StateChanged(State::Starting));
+    emit_event.emit_event(Event::StateChanged(State::Starting));
 
     worker.start_working(environment)?;
 
@@ -281,7 +285,7 @@ where
     };
     loop {
         log::debug!("Running");
-        emit_event(Event::StateChanged(State::Running));
+        emit_event.emit_event(Event::StateChanged(State::Running));
         match worker.perform_work(environment, progress_hint_rx)? {
             CompletionStatus::Suspending => {
                 // The worker may have decided to suspend itself independent
@@ -292,7 +296,7 @@ where
                     continue;
                 }
                 log::debug!("Suspending");
-                emit_event(Event::StateChanged(State::Suspending));
+                emit_event.emit_event(Event::StateChanged(State::Suspending));
                 progress_hint_rx.wait_while_suspending();
             }
             CompletionStatus::Finishing => {
@@ -306,7 +310,7 @@ where
                 // Leave real-time scheduling scope
                 drop(rt_sched_scope);
                 log::debug!("Finishing");
-                emit_event(Event::StateChanged(State::Finishing));
+                emit_event.emit_event(Event::StateChanged(State::Finishing));
                 worker.finish_working(environment)?;
                 // Exit loop
                 break;
@@ -315,14 +319,14 @@ where
     }
 
     log::debug!("Stopping");
-    emit_event(Event::StateChanged(State::Stopping));
+    emit_event.emit_event(Event::StateChanged(State::Stopping));
 
     Ok(())
 }
 
 /// Outcome of [`WorkerThread::join()`]
 #[allow(missing_debug_implementations)]
-pub struct TerminatedThread<W: Worker, E> {
+pub struct TerminatedThread<W: Worker, E: EmitEvent> {
     /// The result of the thread function
     pub result: Result<()>,
 
@@ -332,7 +336,7 @@ pub struct TerminatedThread<W: Worker, E> {
 
 /// Outcome of [`WorkerThread::join()`]
 #[allow(missing_debug_implementations)]
-pub enum JoinedThread<W: Worker, E> {
+pub enum JoinedThread<W: Worker, E: EmitEvent> {
     Terminated(TerminatedThread<W, E>),
     JoinError(Box<dyn Any + Send + 'static>),
 }
@@ -365,7 +369,7 @@ impl<W, E> WorkerThread<W, E>
 where
     W: Worker + Send + 'static,
     <W as Worker>::Environment: Send + 'static,
-    E: FnMut(Event) + Send + 'static,
+    E: EmitEvent + Send + 'static,
 {
     pub fn spawn(thread_scheduling: ThreadScheduling, context: Context<W, E>) -> Self {
         let join_handle = {
