@@ -6,12 +6,12 @@ homepage = "https://github.com/slowtec/msr"
 repository = "https://github.com/slowtec/msr"
 license = "MIT/Apache-2.0"
 edition = "2021"
-version = "0.3.3"
+version = "0.3.4"
 
 [dependencies]
 # Workspace dependencies
-msr-core = "=0.3.3"
-msr-plugin = { version = "=0.3.3", optional = true }
+msr-core = "=0.3.4"
+msr-plugin = { version = "=0.3.4", optional = true }
 
 [features]
 default = []
@@ -24,4 +24,4 @@ log = "0.4"
 tokio = { version = "1.20", features = ["full"] }
 
 # Workspace dev-dependencies
-msr-plugin = "=0.3.3"
+msr-plugin = "=0.3.4"
