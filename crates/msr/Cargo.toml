@@ -21,7 +21,7 @@ plugin = ["msr-plugin"]
 anyhow = "1.0"
 env_logger = "0.9"
 log = "0.4"
-tokio = { version = "1.20", features = ["full"] }
+tokio = { version = "1.21", features = ["full"] }
 
 # Workspace dev-dependencies
 msr-plugin = "=0.3.4"

@@ -10,7 +10,7 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 thiserror = "1.0"
-tokio = { version = "1.20", default-features = false, features = ["sync"] }
+tokio = { version = "1.21", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
 msr-core = "=0.3.4"

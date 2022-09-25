@@ -12,7 +12,7 @@ anyhow = "1.0"
 bs58 = { version = "0.4", default-features = false }
 log = "0.4"
 thiserror = "1.0"
-tokio = { version = "1.20", default-features = false, features = ["rt-multi-thread"] }
+tokio = { version = "1.21", default-features = false, features = ["rt-multi-thread"] }
 
 # Workspace dependencies
 msr-core = { version = "=0.3.4", features = ["csv-register-recorder"] }

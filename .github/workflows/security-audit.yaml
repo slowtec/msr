@@ -8,7 +8,7 @@ permissions:
 on:
   push:
     paths:
-      - '**/Cargo.toml'
+      - "**/Cargo.toml"
   #schedule:
   #  - cron: '0 0 * * *'
   workflow_dispatch:

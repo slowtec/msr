@@ -39,9 +39,8 @@ setup:
 # Upgrade (and update) dependencies
 upgrade: setup
     pre-commit autoupdate
-    cargo upgrade --workspace
+    cargo upgrade
     cargo update
-    cargo upgrade --workspace --to-lockfile \
 
 # Run pre-commit hooks
 pre-commit:
