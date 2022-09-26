@@ -4,7 +4,7 @@ use std::{fmt, num::NonZeroUsize, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
+use ulid::Ulid;
 
 use crate::{
     storage::{
@@ -280,7 +280,7 @@ pub struct DefaultRecordPreludeGenerator;
 
 impl RecordPreludeGenerator for DefaultRecordPreludeGenerator {
     fn generate_prelude(&self) -> Result<(SystemInstant, RecordPrelude)> {
-        let id = RecordId::from(bs58::encode(Uuid::new_v4().as_bytes()).into_string());
+        let id = RecordId::from(Ulid::new().to_string());
         Ok((
             SystemInstant::now(),
             RecordPrelude {
