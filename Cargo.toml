@@ -4,6 +4,13 @@ members = [
   "plugins/*",
 ]
 
+[workspace.package]
+version = "0.3.4"
+homepage = "https://github.com/slowtec/msr"
+repository = "https://github.com/slowtec/msr"
+license = "MIT/Apache-2.0"
+edition = "2021"
+
 [patch.crates-io]
 msr = { path = "crates/msr" }
 msr-core = { path = "crates/msr-core" }
