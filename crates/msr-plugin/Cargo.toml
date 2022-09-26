@@ -8,9 +8,9 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-log = "0.4"
-thiserror = "1.0"
-tokio = { version = "1.21", default-features = false, features = ["sync"] }
+log = "0.4.17"
+thiserror = "1.0.36"
+tokio = { version = "1.21.1", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
 msr-core = "=0.3.4"
