@@ -14,10 +14,13 @@ pub enum State {
     #[default]
     Unknown,
     Starting,
+    Started,
     Running,
-    Suspending,
+    Suspended,
+    Resumed,
     Finishing,
-    Stopping,
+    Finished,
+    Terminating,
 }
 
 impl State {
@@ -278,7 +281,10 @@ where
 
     worker.start_working(environment)?;
 
-    let rt_sched_scope = match thread_scheduling {
+    log::debug!("Started");
+    emit_event.emit_event(Event::StateChanged(State::Started));
+
+    let scheduling_scope = match thread_scheduling {
         ThreadScheduling::Default => None,
         ThreadScheduling::Realtime => Some(ThreadSchedulingScope::enter()?),
         ThreadScheduling::RealtimeOrDefault => ThreadSchedulingScope::enter().ok(),
@@ -286,6 +292,7 @@ where
     loop {
         log::debug!("Running");
         emit_event.emit_event(Event::StateChanged(State::Running));
+
         match worker.perform_work(environment, progress_hint_rx)? {
             CompletionStatus::Suspending => {
                 // The worker may have decided to suspend itself independent
@@ -295,9 +302,14 @@ where
                     log::debug!("Suspending rejected");
                     continue;
                 }
-                log::debug!("Suspending");
-                emit_event.emit_event(Event::StateChanged(State::Suspending));
+
+                log::debug!("Suspended");
+                emit_event.emit_event(Event::StateChanged(State::Suspended));
+
                 progress_hint_rx.wait_while_suspending();
+
+                log::debug!("Resumed");
+                emit_event.emit_event(Event::StateChanged(State::Resumed));
             }
             CompletionStatus::Finishing => {
                 // The worker may have decided to finish itself independent
@@ -307,19 +319,24 @@ where
                     log::debug!("Finishing rejected");
                     continue;
                 }
-                // Leave real-time scheduling scope
-                drop(rt_sched_scope);
-                log::debug!("Finishing");
-                emit_event.emit_event(Event::StateChanged(State::Finishing));
-                worker.finish_working(environment)?;
-                // Exit loop
+                // Leave custom scheduling scope before finishing
+                drop(scheduling_scope);
+                // Exit running loop
                 break;
             }
         }
     }
 
-    log::debug!("Stopping");
-    emit_event.emit_event(Event::StateChanged(State::Stopping));
+    log::debug!("Finishing");
+    emit_event.emit_event(Event::StateChanged(State::Finishing));
+
+    worker.finish_working(environment)?;
+
+    log::debug!("Finished");
+    emit_event.emit_event(Event::StateChanged(State::Finished));
+
+    log::debug!("Terminating");
+    emit_event.emit_event(Event::StateChanged(State::Terminating));
 
     Ok(())
 }

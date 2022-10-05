@@ -60,10 +60,13 @@ impl Worker for SmokeTestWorker {
 #[derive(Default)]
 struct StateChangedCount {
     starting: AtomicUsize,
+    started: AtomicUsize,
     running: AtomicUsize,
-    suspending: AtomicUsize,
+    suspended: AtomicUsize,
+    resumed: AtomicUsize,
     finishing: AtomicUsize,
-    stopping: AtomicUsize,
+    finished: AtomicUsize,
+    terminating: AtomicUsize,
 }
 
 struct SmokeTestEvents {
@@ -88,14 +91,19 @@ impl SmokeTestEvents {
                         .starting
                         .fetch_add(1, Ordering::SeqCst);
                 }
+                State::Started => {
+                    self.state_changed_count
+                        .started
+                        .fetch_add(1, Ordering::SeqCst);
+                }
                 State::Running => {
                     self.state_changed_count
                         .running
                         .fetch_add(1, Ordering::SeqCst);
                 }
-                State::Suspending => {
+                State::Suspended => {
                     self.state_changed_count
-                        .suspending
+                        .suspended
                         .fetch_add(1, Ordering::SeqCst);
                     assert_eq!(
                         SwitchProgressHintOk::Accepted {
@@ -104,14 +112,24 @@ impl SmokeTestEvents {
                         self.progress_hint_tx.resume().expect("resuming")
                     );
                 }
+                State::Resumed => {
+                    self.state_changed_count
+                        .resumed
+                        .fetch_add(1, Ordering::SeqCst);
+                }
                 State::Finishing => {
                     self.state_changed_count
                         .finishing
                         .fetch_add(1, Ordering::SeqCst);
                 }
-                State::Stopping => {
+                State::Finished => {
                     self.state_changed_count
-                        .stopping
+                        .finished
+                        .fetch_add(1, Ordering::SeqCst);
+                }
+                State::Terminating => {
+                    self.state_changed_count
+                        .terminating
                         .fetch_add(1, Ordering::SeqCst);
                 }
             },
@@ -169,7 +187,7 @@ fn smoke_test() -> anyhow::Result<()> {
                     1,
                     event_handler
                         .state_changed_count
-                        .stopping
+                        .started
                         .load(Ordering::SeqCst)
                 );
                 assert_eq!(
@@ -180,6 +198,20 @@ fn smoke_test() -> anyhow::Result<()> {
                         .load(Ordering::SeqCst)
                 );
                 assert_eq!(
+                    expected_perform_work_invocations - 1,
+                    event_handler
+                        .state_changed_count
+                        .suspended
+                        .load(Ordering::SeqCst)
+                );
+                assert_eq!(
+                    expected_perform_work_invocations - 1,
+                    event_handler
+                        .state_changed_count
+                        .resumed
+                        .load(Ordering::SeqCst)
+                );
+                assert_eq!(
                     1,
                     event_handler
                         .state_changed_count
@@ -187,17 +219,17 @@ fn smoke_test() -> anyhow::Result<()> {
                         .load(Ordering::SeqCst)
                 );
                 assert_eq!(
+                    1,
                     event_handler
                         .state_changed_count
-                        .running
+                        .finished
                         .load(Ordering::SeqCst)
-                        - event_handler
-                            .state_changed_count
-                            .finishing
-                            .load(Ordering::SeqCst),
+                );
+                assert_eq!(
+                    1,
                     event_handler
                         .state_changed_count
-                        .suspending
+                        .terminating
                         .load(Ordering::SeqCst)
                 );
             }

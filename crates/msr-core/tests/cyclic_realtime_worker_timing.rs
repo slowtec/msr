@@ -34,7 +34,7 @@ impl CyclicWorkerEvents {
         }
     }
 
-    pub fn state(&self) -> State {
+    pub fn last_state(&self) -> State {
         State::from_u8(self.state.load(Ordering::Acquire)).expect("valid value")
     }
 
@@ -277,16 +277,26 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     let mut finished = false;
     let mut exit_loop = false;
     while !exit_loop {
-        match event_handler.state() {
-            State::Unknown | State::Starting | State::Running => (),
-            State::Suspending => {
+        match event_handler.last_state() {
+            State::Unknown
+            | State::Starting
+            | State::Started
+            | State::Running
+            | State::Resumed
+            | State::Finishing
+            | State::Finished => {
+                // These (intermediate) states might not be visible when reading
+                // the last state at arbitrary times from an atomic and cannot
+                // be used for controlling the control flow of the test!
+            }
+            State::Suspended => {
                 assert!(resumed_count <= suspended_count);
                 if resumed_count < suspended_count {
                     progress_hint_tx.resume().expect("resumed");
                     resumed_count += 1;
                 }
             }
-            State::Stopping | State::Finishing => {
+            State::Terminating => {
                 exit_loop = true;
                 // Drain the channel one last time after the worker thread has
                 // exited its process_work() function. This is required to not
