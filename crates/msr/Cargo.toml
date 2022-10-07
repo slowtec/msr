@@ -10,8 +10,8 @@ version.workspace = true
 
 [dependencies]
 # Workspace dependencies
-msr-core = "=0.3.4"
-msr-plugin = { version = "=0.3.4", optional = true }
+msr-core = "=0.3.5"
+msr-plugin = { version = "=0.3.5", optional = true }
 
 [features]
 default = []
@@ -24,4 +24,4 @@ log = "0.4.17"
 tokio = { version = "1.21.2", features = ["full"] }
 
 # Workspace dev-dependencies
-msr-plugin = "=0.3.4"
+msr-plugin = "=0.3.5"

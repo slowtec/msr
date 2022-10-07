@@ -15,5 +15,5 @@ thiserror = "1.0.37"
 tokio = { version = "1.21.2", default-features = false, features = ["rt-multi-thread"] }
 
 # Workspace dependencies
-msr-core = { version = "=0.3.4", features = ["csv-register-recorder"] }
-msr-plugin = "=0.3.4"
+msr-core = { version = "=0.3.5", features = ["csv-register-recorder"] }
+msr-plugin = "=0.3.5"
