@@ -1,20 +1,13 @@
 use std::{
     fmt,
-    ops::Deref,
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        mpsc, Arc,
-    },
+    sync::mpsc,
     time::{Duration, Instant},
 };
 
 use msr_core::{
     realtime::worker::{
         progress::{ProgressHint, ProgressHintReceiver, ProgressHintSender},
-        thread::{
-            Context, EmitEvent, Event, JoinedThread, State, TerminatedThread, ThreadScheduling,
-            WorkerThread,
-        },
+        thread::{Context, JoinedThread, State, TerminatedThread, ThreadScheduling, WorkerThread},
         CompletionStatus, Worker,
     },
     thread,
@@ -22,53 +15,6 @@ use msr_core::{
 
 #[derive(Default)]
 struct CyclicWorkerEnvironment;
-
-struct CyclicWorkerEvents {
-    state: AtomicU8,
-}
-
-impl CyclicWorkerEvents {
-    pub const fn new() -> Self {
-        Self {
-            state: AtomicU8::new(State::Unknown.to_u8()),
-        }
-    }
-
-    pub fn last_state(&self) -> State {
-        State::from_u8(self.state.load(Ordering::Acquire)).expect("valid value")
-    }
-
-    fn on_event(&self, event: Event) {
-        match event {
-            Event::StateChanged(state) => {
-                self.state.store(state.to_u8(), Ordering::Release);
-            }
-        }
-    }
-}
-
-impl Default for CyclicWorkerEvents {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Clone, Default)]
-struct SharedCyclicWorkerEvents(Arc<CyclicWorkerEvents>);
-
-impl EmitEvent for SharedCyclicWorkerEvents {
-    fn emit_event(&mut self, event: Event) {
-        self.on_event(event);
-    }
-}
-
-impl Deref for SharedCyclicWorkerEvents {
-    type Target = CyclicWorkerEvents;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CyclicWorkerTiming {
@@ -263,33 +209,29 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
     let worker = CyclicWorker::new(params, measurements_tx);
     let progress_hint_rx = ProgressHintReceiver::default();
     let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
-    let event_handler = SharedCyclicWorkerEvents::default();
     let context = Context {
         progress_hint_rx,
         worker,
         environment: CyclicWorkerEnvironment,
-        emit_event: event_handler.clone(),
     };
-    let worker_thread = WorkerThread::spawn(ThreadScheduling::RealtimeOrDefault, context);
+    let worker_thread = WorkerThread::spawn(
+        context,
+        ThreadScheduling::RealtimeOrDefault,
+        msr_core::realtime::worker::thread::AtomicStateOrdering::AcquireRelease,
+    );
     let mut suspended_count = 0;
     let mut resumed_count = 0;
     let mut cycles_completed_count = 0;
     let mut finished = false;
     let mut exit_loop = false;
     while !exit_loop {
-        match event_handler.last_state() {
-            State::Unknown
-            | State::Starting
-            | State::Started
-            | State::Running
-            | State::Resumed
-            | State::Finishing
-            | State::Finished => {
+        match worker_thread.state() {
+            State::Unknown | State::Starting | State::Running | State::Finishing => {
                 // These (intermediate) states might not be visible when reading
                 // the last state at arbitrary times from an atomic and cannot
                 // be used for controlling the control flow of the test!
             }
-            State::Suspended => {
+            State::Suspending => {
                 assert!(resumed_count <= suspended_count);
                 if resumed_count < suspended_count {
                     progress_hint_tx.resume().expect("resumed");
@@ -349,7 +291,6 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
                     progress_hint_rx: _,
                     worker,
                     environment: _,
-                    emit_event: _,
                 },
             result,
         }) => result

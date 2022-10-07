@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use crate::realtime::worker::progress::{ProgressHint, ProgressHintSender, SwitchProgressHintOk};
 
 use super::*;
@@ -57,107 +55,42 @@ impl Worker for SmokeTestWorker {
     }
 }
 
-#[derive(Default)]
-struct StateChangedCount {
-    starting: AtomicUsize,
-    started: AtomicUsize,
-    running: AtomicUsize,
-    suspended: AtomicUsize,
-    resumed: AtomicUsize,
-    finishing: AtomicUsize,
-    finished: AtomicUsize,
-    terminating: AtomicUsize,
-}
-
-struct SmokeTestEvents {
-    progress_hint_tx: ProgressHintSender,
-    state_changed_count: StateChangedCount,
-}
-
-impl SmokeTestEvents {
-    fn new(progress_hint_tx: ProgressHintSender) -> Self {
-        Self {
-            progress_hint_tx,
-            state_changed_count: Default::default(),
-        }
-    }
-
-    fn on_event(&self, event: Event) {
-        match event {
-            Event::StateChanged(state) => match state {
-                State::Unknown => unreachable!(),
-                State::Starting => {
-                    self.state_changed_count
-                        .starting
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-                State::Started => {
-                    self.state_changed_count
-                        .started
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-                State::Running => {
-                    self.state_changed_count
-                        .running
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-                State::Suspended => {
-                    self.state_changed_count
-                        .suspended
-                        .fetch_add(1, Ordering::SeqCst);
-                    assert_eq!(
-                        SwitchProgressHintOk::Accepted {
-                            previous_state: ProgressHint::Suspend,
-                        },
-                        self.progress_hint_tx.resume().expect("resuming")
-                    );
-                }
-                State::Resumed => {
-                    self.state_changed_count
-                        .resumed
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-                State::Finishing => {
-                    self.state_changed_count
-                        .finishing
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-                State::Finished => {
-                    self.state_changed_count
-                        .finished
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-                State::Terminating => {
-                    self.state_changed_count
-                        .terminating
-                        .fetch_add(1, Ordering::SeqCst);
-                }
-            },
-        }
-    }
-}
-
-impl EmitEvent for SmokeTestEvents {
-    fn emit_event(&mut self, event: Event) {
-        self.on_event(event);
-    }
-}
-
 #[test]
 fn smoke_test() -> anyhow::Result<()> {
     for expected_perform_work_invocations in 1..10 {
         let worker = SmokeTestWorker::new(expected_perform_work_invocations);
         let progress_hint_rx = ProgressHintReceiver::default();
-        let event_handler = SmokeTestEvents::new(ProgressHintSender::attach(&progress_hint_rx));
+        let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
         let context = Context {
             progress_hint_rx,
             worker,
             environment: SmokeTestEnvironment,
-            emit_event: event_handler,
         };
         // Real-time thread scheduling might not be supported when running the tests
         // in containers on CI platforms.
-        let worker_thread = WorkerThread::spawn(ThreadScheduling::Default, context);
+        let worker_thread = WorkerThread::spawn(
+            context,
+            ThreadScheduling::Default,
+            AtomicStateOrdering::AcquireRelease,
+        );
+        let mut resume_accepted = 0;
+        loop {
+            match worker_thread.state() {
+                State::Starting | State::Finishing | State::Running | State::Unknown => (),
+                State::Suspending => match progress_hint_tx.resume() {
+                    Ok(SwitchProgressHintOk::Accepted { .. }) => {
+                        resume_accepted += 1;
+                    }
+                    // The worker thread might already have terminated itself, which in turn
+                    // detaches our `ProgressHintSender`.
+                    Ok(SwitchProgressHintOk::Ignored) | Err(_) => (),
+                },
+                State::Terminating => {
+                    // Exit loop
+                    break;
+                }
+            }
+        }
         match worker_thread.join() {
             JoinedThread::Terminated(TerminatedThread {
                 context:
@@ -165,7 +98,6 @@ fn smoke_test() -> anyhow::Result<()> {
                         progress_hint_rx: _,
                         worker,
                         environment: _,
-                        emit_event: event_handler,
                     },
                 result,
             }) => {
@@ -176,62 +108,7 @@ fn smoke_test() -> anyhow::Result<()> {
                     expected_perform_work_invocations,
                     worker.actual_perform_work_invocations
                 );
-                assert_eq!(
-                    1,
-                    event_handler
-                        .state_changed_count
-                        .starting
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    1,
-                    event_handler
-                        .state_changed_count
-                        .started
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    expected_perform_work_invocations,
-                    event_handler
-                        .state_changed_count
-                        .running
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    expected_perform_work_invocations - 1,
-                    event_handler
-                        .state_changed_count
-                        .suspended
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    expected_perform_work_invocations - 1,
-                    event_handler
-                        .state_changed_count
-                        .resumed
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    1,
-                    event_handler
-                        .state_changed_count
-                        .finishing
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    1,
-                    event_handler
-                        .state_changed_count
-                        .finished
-                        .load(Ordering::SeqCst)
-                );
-                assert_eq!(
-                    1,
-                    event_handler
-                        .state_changed_count
-                        .terminating
-                        .load(Ordering::SeqCst)
-                );
+                assert_eq!(expected_perform_work_invocations, resume_accepted + 1,);
             }
             JoinedThread::JoinError(err) => {
                 return Err(anyhow::anyhow!("Failed to join worker thread: {:?}", err))
