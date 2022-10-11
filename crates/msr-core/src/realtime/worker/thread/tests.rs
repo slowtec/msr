@@ -42,6 +42,9 @@ impl Worker for SmokeTestWorker {
         self.actual_perform_work_invocations += 1;
         let progress = match progress_hint_rx.peek() {
             ProgressHint::Continue => {
+                assert!(
+                    self.actual_perform_work_invocations <= self.expected_perform_work_invocations
+                );
                 if self.actual_perform_work_invocations < self.expected_perform_work_invocations {
                     CompletionStatus::Suspending
                 } else {
@@ -68,15 +71,11 @@ fn smoke_test() -> anyhow::Result<()> {
         };
         // Real-time thread scheduling might not be supported when running the tests
         // in containers on CI platforms.
-        let worker_thread = WorkerThread::spawn(
-            context,
-            ThreadScheduling::Default,
-            AtomicStateOrdering::AcquireRelease,
-        );
+        let worker_thread = WorkerThread::spawn(context, ThreadScheduling::Default);
         let mut resume_accepted = 0;
         loop {
-            match worker_thread.state() {
-                State::Starting | State::Finishing | State::Running | State::Unknown => (),
+            match worker_thread.load_state() {
+                State::Initial | State::Starting | State::Finishing | State::Running => (),
                 State::Suspending => match progress_hint_tx.resume() {
                     Ok(SwitchProgressHintOk::Accepted { .. }) => {
                         resume_accepted += 1;
@@ -113,6 +112,61 @@ fn smoke_test() -> anyhow::Result<()> {
             JoinedThread::JoinError(err) => {
                 return Err(anyhow::anyhow!("Failed to join worker thread: {:?}", err))
             }
+        }
+    }
+
+    Ok(())
+}
+
+// Start in suspended state and finish immediately while suspended.
+#[test]
+fn suspend_before_starting_and_finish_while_suspended() -> anyhow::Result<()> {
+    // 0 => perform_work() must never be invoked with ProgressHint::Continue
+    let expected_perform_work_invocations = 0;
+    let worker = SmokeTestWorker::new(expected_perform_work_invocations);
+    let progress_hint_rx = ProgressHintReceiver::default();
+    let progress_hint_tx = ProgressHintSender::attach(&progress_hint_rx);
+    assert!(matches!(
+        progress_hint_tx.suspend(),
+        Ok(SwitchProgressHintOk::Accepted {
+            previous_state: ProgressHint::Continue,
+        })
+    ));
+    let context = Context {
+        progress_hint_rx,
+        worker,
+        environment: SmokeTestEnvironment,
+    };
+    // Real-time thread scheduling might not be supported when running the tests
+    // in containers on CI platforms.
+    let worker_thread = WorkerThread::spawn(context, ThreadScheduling::Default);
+    assert_eq!(State::Suspending, worker_thread.wait_until_not_running());
+    assert!(matches!(
+        progress_hint_tx.finish(),
+        Ok(SwitchProgressHintOk::Accepted {
+            previous_state: ProgressHint::Suspend,
+        })
+    ));
+    match worker_thread.join() {
+        JoinedThread::Terminated(TerminatedThread {
+            context:
+                Context {
+                    progress_hint_rx: _,
+                    worker,
+                    environment: _,
+                },
+            result,
+        }) => {
+            result?;
+            assert_eq!(1, worker.start_working_invocations);
+            assert_eq!(1, worker.finish_working_invocations);
+            // Two invocations of perform_work() are expected:
+            //  - 1st: ProgressHint::Suspend
+            //  - 2nd: ProgressHint::Finish
+            assert_eq!(2, worker.actual_perform_work_invocations);
+        }
+        JoinedThread::JoinError(err) => {
+            return Err(anyhow::anyhow!("Failed to join worker thread: {:?}", err))
         }
     }
 

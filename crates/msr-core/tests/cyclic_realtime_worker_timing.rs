@@ -214,19 +214,15 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
         worker,
         environment: CyclicWorkerEnvironment,
     };
-    let worker_thread = WorkerThread::spawn(
-        context,
-        ThreadScheduling::RealtimeOrDefault,
-        msr_core::realtime::worker::thread::AtomicStateOrdering::AcquireRelease,
-    );
+    let worker_thread = WorkerThread::spawn(context, ThreadScheduling::RealtimeOrDefault);
     let mut suspended_count = 0;
     let mut resumed_count = 0;
     let mut cycles_completed_count = 0;
     let mut finished = false;
     let mut exit_loop = false;
     while !exit_loop {
-        match worker_thread.state() {
-            State::Unknown | State::Starting | State::Running | State::Finishing => {
+        match worker_thread.load_state() {
+            State::Initial | State::Starting | State::Running | State::Finishing => {
                 // These (intermediate) states might not be visible when reading
                 // the last state at arbitrary times from an atomic and cannot
                 // be used for controlling the control flow of the test!
@@ -268,6 +264,7 @@ fn run_cyclic_worker(params: CyclicWorkerParams) -> anyhow::Result<CyclicWorkerM
                         } else if cycles_completed_count % 100 == 0 {
                             // Suspend/resume the worker periodically
                             progress_hint_tx.suspend().expect("suspended");
+                            assert_eq!(State::Suspending, worker_thread.wait_until_not_running());
                             suspended_count += 1;
                         }
                     }

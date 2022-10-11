@@ -2,7 +2,7 @@ use std::{
     any::Any,
     sync::{
         atomic::{AtomicU8, Ordering},
-        Arc,
+        Arc, Condvar, Mutex,
     },
     thread::{self, JoinHandle},
 };
@@ -16,7 +16,7 @@ use super::{progress::ProgressHintReceiver, CompletionStatus, Worker};
 #[repr(u8)]
 pub enum State {
     #[default]
-    Unknown,
+    Initial,
     Starting,
     Running,
     Suspending,
@@ -52,8 +52,7 @@ pub struct Context<W: Worker> {
 
 #[derive(Debug)]
 pub struct WorkerThread<W: Worker> {
-    shared_state: Arc<AtomicU8>,
-    shared_state_load_ordering: Ordering,
+    shared_state: Arc<SharedState>,
     join_handle: JoinHandle<TerminatedThread<W>>,
 }
 
@@ -62,8 +61,26 @@ where
     W: Worker,
 {
     #[must_use]
-    pub fn state(&self) -> State {
-        State::from_u8(self.shared_state.load(self.shared_state_load_ordering)).unwrap()
+    pub fn load_state(&self) -> State {
+        self.shared_state.load_state()
+    }
+
+    #[allow(clippy::must_use_candidate)]
+    pub fn wait_until_started(&self) -> State {
+        self.shared_state
+            .wait_until_state_condition(|state| match state {
+                State::Initial | State::Starting => false,
+                State::Running | State::Suspending | State::Finishing | State::Terminating => true,
+            })
+    }
+
+    #[allow(clippy::must_use_candidate)]
+    pub fn wait_until_not_running(&self) -> State {
+        self.shared_state
+            .wait_until_state_condition(|state| match state {
+                State::Initial | State::Starting | State::Running => false,
+                State::Suspending | State::Finishing | State::Terminating => true,
+            })
     }
 }
 
@@ -268,8 +285,7 @@ impl Drop for ThreadSchedulingScope {
 fn thread_fn<W>(
     context: &mut Context<W>,
     thread_scheduling: ThreadScheduling,
-    shared_state: Arc<AtomicU8>,
-    shared_state_store_ordering: Ordering,
+    shared_state: Arc<SharedState>,
 ) -> Result<()>
 where
     W: Worker,
@@ -281,7 +297,7 @@ where
     } = context;
 
     log::debug!("Starting");
-    shared_state.store(State::Starting.to_u8(), shared_state_store_ordering);
+    shared_state.store_state(State::Starting);
     worker.start_working(environment)?;
     log::debug!("Started");
 
@@ -290,10 +306,11 @@ where
         ThreadScheduling::Realtime => Some(ThreadSchedulingScope::enter()?),
         ThreadScheduling::RealtimeOrDefault => ThreadSchedulingScope::enter().ok(),
     };
-    loop {
-        log::debug!("Running");
-        shared_state.store(State::Running.to_u8(), shared_state_store_ordering);
 
+    log::debug!("Running");
+    shared_state.store_state(State::Running);
+
+    loop {
         match worker.perform_work(environment, progress_hint_rx)? {
             CompletionStatus::Suspending => {
                 // The worker may have decided to suspend itself independent
@@ -303,11 +320,11 @@ where
                     log::debug!("Suspending rejected");
                     continue;
                 }
-
                 log::debug!("Suspending");
-                shared_state.store(State::Suspending.to_u8(), shared_state_store_ordering);
+                shared_state.store_state(State::Suspending);
                 progress_hint_rx.wait_while_suspending();
                 log::debug!("Resuming");
+                shared_state.store_state(State::Running);
             }
             CompletionStatus::Finishing => {
                 // The worker may have decided to finish itself independent
@@ -326,12 +343,12 @@ where
     }
 
     log::debug!("Finishing");
-    shared_state.store(State::Finishing.to_u8(), shared_state_store_ordering);
+    shared_state.store_state(State::Finishing);
     worker.finish_working(environment)?;
     log::debug!("Finished");
 
     log::debug!("Terminating");
-    shared_state.store(State::Terminating.to_u8(), shared_state_store_ordering);
+    shared_state.store_state(State::Terminating);
 
     Ok(())
 }
@@ -377,22 +394,58 @@ pub enum ThreadScheduling {
     RealtimeOrDefault,
 }
 
-/// Memory ordering for loading/storing the current state in a
-/// shared atomic.
-///
-/// The `Relaxed` memory ordering should be sufficient for basic observability
-/// and is the recommended default variant.
-///
-/// The more restrictive `AcquireRelease` ordering is supposed to be only required
-/// for special use cases, e.g. reliable testing of expected state changes during
-/// suspend/resume sequences that requires to pass the current state like a baton
-/// between different threads.
-#[derive(Debug, Clone, Copy, Default)]
-pub enum AtomicStateOrdering {
-    #[default]
-    Relaxed,
+#[derive(Debug)]
+struct SharedState {
+    state: AtomicU8,
+    notify_state_changed_mutex: Mutex<()>,
+    notify_state_changed_condvar: Condvar,
+}
 
-    AcquireRelease,
+impl SharedState {
+    fn load_state(&self) -> State {
+        State::from_u8(self.state.load(Ordering::Acquire)).unwrap()
+    }
+
+    fn store_state(&self, state: State) {
+        let guard = self.notify_state_changed_mutex.lock();
+        debug_assert!(guard.is_ok());
+        self.state.store(state.to_u8(), Ordering::Release);
+        drop(guard);
+        self.notify_state_changed_condvar.notify_all();
+    }
+
+    fn wait_until_state_condition(&self, mut state_condition: impl FnMut(State) -> bool) -> State {
+        // Try non-blocking first
+        let state = self.load_state();
+        if state_condition(state) {
+            return state;
+        }
+        // Blocking
+        let mut guard = self
+            .notify_state_changed_mutex
+            .lock()
+            .expect("not poisoned");
+        loop {
+            let state = self.load_state();
+            if state_condition(state) {
+                return state;
+            }
+            guard = self
+                .notify_state_changed_condvar
+                .wait(guard)
+                .expect("not poisoned");
+        }
+    }
+}
+
+impl Default for SharedState {
+    fn default() -> Self {
+        Self {
+            state: State::default().to_u8().into(),
+            notify_state_changed_mutex: Default::default(),
+            notify_state_changed_condvar: Default::default(),
+        }
+    }
 }
 
 impl<W> WorkerThread<W>
@@ -400,29 +453,15 @@ where
     W: Worker + Send + 'static,
     <W as Worker>::Environment: Send + 'static,
 {
-    pub fn spawn(
-        context: Context<W>,
-        thread_scheduling: ThreadScheduling,
-        atomic_state_ordering: AtomicStateOrdering,
-    ) -> Self {
-        let (shared_state_load_ordering, shared_state_store_ordering) = match atomic_state_ordering
-        {
-            AtomicStateOrdering::Relaxed => (Ordering::Relaxed, Ordering::Relaxed),
-            AtomicStateOrdering::AcquireRelease => (Ordering::Acquire, Ordering::Release),
-        };
-        let shared_state = Arc::new(AtomicU8::new(State::Unknown.to_u8()));
+    pub fn spawn(context: Context<W>, thread_scheduling: ThreadScheduling) -> Self {
+        let shared_state = Arc::new(SharedState::default());
         let join_handle = {
             let shared_state = Arc::clone(&shared_state);
             std::thread::spawn({
                 move || {
                     // The function parameters need to be mutable within the real-time thread
                     let mut context = context;
-                    let result = thread_fn(
-                        &mut context,
-                        thread_scheduling,
-                        shared_state,
-                        shared_state_store_ordering,
-                    );
+                    let result = thread_fn(&mut context, thread_scheduling, shared_state);
                     let context = context;
                     TerminatedThread { result, context }
                 }
@@ -430,7 +469,6 @@ where
         };
         Self {
             shared_state,
-            shared_state_load_ordering,
             join_handle,
         }
     }
@@ -439,17 +477,13 @@ where
         let Self {
             join_handle,
             shared_state,
-            shared_state_load_ordering,
         } = self;
         log::debug!("Joining thread");
         let joined_thread = join_handle
             .join()
             .map(JoinedThread::Terminated)
             .unwrap_or_else(JoinedThread::JoinError);
-        debug_assert!(
-            shared_state_load_ordering == Ordering::Relaxed
-                || shared_state.load(shared_state_load_ordering) == State::Terminating.to_u8()
-        );
+        debug_assert_eq!(State::Terminating, shared_state.load_state());
         joined_thread
     }
 }
