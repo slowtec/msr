@@ -144,17 +144,15 @@ impl RecordStorage for FileRecordStorage {
             }
             let remaining_limit = limit - records.len();
             let reader = csv::create_file_reader(&file_info.path)?;
-            records = reader_into_filtered_record_iter(
-                reader,
-                file_info.created_at.into(),
-                filter.clone(),
-                self.descriptor().binary_data_format,
-            )
-            .take(remaining_limit)
-            .fold(records, |mut records, entry| {
-                records.push(entry);
-                records
-            });
+            records.extend(
+                reader_into_filtered_record_iter(
+                    reader,
+                    file_info.created_at.into(),
+                    filter.clone(),
+                    self.descriptor().binary_data_format,
+                )
+                .take(remaining_limit),
+            );
         }
         Ok(records)
     }

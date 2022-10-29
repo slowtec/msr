@@ -381,13 +381,7 @@ where
                 records
             });
             reverse_records.reserve(remaining_limit);
-            reverse_records = earlier_records.into_iter().rev().fold(
-                reverse_records,
-                |mut reverse_records, record| {
-                    reverse_records.push(record);
-                    reverse_records
-                },
-            );
+            reverse_records.extend(earlier_records.into_iter().rev());
         }
         Ok(reverse_records)
     }
@@ -587,13 +581,7 @@ where
                 }
             }
             reverse_records.reserve(remaining_limit);
-            reverse_records = earlier_records.into_iter().rev().fold(
-                reverse_records,
-                |mut reverse_records, record| {
-                    reverse_records.push(record);
-                    reverse_records
-                },
-            );
+            reverse_records.extend(earlier_records.into_iter().rev());
         }
         Ok(reverse_records)
     }
