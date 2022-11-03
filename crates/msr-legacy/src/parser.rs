@@ -36,7 +36,7 @@ fn parse_comparison(s: &str, cmp: Comparator) -> Result<Option<Comparison>> {
         let mut vals = s.split(cmp_str);
         if let Some(lhs) = vals.next() {
             if let Some(rhs) = vals.next() {
-                if None == vals.next() {
+                if vals.next().is_none() {
                     return Ok(Some(Comparison {
                         left: Source::from_str(lhs)?,
                         cmp,
