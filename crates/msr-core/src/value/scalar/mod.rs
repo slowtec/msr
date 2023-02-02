@@ -288,17 +288,17 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Value::*;
         match self {
-            Bool(val) => write!(f, "{}", val),
-            I8(val) => write!(f, "{}", val),
-            U8(val) => write!(f, "{}", val),
-            I16(val) => write!(f, "{}", val),
-            U16(val) => write!(f, "{}", val),
-            I32(val) => write!(f, "{}", val),
-            U32(val) => write!(f, "{}", val),
-            F32(val) => write!(f, "{}", val),
-            I64(val) => write!(f, "{}", val),
-            U64(val) => write!(f, "{}", val),
-            F64(val) => write!(f, "{}", val),
+            Bool(val) => write!(f, "{val}"),
+            I8(val) => write!(f, "{val}"),
+            U8(val) => write!(f, "{val}"),
+            I16(val) => write!(f, "{val}"),
+            U16(val) => write!(f, "{val}"),
+            I32(val) => write!(f, "{val}"),
+            U32(val) => write!(f, "{val}"),
+            F32(val) => write!(f, "{val}"),
+            I64(val) => write!(f, "{val}"),
+            U64(val) => write!(f, "{val}"),
+            F64(val) => write!(f, "{val}"),
         }
     }
 }

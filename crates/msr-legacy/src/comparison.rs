@@ -196,31 +196,31 @@ fn get_val<'a>(src: &'a Source, state: &'a SystemState) -> Result<&'a Value> {
         In(ref id) => state.io.inputs.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
-                format!("The state of input '{}' does not exist", id),
+                format!("The state of input '{id}' does not exist"),
             )
         }),
         Out(ref id) => state.io.outputs.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
-                format!("The state of output '{}' does not exist", id),
+                format!("The state of output '{id}' does not exist"),
             )
         }),
         Mem(ref id) => state.io.mem.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
-                format!("The state of memory '{}' does not exist", id),
+                format!("The state of memory '{id}' does not exist"),
             )
         }),
         Setpoint(ref id) => state.setpoints.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
-                format!("The state of setpoint '{}' does not exist", id),
+                format!("The state of setpoint '{id}' does not exist"),
             )
         }),
         Timeout(ref id) => state.timeouts.get(id).ok_or_else(|| {
             Error::new(
                 NotFound,
-                format!("The state of timeout '{}' does not exist", id),
+                format!("The state of timeout '{id}' does not exist"),
             )
         }),
         Const(ref v) => Ok(v),

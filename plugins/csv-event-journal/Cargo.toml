@@ -8,10 +8,10 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.68"
 log = "0.4.17"
-thiserror = "1.0.37"
-tokio = { version = "1.21.2", default-features = false, features = ["rt-multi-thread", "sync"] }
+thiserror = "1.0.38"
+tokio = { version = "1.25.0", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
 msr-core = { version = "=0.3.6", features = ["csv-event-journal"] }

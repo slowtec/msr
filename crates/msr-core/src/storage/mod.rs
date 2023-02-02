@@ -9,6 +9,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use base64::prelude::*;
 use thiserror::Error;
 
 use crate::{
@@ -224,7 +225,7 @@ pub enum BinaryDataFormat {
 }
 
 fn encode_binary_data_bytes(input: impl AsRef<[u8]>) -> String {
-    base64::encode_config(&input, base64::STANDARD_NO_PAD)
+    BASE64_STANDARD_NO_PAD.encode(input)
 }
 
 fn encode_binary_data_utf8(input: Vec<u8>) -> anyhow::Result<String> {
@@ -242,7 +243,7 @@ pub fn encode_binary_data_into_string(
 }
 
 fn decode_binary_data_bytes(input: impl AsRef<[u8]>) -> anyhow::Result<Vec<u8>> {
-    base64::decode_config(input, base64::STANDARD_NO_PAD).map_err(anyhow::Error::from)
+    BASE64_STANDARD_NO_PAD.decode(input).map_err(Into::into)
 }
 
 fn decode_binary_data_utf8(input: String) -> Vec<u8> {

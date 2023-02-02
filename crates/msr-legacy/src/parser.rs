@@ -47,7 +47,7 @@ fn parse_comparison(s: &str, cmp: Comparator) -> Result<Option<Comparison>> {
         }
         Err(Error::new(
             ErrorKind::InvalidInput,
-            format!("invalid number of arguments for comparator {}", cmp_str),
+            format!("invalid number of arguments for comparator {cmp_str}"),
         ))
     } else {
         // Ignore input strings without a comparator

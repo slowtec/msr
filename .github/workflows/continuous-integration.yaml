@@ -10,10 +10,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
 
 jobs:
   continuous-integration:
@@ -22,66 +24,24 @@ jobs:
 
     steps:
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          profile: minimal
 
       - name: Check out repository
         uses: actions/checkout@v3
 
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
-
-      - name: Generate Cargo.lock
-        uses: actions-rs/cargo@v1
         with:
-          command: generate-lockfile
+          # Distinguished by the action name to avoid sharing across different actions!
+          shared-key: "continuous-integration"
 
-      - name: Check msr-core
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --locked --manifest-path crates/msr-core/Cargo.toml
+      - name: Build tests
+        run: cargo test --locked --all-targets --no-run
 
-      - name: Check msr-plugin
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --locked --manifest-path crates/msr-plugin/Cargo.toml
-
-      - name: Check msr-legacy
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --locked --manifest-path crates/msr-legacy/Cargo.toml
-
-      - name: Check msr-plugin-csv-event-journal
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --locked --manifest-path plugins/csv-event-journal/Cargo.toml
-
-      - name: Check msr-plugin-csv-register-recorder
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --locked --manifest-path plugins/csv-register-recorder/Cargo.toml
-
-      - name: Build tests with all features enabled
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --locked --workspace --all-features --no-run
-
-      - name: Run tests with all features enabled
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --locked --workspace --all-features -- --nocapture --quiet
-
-      - name: Build release with default features
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --locked --release
+      - name: Run tests
+        run: cargo test --locked --all-targets -- --nocapture --quiet

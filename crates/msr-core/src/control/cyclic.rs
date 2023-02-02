@@ -158,42 +158,54 @@ mod tests {
 
         // Less than 1 cycle later as expected
         assert_eq!(
-            Ok(actual_cycle_start - Duration::from_nanos(1)),
+            Ok(actual_cycle_start
+                .checked_sub(Duration::from_nanos(1))
+                .unwrap()),
             skip_missed_cycles(
                 cycle_time,
-                actual_cycle_start - Duration::from_nanos(1),
+                actual_cycle_start
+                    .checked_sub(Duration::from_nanos(1))
+                    .unwrap(),
                 actual_cycle_start
             ),
         );
         assert_eq!(
-            Ok(actual_cycle_start - quarter_cycle_time),
+            Ok(actual_cycle_start.checked_sub(quarter_cycle_time).unwrap()),
             skip_missed_cycles(
                 cycle_time,
-                actual_cycle_start - quarter_cycle_time,
+                actual_cycle_start.checked_sub(quarter_cycle_time).unwrap(),
                 actual_cycle_start
             ),
         );
         assert_eq!(
-            Ok(actual_cycle_start - half_cycle_time),
+            Ok(actual_cycle_start.checked_sub(half_cycle_time).unwrap()),
             skip_missed_cycles(
                 cycle_time,
-                actual_cycle_start - half_cycle_time,
+                actual_cycle_start.checked_sub(half_cycle_time).unwrap(),
                 actual_cycle_start
             ),
         );
         assert_eq!(
-            Ok(actual_cycle_start - three_quarter_cycle_time),
+            Ok(actual_cycle_start
+                .checked_sub(three_quarter_cycle_time)
+                .unwrap()),
             skip_missed_cycles(
                 cycle_time,
-                actual_cycle_start - three_quarter_cycle_time,
+                actual_cycle_start
+                    .checked_sub(three_quarter_cycle_time)
+                    .unwrap(),
                 actual_cycle_start
             ),
         );
         assert_eq!(
-            Ok(actual_cycle_start - (cycle_time - Duration::from_nanos(1))),
+            Ok(actual_cycle_start
+                .checked_sub(cycle_time - Duration::from_nanos(1))
+                .unwrap()),
             skip_missed_cycles(
                 cycle_time,
-                actual_cycle_start - (cycle_time - Duration::from_nanos(1)),
+                actual_cycle_start
+                    .checked_sub(cycle_time - Duration::from_nanos(1))
+                    .unwrap(),
                 actual_cycle_start
             ),
         );
@@ -204,50 +216,85 @@ mod tests {
                 Err((actual_cycle_start, i)),
                 skip_missed_cycles(
                     cycle_time,
-                    actual_cycle_start - i * cycle_time,
-                    actual_cycle_start
-                ),
-            );
-            assert_eq!(
-                Err((actual_cycle_start - Duration::from_nanos(1), i)),
-                skip_missed_cycles(
-                    cycle_time,
-                    actual_cycle_start - i * cycle_time - Duration::from_nanos(1),
-                    actual_cycle_start
-                ),
-            );
-            assert_eq!(
-                Err((actual_cycle_start - quarter_cycle_time, i)),
-                skip_missed_cycles(
-                    cycle_time,
-                    actual_cycle_start - i * cycle_time - quarter_cycle_time,
-                    actual_cycle_start
-                ),
-            );
-            assert_eq!(
-                Err((actual_cycle_start - half_cycle_time, i)),
-                skip_missed_cycles(
-                    cycle_time,
-                    actual_cycle_start - i * cycle_time - half_cycle_time,
-                    actual_cycle_start
-                ),
-            );
-            assert_eq!(
-                Err((actual_cycle_start - three_quarter_cycle_time, i)),
-                skip_missed_cycles(
-                    cycle_time,
-                    actual_cycle_start - i * cycle_time - three_quarter_cycle_time,
+                    actual_cycle_start.checked_sub(i * cycle_time).unwrap(),
                     actual_cycle_start
                 ),
             );
             assert_eq!(
                 Err((
-                    actual_cycle_start - (cycle_time - Duration::from_nanos(1)),
+                    actual_cycle_start
+                        .checked_sub(Duration::from_nanos(1))
+                        .unwrap(),
                     i
                 )),
                 skip_missed_cycles(
                     cycle_time,
-                    actual_cycle_start - i * cycle_time - (cycle_time - Duration::from_nanos(1)),
+                    actual_cycle_start
+                        .checked_sub(i * cycle_time)
+                        .unwrap()
+                        .checked_sub(Duration::from_nanos(1))
+                        .unwrap(),
+                    actual_cycle_start
+                ),
+            );
+            assert_eq!(
+                Err((
+                    actual_cycle_start.checked_sub(quarter_cycle_time).unwrap(),
+                    i
+                )),
+                skip_missed_cycles(
+                    cycle_time,
+                    actual_cycle_start
+                        .checked_sub(i * cycle_time)
+                        .unwrap()
+                        .checked_sub(quarter_cycle_time)
+                        .unwrap(),
+                    actual_cycle_start
+                ),
+            );
+            assert_eq!(
+                Err((actual_cycle_start.checked_sub(half_cycle_time).unwrap(), i)),
+                skip_missed_cycles(
+                    cycle_time,
+                    actual_cycle_start
+                        .checked_sub(i * cycle_time)
+                        .unwrap()
+                        .checked_sub(half_cycle_time)
+                        .unwrap(),
+                    actual_cycle_start
+                ),
+            );
+            assert_eq!(
+                Err((
+                    actual_cycle_start
+                        .checked_sub(three_quarter_cycle_time)
+                        .unwrap(),
+                    i
+                )),
+                skip_missed_cycles(
+                    cycle_time,
+                    actual_cycle_start
+                        .checked_sub(i * cycle_time)
+                        .unwrap()
+                        .checked_sub(three_quarter_cycle_time)
+                        .unwrap(),
+                    actual_cycle_start
+                ),
+            );
+            assert_eq!(
+                Err((
+                    actual_cycle_start
+                        .checked_sub(cycle_time - Duration::from_nanos(1))
+                        .unwrap(),
+                    i
+                )),
+                skip_missed_cycles(
+                    cycle_time,
+                    actual_cycle_start
+                        .checked_sub(i * cycle_time)
+                        .unwrap()
+                        .checked_sub(cycle_time - Duration::from_nanos(1))
+                        .unwrap(),
                     actual_cycle_start
                 ),
             );

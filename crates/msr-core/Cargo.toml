@@ -8,18 +8,18 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-anyhow = "1.0.66"
-base64 = "0.13.1"
+anyhow = "1.0.68"
+base64 = "0.21.0"
 log = "0.4.17"
 num-derive = "0.3.3"
 num-traits =  "0.2.15"
-thiserror = "1.0.37"
+thiserror = "1.0.38"
 time = { version = "0.3.17", features = ["local-offset", "macros", "formatting", "parsing"] }
 
 bs58 = { version = "0.4.0", optional = true, default-features = false }
 csv = { version = "1.1.6", optional = true, default-features = false }
-serde = { version = "1.0.147", optional = true, default-features = false }
-serde_json = { version = "1.0.87", optional = true, default-features = false }
+serde = { version = "1.0.152", optional = true, default-features = false }
+serde_json = { version = "1.0.91", optional = true, default-features = false }
 thread-priority = { version = "0.10.0", optional = true, default-features = false }
 ulid = { version = "1.0.0", optional = true }
 
@@ -38,6 +38,6 @@ csv-register-recorder = ["register-recorder", "csv-storage"]
 realtime-worker-thread = ["thread-priority"]
 
 [dev-dependencies]
-serde_json = "1.0.87"
+serde_json = "1.0.91"
 tempfile = "3.3.0"
 msr-core = { path = ".", features = ["full"] }

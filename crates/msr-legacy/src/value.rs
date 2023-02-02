@@ -143,7 +143,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
                 "nanos" => {
                     nanos = Some(value as u32);
                 }
-                k => return Err(A::Error::custom(format!("Unknown key: {}", k))),
+                k => return Err(A::Error::custom(format!("Unknown key: {k}"))),
             }
         }
         if let Some(secs) = secs {

@@ -23,18 +23,13 @@ impl fmt::Display for ScalarField {
             // "<name>"
             (None, None) => f.write_str(name),
             // "<name>[<unit>]"
-            (Some(unit), None) => write!(
-                f,
-                "{}{}{}{}",
-                name, FIELD_UNIT_PREFIX, unit, FIELD_UNIT_SUFFIX
-            ),
+            (Some(unit), None) => write!(f, "{name}{FIELD_UNIT_PREFIX}{unit}{FIELD_UNIT_SUFFIX}"),
             // "<name>.<type>"
-            (None, Some(r#type)) => write!(f, "{}{}{}", name, FIELD_TYPE_SEPARATOR, r#type),
+            (None, Some(r#type)) => write!(f, "{name}{FIELD_TYPE_SEPARATOR}{type}"),
             // "<name>[<unit>].<type>"
             (Some(unit), Some(r#type)) => write!(
                 f,
-                "{}{}{}{}{}{}",
-                name, FIELD_UNIT_PREFIX, unit, FIELD_UNIT_SUFFIX, FIELD_TYPE_SEPARATOR, r#type
+                "{name}{FIELD_UNIT_PREFIX}{unit}{FIELD_UNIT_SUFFIX}{FIELD_TYPE_SEPARATOR}{type}"
             ),
         }
     }
