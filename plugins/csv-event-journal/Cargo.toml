@@ -6,12 +6,13 @@ repository.workspace = true
 license.workspace = true
 edition.workspace = true
 version.workspace = true
+rust-version.workspace = true
 
 [dependencies]
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 log = "0.4.17"
-thiserror = "1.0.38"
-tokio = { version = "1.25.0", default-features = false, features = ["rt-multi-thread", "sync"] }
+thiserror = "1.0.39"
+tokio = { version = "1.26.0", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
 msr-core = { version = "=0.3.6", features = ["csv-event-journal"] }

@@ -6,11 +6,12 @@ repository.workspace = true
 license.workspace = true
 edition.workspace = true
 version.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 log = "0.4.17"
-thiserror = "1.0.38"
-tokio = { version = "1.25.0", default-features = false, features = ["sync"] }
+thiserror = "1.0.39"
+tokio = { version = "1.26.0", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
 msr-core = "=0.3.6"

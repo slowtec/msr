@@ -7,6 +7,7 @@ repository.workspace = true
 license.workspace = true
 edition.workspace = true
 version.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 # Workspace dependencies
@@ -18,10 +19,10 @@ default = []
 plugin = ["msr-plugin"]
 
 [dev-dependencies]
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 env_logger = "0.10.0"
 log = "0.4.17"
-tokio = { version = "1.25.0", features = ["full"] }
+tokio = { version = "1.26.0", features = ["full"] }
 
 # Workspace dev-dependencies
 msr-plugin = "=0.3.6"

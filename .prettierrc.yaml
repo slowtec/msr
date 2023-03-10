@@ -1,6 +1,7 @@
 overrides:
   - files:
       - "**/*.yaml"
+      - "**/*.yml"
     options:
       tabWidth: 2
       # in double quotes you can use escapes
