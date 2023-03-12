@@ -35,7 +35,7 @@ just
 
 ## License
 
-Copyright (c) 2018 - 2021, [slowtec GmbH](https://www.slowtec.de)
+Copyright (c) 2018 - 2023, [slowtec GmbH](https://www.slowtec.de)
 
 Licensed under either of
 
