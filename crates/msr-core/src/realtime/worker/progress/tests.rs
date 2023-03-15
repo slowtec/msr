@@ -229,7 +229,7 @@ fn progress_hint_handover_consume_single_update_notification_once() -> anyhow::R
 }
 
 #[test]
-fn progress_hint_handover_try_switch_without_update_notification() -> anyhow::Result<()> {
+fn progress_hint_handover_try_switch_without_update_notification() {
     let mut rx = ProgressHintReceiver::default();
 
     // No update has been sent yet
@@ -248,6 +248,4 @@ fn progress_hint_handover_try_switch_without_update_notification() -> anyhow::Re
 
     // No update notification after try_finishing()
     assert!(!rx.wait_until(Instant::now()));
-
-    Ok(())
 }

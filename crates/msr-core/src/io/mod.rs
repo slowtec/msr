@@ -30,7 +30,7 @@ impl<W: Write> CountingWrite<W> {
         (
             Self {
                 writer,
-                bytes_written: bytes_written.clone(),
+                bytes_written: Arc::clone(&bytes_written),
             },
             BytesWritten(bytes_written),
         )

@@ -24,13 +24,14 @@ struct ContextEventCallback {
 impl context::ContextEventCallback for ContextEventCallback {
     fn data_directory_created(&self, register_group_id: &RegisterGroupId, fs_path: &Path) {
         let event = Event::Notification(NotificationEvent::DataDirectoryCreated {
-            register_group_id: register_group_id.to_owned(),
+            register_group_id: register_group_id.clone(),
             fs_path: fs_path.to_owned(),
         });
-        self.event_pubsub.publish_event(event)
+        self.event_pubsub.publish_event(event);
     }
 }
 
+#[allow(clippy::too_many_lines)] // TODO
 pub(crate) fn create_message_loop(
     data_dir: PathBuf,
     file_name_prefix: String,
@@ -127,7 +128,7 @@ pub(crate) fn create_message_loop(
                             invoke_context_from_message_loop::query_status(
                                 &mut context,
                                 reply_tx,
-                                request,
+                                &request,
                             );
                         }
                         Query::RecentRecords(reply_tx, register_group_id, request) => {

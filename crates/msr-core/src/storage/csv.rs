@@ -36,7 +36,7 @@ fn open_readable_file(file_path: &Path) -> IoResult<File> {
     open_options.open(file_path)
 }
 
-pub fn file_info_filter_from_record_prelude_filter(filter: RecordPreludeFilter) -> FileInfoFilter {
+pub fn file_info_filter_from_record_prelude_filter(filter: &RecordPreludeFilter) -> FileInfoFilter {
     let RecordPreludeFilter {
         since_created_at,
         until_created_at,
@@ -206,6 +206,7 @@ where
     }
 }
 
+#[allow(clippy::needless_pass_by_value)] // false positive?
 pub fn reader_into_filtered_record_iter<R, D>(
     reader: CsvReader<R>,
     created_at_origin: SystemTime,
@@ -310,8 +311,10 @@ impl<RI, RO> RecordStorageBase for FileRecordStorage<RI, RO> {
             .read_all_dir_entries_filtered_chronologically(&Default::default())?
         {
             let reader = create_file_reader(&file_info.path)?;
-            let segment_total_records =
-                reader.into_byte_records().filter(|res| res.is_ok()).count();
+            let segment_total_records = reader
+                .into_byte_records()
+                .filter(std::result::Result::is_ok)
+                .count();
             total_records += segment_total_records;
             let segment_total_bytes = file_info.size_in_bytes;
             let segment = StorageSegmentStatistics {
@@ -606,7 +609,7 @@ where
             .rolling_file_config
             .system
             .read_all_dir_entries_filtered_chronologically(
-                &file_info_filter_from_record_prelude_filter(filter.clone()),
+                &file_info_filter_from_record_prelude_filter(filter),
             )?
         {
             if limit <= records.len() {

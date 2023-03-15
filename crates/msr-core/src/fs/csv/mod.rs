@@ -105,6 +105,7 @@ impl RollingFile {
             Err(err) => {
                 if let ErrorKind::Io(err) = err.kind() {
                     let last_os_error_code = err.raw_os_error();
+                    #[allow(clippy::redundant_else)] // false positive?
                     if let Some(last_os_error_code) = last_os_error_code {
                         if self.last_os_error_code == Some(last_os_error_code) {
                             // Only use log level Debug here to avoid spamming the application log!
@@ -168,7 +169,7 @@ impl RollingFileWriter {
         }
     }
 
-    fn start_new_file(&self, starting_at: SystemInstant) -> Result<Option<RollingFile>> {
+    fn start_new_file(&self, starting_at: &SystemInstant) -> Result<Option<RollingFile>> {
         let new_file = self
             .config
             .system
@@ -194,7 +195,7 @@ impl RollingFileWriter {
         }
     }
 
-    fn roll_file_now(&mut self, now: SystemInstant) -> Result<Option<ClosedFileInfo>> {
+    fn roll_file_now(&mut self, now: &SystemInstant) -> Result<Option<ClosedFileInfo>> {
         let new_file = self.start_new_file(now)?;
         if let Some(new_file) = new_file {
             log::info!("Opened new file: {}", new_file.info.path.display());
@@ -255,14 +256,14 @@ impl RollingFileWriter {
             ) {
                 // Try to flush all buffered contents before closing the current file.
                 self.flush()?;
-                let closed_file_info = self.roll_file_now(now.clone())?;
+                let closed_file_info = self.roll_file_now(now)?;
                 let created_new_file = closed_file_info.is_some();
                 (closed_file_info, created_new_file)
             } else {
                 (None, false)
             }
         } else {
-            (self.roll_file_now(now.clone())?, true)
+            (self.roll_file_now(now)?, true)
         };
         if let Some(current_file) = self.current_file.as_mut() {
             if created_new_file {

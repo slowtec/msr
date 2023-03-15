@@ -163,8 +163,8 @@ impl ThreadSchedulingScope {
         }
         Ok(Self {
             native_id,
-            saved_policy,
             saved_priority,
+            saved_policy,
         })
     }
 
@@ -263,7 +263,7 @@ impl Drop for ThreadSchedulingScope {
                 thread::current().id(),
                 self.native_id,
                 err
-            )
+            );
         }
     }
 
@@ -285,7 +285,7 @@ impl Drop for ThreadSchedulingScope {
 fn thread_fn<W>(
     context: &mut Context<W>,
     thread_scheduling: ThreadScheduling,
-    shared_state: Arc<SharedState>,
+    shared_state: &SharedState,
 ) -> Result<()>
 where
     W: Worker,
@@ -461,7 +461,7 @@ where
                 move || {
                     // The function parameters need to be mutable within the real-time thread
                     let mut context = context;
-                    let result = thread_fn(&mut context, thread_scheduling, shared_state);
+                    let result = thread_fn(&mut context, thread_scheduling, &shared_state);
                     let context = context;
                     TerminatedThread { result, context }
                 }
@@ -481,8 +481,7 @@ where
         log::debug!("Joining thread");
         let joined_thread = join_handle
             .join()
-            .map(JoinedThread::Terminated)
-            .unwrap_or_else(JoinedThread::JoinError);
+            .map_or_else(JoinedThread::JoinError, JoinedThread::Terminated);
         debug_assert_eq!(State::Terminating, shared_state.load_state());
         joined_thread
     }

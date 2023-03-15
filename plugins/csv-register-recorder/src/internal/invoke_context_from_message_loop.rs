@@ -32,6 +32,7 @@ pub(crate) fn command_replace_config(
     send_reply(reply_tx, response);
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn command_replace_register_group_config(
     context: &mut Context,
     event_pubsub: &EventPubSub,
@@ -78,6 +79,7 @@ pub(crate) fn command_switch_state(
     send_reply(reply_tx, response);
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn command_record_observed_register_group_values(
     context: &mut Context,
     reply_tx: ResultSender<()>,
@@ -101,7 +103,7 @@ pub(crate) fn command_shutdown(reply_tx: ResultSender<()>) {
 }
 
 pub(crate) fn query_config(context: &Context, reply_tx: ResultSender<Config>) {
-    let response = task::block_in_place(|| Ok(context.config().to_owned()));
+    let response = task::block_in_place(|| Ok(context.config().clone()));
     send_reply(reply_tx, response);
 }
 
@@ -118,7 +120,7 @@ pub(crate) fn query_register_group_config(
 pub(crate) fn query_status(
     context: &mut Context,
     reply_tx: ResultSender<Status>,
-    request: query::StatusRequest,
+    request: &query::StatusRequest,
 ) {
     let response = task::block_in_place(|| {
         let query::StatusRequest {
@@ -126,7 +128,7 @@ pub(crate) fn query_status(
             with_storage_statistics,
         } = request;
         context
-            .status(with_register_groups, with_storage_statistics)
+            .status(*with_register_groups, *with_storage_statistics)
             .map_err(|err| {
                 log::warn!("Failed to query status: {}", err);
                 err
@@ -135,6 +137,7 @@ pub(crate) fn query_status(
     send_reply(reply_tx, response);
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn query_recent_records(
     context: &mut Context,
     reply_tx: ResultSender<Vec<StoredRegisterRecord>>,

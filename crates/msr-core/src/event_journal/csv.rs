@@ -134,7 +134,7 @@ impl RecordStorage for FileRecordStorage {
         for file_info in self
             .inner
             .read_all_dir_entries_filtered_chronologically(
-                &csv::file_info_filter_from_record_prelude_filter(filter.prelude.clone()),
+                &csv::file_info_filter_from_record_prelude_filter(&filter.prelude),
             )?
             .into_iter()
             .map(RollingFileInfo::from)

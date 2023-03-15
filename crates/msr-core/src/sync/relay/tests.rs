@@ -14,7 +14,7 @@ struct CapturedNotifications<T> {
 }
 
 fn capture_notifications_fn<T>(
-    relay: Arc<Relay<T>>,
+    relay: &Relay<T>,
     max_number_of_notifications: usize,
 ) -> CapturedNotifications<T> {
     let mut number_of_notifications = 0;
@@ -42,14 +42,12 @@ fn wait_for_timeout_zero_empty() {
 }
 
 #[test]
-fn wait_for_timeout_zero_ready() -> anyhow::Result<()> {
+fn wait_for_timeout_zero_ready() {
     let relay = Relay::default();
 
     relay.replace_notify_one(());
 
     assert!(relay.wait_for(Duration::ZERO).is_some());
-
-    Ok(())
 }
 
 #[test]
@@ -98,7 +96,7 @@ fn capture_notifications_concurrently() {
 
     let thread = std::thread::spawn({
         let relay = Arc::clone(&relay);
-        move || capture_notifications_fn(relay, rounds)
+        move || capture_notifications_fn(&relay, rounds)
     });
 
     for i in 1..=rounds {

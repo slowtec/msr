@@ -178,6 +178,7 @@ pub(crate) trait RecordRepo {
     fn total_record_count(&self) -> usize;
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn create_register_group_contexts(
     data_path: &Path,
     file_name_prefix: String,
@@ -406,7 +407,7 @@ impl Context {
                             observed_register_values
                                 .register_values
                                 .iter()
-                                .map(|v| v.as_ref().map(|v| v.to_type())),
+                                .map(|v| v.as_ref().map(msr_core::Value::to_type)),
                         )
                     {
                         if let Some(actual_type) = actual_type {

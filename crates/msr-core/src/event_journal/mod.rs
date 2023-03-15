@@ -259,7 +259,7 @@ impl ReadableRecordPrelude for Record {
 
 impl WritableRecordPrelude for Record {
     fn set_created_at_offset(&mut self, created_at_offset: CreatedAtOffset) {
-        self.prelude.set_created_at_offset(created_at_offset)
+        self.prelude.set_created_at_offset(created_at_offset);
     }
 }
 

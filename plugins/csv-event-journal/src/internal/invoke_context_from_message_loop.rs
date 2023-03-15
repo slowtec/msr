@@ -82,10 +82,11 @@ pub(crate) fn command_shutdown(_context: &mut Context, reply_tx: ResultSender<()
 }
 
 pub(crate) fn query_config(context: &Context, reply_tx: ResultSender<Config>) {
-    let result = task::block_in_place(|| Ok(context.config().to_owned()));
+    let result = task::block_in_place(|| Ok(context.config().clone()));
     send_reply(reply_tx, result);
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn query_status(
     context: &mut Context,
     reply_tx: ResultSender<Status>,
@@ -103,6 +104,7 @@ pub(crate) fn query_status(
     send_reply(reply_tx, result.map_err(Into::into));
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn query_recent_records(
     context: &mut Context,
     reply_tx: ResultSender<Vec<StoredRecord>>,

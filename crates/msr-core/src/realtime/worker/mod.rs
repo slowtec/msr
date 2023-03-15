@@ -28,7 +28,7 @@ pub enum CompletionStatus {
 
 /// Callback interface for performing work under real-time constraints
 ///
-/// All invocations between start_working() and finish_working()
+/// All invocations between `start_working`() and `finish_working`()
 /// will happen on the same thread, including those two clamping functions.
 ///
 /// ```puml

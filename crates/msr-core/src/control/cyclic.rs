@@ -118,8 +118,9 @@ pub fn skip_missed_cycles(
     }
     // We missed at least 1 entire cycle
     let missed_cycles = elapsed_cycles.floor();
-    debug_assert!(missed_cycles <= u32::MAX as f64);
-    let missed_cycles = missed_cycles.min(u32::MAX as f64) as u32;
+    debug_assert!(missed_cycles <= f64::from(u32::MAX));
+    #[allow(clippy::cast_sign_loss)]
+    let missed_cycles = missed_cycles.min(f64::from(u32::MAX)) as u32;
     // Adjust the deadline of the previous cycle
     let skipped_cycles_duration = missed_cycles * cycle_time;
     Err((
@@ -133,6 +134,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::too_many_lines)] // TODO
     fn should_skip_missed_cycles() {
         let cycle_time = Duration::from_millis(2);
         let half_cycle_time = cycle_time / 2;

@@ -83,7 +83,7 @@ pub struct Record<Value> {
 
 impl<Value> WritableRecordPrelude for Record<Value> {
     fn set_created_at_offset(&mut self, created_at_offset: CreatedAtOffset) {
-        self.prelude.set_created_at_offset(created_at_offset)
+        self.prelude.set_created_at_offset(created_at_offset);
     }
 }
 
@@ -114,7 +114,7 @@ impl StoredRecordPrelude {
 
     // Only used when a storage backend like CSV is enabled
     #[allow(dead_code)]
-    fn restore(created_at_origin: SystemTime, prelude: RecordPrelude) -> Self {
+    fn restore(created_at_origin: SystemTime, prelude: &RecordPrelude) -> Self {
         let created_at = prelude
             .created_at_offset
             .system_time_from_origin(created_at_origin);
@@ -241,7 +241,7 @@ impl<RegisterValue> StoredRecord<RegisterValue> {
             prelude,
             observation,
         } = record;
-        let prelude = StoredRecordPrelude::restore(created_at_origin, prelude);
+        let prelude = StoredRecordPrelude::restore(created_at_origin, &prelude);
         Self {
             prelude,
             observation,

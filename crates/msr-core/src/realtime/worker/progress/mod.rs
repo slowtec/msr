@@ -95,8 +95,8 @@ impl AtomicState for AtomicProgressHint {
                 Ordering::AcqRel,
                 Ordering::Acquire,
             )
-            .map(|_previous_value| {
-                debug_assert_eq!(expected_value, _previous_value);
+            .map(|previous_value| {
+                debug_assert_eq!(expected_value, previous_value);
                 if desired_value == expected_value {
                     SwitchAtomicStateOk::Ignored
                 } else {
@@ -159,6 +159,7 @@ impl AtomicProgressHint {
     ///
     /// Currently, finishing is permitted in any state. But this
     /// may change in the future.
+    #[allow(clippy::unnecessary_wraps)] // Result
     fn finish(&self) -> SwitchAtomicStateResult<ProgressHint> {
         Ok(self.switch_to_desired(ProgressHint::Finish))
     }
@@ -397,7 +398,7 @@ impl ProgressHintReceiver {
     /// a hard real-time context! The sending threads of the notification
     /// could cause a priority inversion.
     pub fn wait(&self) {
-        self.handover.wait()
+        self.handover.wait();
     }
 
     /// Wait for a progress hint update notification with a timeout (blocking)
@@ -456,7 +457,7 @@ impl ProgressHintReceiver {
         let mut latest_progress_hint = self.handover.load();
         while latest_progress_hint == ProgressHint::Suspend {
             self.handover.wait();
-            latest_progress_hint = self.handover.load()
+            latest_progress_hint = self.handover.load();
         }
         latest_progress_hint
     }

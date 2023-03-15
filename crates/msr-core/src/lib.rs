@@ -6,11 +6,14 @@
 #![warn(missing_debug_implementations)]
 #![warn(unreachable_pub)]
 #![warn(unsafe_code)]
-#![warn(clippy::all)]
-#![warn(clippy::explicit_deref_methods)]
-#![warn(clippy::explicit_into_iter_loop)]
-#![warn(clippy::explicit_iter_loop)]
-#![warn(clippy::must_use_candidate)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::clone_on_ref_ptr)]
+#![allow(clippy::default_trait_access)]
+#![allow(clippy::enum_glob_use)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)] // TODO
+#![allow(clippy::cast_possible_truncation)] // TODO
+#![allow(clippy::cast_possible_wrap)] // TODO
 #![warn(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(not(test), deny(clippy::panic_in_result_fn))]
 #![cfg_attr(not(debug_assertions), deny(clippy::used_underscore_binding))]

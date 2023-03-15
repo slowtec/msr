@@ -1,4 +1,4 @@
-use super::*;
+use super::{Config, State};
 
 #[derive(Debug, Clone)]
 pub enum Event {
