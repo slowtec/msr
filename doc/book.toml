@@ -1,0 +1,15 @@
+[book]
+title = "MSR - Industrial Automation Toolbox"
+authors = ["slowtec GmbH"]
+language = "en"
+multilingual = false
+src = "src"
+
+[preprocessor.plantuml]
+plantuml-cmd = "plantuml"
+
+[output.html]
+git-repository-url = "https://github.com/slowtec/msr"
+edit-url-template = "https://github.com/slowtec/msr/edit/main/doc/{path}"
+
+[output.linkcheck]
