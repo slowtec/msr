@@ -43,7 +43,7 @@ Here are some key features of the **MSR** system:
   The complete MSR system is licensed under either of
   [MIT License](http://opensource.org/licenses/MIT) or
   [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
-   at your option.
+  at your option.
 
 ## Contributing
 

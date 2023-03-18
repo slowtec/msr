@@ -4,8 +4,8 @@ There are mainly three kind of components:
 
 1. **Web**: Connection to the outside world with a public API
 2. **Usecases**: Implementation of application specific usecases
-3. **Plugins**: Independend components that focus on specifc aspects
-     (e.g. recording or fieldbus communication) 
+3. **Plugins**: Independent components that focus on specific aspects
+   (e.g. recording or fieldbus communication)
 
 The diagram below shows the dependencies of the different component layers:
 

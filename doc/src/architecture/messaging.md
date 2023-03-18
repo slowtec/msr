@@ -9,11 +9,11 @@ Peer-to-peer messaging is bidirectional while broadcast messaging is strictly un
 
 ## Peer-to-peer (P2P)
 
-Peer-to-peer messaging follows a request/response style. It involves *multiple producers* that send requests to a *single consumer*. The consumer receives and processes requests. It sends a response or reply back to the same producer from which it has sent the request.
+Peer-to-peer messaging follows a request/response style. It involves _multiple producers_ that send requests to a _single consumer_. The consumer receives and processes requests. It sends a response or reply back to the same producer from which it has sent the request.
 
-Plugins receive requests in form of *commands*  and *queries*. Queries are supposed to be idempotent, i.e. neither do they affect the state of the plugin nor do they have any other, observable side effects. Commands may do not provide any of those guarantees. In contrast to the strict separation between commands and queries in a CQRS architecture both request types may have a response.
+Plugins receive requests in form of _commands_ and _queries_. Queries are supposed to be idempotent, i.e. neither do they affect the state of the plugin nor do they have any other, observable side effects. Commands may do not provide any of those guarantees. In contrast to the strict separation between commands and queries in a CQRS architecture both request types may have a response.
 
-All requests are processed sequentially one after another, i.e. message processing is not interrupted. Plugins may spawn additional *tasks* internally to allow the execution of long running, concurrent operations.
+All requests are processed sequentially one after another, i.e. message processing is not interrupted. Plugins may spawn additional _tasks_ internally to allow the execution of long running, concurrent operations.
 
 ## Broadcast
 
@@ -25,10 +25,10 @@ Broadcast channels have a limited capacity and slow receivers might miss message
 
 ### Event Dispatch
 
-Plugins shall not receive and process events from other plugins directly. Instead intermediate *mediators* are installed in between the plugins that receive events from one plugin and transform them into commands for another plugin. Those mediators are implemented as lightweight, asynchronous tasks.
+Plugins shall not receive and process events from other plugins directly. Instead intermediate _mediators_ are installed in between the plugins that receive events from one plugin and transform them into commands for another plugin. Those mediators are implemented as lightweight, asynchronous tasks.
 
 **Example**:
-On startup the broadcast event channel of each plugin is wired with an asynchronous task that is responsible for recording selected events in the journal. Those mediators know how to filter and transform received events into journal entries and send commands for writing those entries to the *Journal* plugin.
+On startup the broadcast event channel of each plugin is wired with an asynchronous task that is responsible for recording selected events in the journal. Those mediators know how to filter and transform received events into journal entries and send commands for writing those entries to the _Journal_ plugin.
 
 ```plantuml
 @startuml

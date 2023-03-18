@@ -9,9 +9,9 @@ version.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-anyhow = "1.0.69"
+anyhow = "1.0.70"
 log = "0.4.17"
-thiserror = "1.0.39"
+thiserror = "1.0.40"
 tokio = { version = "1.26.0", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies

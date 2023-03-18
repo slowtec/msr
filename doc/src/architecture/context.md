@@ -1,6 +1,6 @@
 # Context
 
-The diagrom below shows the *general* context of the MSR system.
+The diagrom below shows the _general_ context of the MSR system.
 
 ```plantuml
 @startuml
