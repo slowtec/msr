@@ -11,7 +11,7 @@ rust-version.workspace = true
 [dependencies]
 log = "0.4.17"
 thiserror = "1.0.40"
-tokio = { version = "1.26.0", default-features = false, features = ["sync"] }
+tokio = { version = "1.27.0", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
 msr-core = "=0.3.6"

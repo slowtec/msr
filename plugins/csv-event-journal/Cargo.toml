@@ -12,7 +12,7 @@ rust-version.workspace = true
 anyhow = "1.0.70"
 log = "0.4.17"
 thiserror = "1.0.40"
-tokio = { version = "1.26.0", default-features = false, features = ["rt-multi-thread", "sync"] }
+tokio = { version = "1.27.0", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 # Workspace dependencies
 msr-core = { version = "=0.3.6", features = ["csv-event-journal"] }
