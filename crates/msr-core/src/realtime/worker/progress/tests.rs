@@ -126,6 +126,7 @@ fn progress_hint_sender_receiver_attach_detach() -> anyhow::Result<()> {
     assert_eq!(ProgressHint::Suspend, rx.load());
 
     // Attach and test 2nd sender by cloning the 1st sender
+    #[allow(clippy::redundant_clone)]
     let tx2 = tx1.clone();
     assert!(tx2.is_attached());
     assert_eq!(
