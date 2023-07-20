@@ -9,11 +9,11 @@ version.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-anyhow = "1.0.71"
+anyhow = "1.0.72"
 bs58 = { version = "0.5.0", default-features = false, features = ["std"] }
 log = "0.4.19"
-thiserror = "1.0.40"
-tokio = { version = "1.28.2", default-features = false, features = ["rt-multi-thread"] }
+thiserror = "1.0.43"
+tokio = { version = "1.29.1", default-features = false, features = ["rt-multi-thread"] }
 
 # Workspace dependencies
 msr-core = { version = "=0.3.6", features = ["csv-register-recorder"] }

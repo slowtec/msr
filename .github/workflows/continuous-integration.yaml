@@ -35,7 +35,7 @@ jobs:
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          # Distinguished by the action name to avoid sharing across different actions!
+          # Distinguished by the action name to avoid sharing between different actions.
           shared-key: "continuous-integration"
 
       - name: Build tests

@@ -10,8 +10,8 @@ rust-version.workspace = true
 
 [dependencies]
 log = "0.4.19"
-thiserror = "1.0.40"
-tokio = { version = "1.28.2", default-features = false, features = ["sync"] }
+thiserror = "1.0.43"
+tokio = { version = "1.29.1", default-features = false, features = ["sync"] }
 
 # Workspace dependencies
 msr-core = "=0.3.6"
