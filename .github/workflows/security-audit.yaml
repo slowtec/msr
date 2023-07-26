@@ -14,15 +14,14 @@ on:
   #  - cron: '0 0 * * *'
 
 jobs:
-  security-audit:
+  run:
     runs-on: ubuntu-latest
     steps:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-audit
-        run: |
-          cargo install cargo-audit
+        run: cargo install cargo-audit
 
       - uses: actions/checkout@v3
 
@@ -32,9 +31,10 @@ jobs:
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          # Distinguished by the action name to avoid sharing between different actions.
-          shared-key: "security-audit"
+          # The cache should not be shared between different workflows and jobs.
+          shared-key: ${{ github.workflow }}-${{ github.job }}
+          # Two jobs might share the same default target but have different build targets.
+          key: ${{ matrix.target }}
 
       - name: Run security audit
-        run: |
-          cargo audit --deny unsound --deny yanked
+        run: cargo audit --deny unsound --deny yanked

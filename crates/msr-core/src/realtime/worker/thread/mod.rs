@@ -173,7 +173,7 @@ impl ThreadSchedulingScope {
         log::debug!("Entering real-time scope");
         let native_id = thread_priority::thread_native_id();
         let thread_id = thread::current().id();
-        let saved_priority = thread_priority::unix::thread_priority().map_err(|err| {
+        let saved_priority = thread_priority::unix::get_thread_priority().map_err(|err| {
             anyhow::anyhow!(
                 "Failed to save the priority of thread {:?} ({:?}): {:?}",
                 thread_id,
@@ -209,7 +209,7 @@ impl ThreadSchedulingScope {
     fn maximize_current_thread_priority() -> anyhow::Result<(NativeThreadId, ThreadPriority)> {
         let native_id = thread_priority::thread_native_id();
         let thread_id = thread::current().id();
-        let saved_priority = thread_priority::unix::thread_priority().map_err(|err| {
+        let saved_priority = thread_priority::unix::get_thread_priority().map_err(|err| {
             anyhow::anyhow!(
                 "Failed to save the priority of thread {:?} ({:?}): {:?}",
                 thread_id,

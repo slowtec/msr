@@ -1,0 +1,4 @@
+# Required for cross-compiling ARMv7 on x86-64
+# See also: <https://github.com/rust-lang/rust/issues/28924>
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
