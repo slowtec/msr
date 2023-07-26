@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow
+
+name: build-and-test
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+
+jobs:
+  run:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner_os: macos-latest
+            # Runner (x86-64) and target are not compatible.
+            run_tests: false
+          - target: armv7-unknown-linux-gnueabihf
+            runner_os: ubuntu-latest
+            # Runner (x86-64) and target are not compatible.
+            run_tests: false
+          - target: x86_64-pc-windows-msvc
+            runner_os: windows-latest
+            run_tests: true
+          - target: x86_64-unknown-linux-musl
+            runner_os: ubuntu-latest
+            run_tests: true
+
+    runs-on: ${{ matrix.runner_os }}
+
+    steps:
+      - name: Install build tools for musl libc
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: >+
+          sudo apt update &&
+          sudo apt -y install
+          musl-tools
+
+      - name: Install build tools for ARMv7
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: >+
+          sudo apt update &&
+          sudo apt -y install
+          gcc-arm-linux-gnueabihf
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Checkout the repository before the remaining steps that depend on it.
+      # All preceding steps are independent of the repository contents.
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
+      - name: Cache Rust toolchain and build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          # The cache should not be shared between different workflows and jobs.
+          shared-key: ${{ github.workflow }}-${{ github.job }}
+          # Two jobs might share the same default target but have different build targets.
+          key: ${{ matrix.target }}
+
+      - name: Build tests with all features enabled
+        run: >-
+          cargo test --locked --workspace --all-targets --all-features --target ${{ matrix.target }}
+          --no-run
+
+      - name: Run tests with all features enabled
+        if: matrix.run_tests
+        run: >-
+          cargo test --locked --workspace --all-targets --all-features --target ${{ matrix.target }}
+          -- --nocapture --quiet
