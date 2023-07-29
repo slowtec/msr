@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::Result;
-use thread_priority::{ThreadId as NativeThreadId, ThreadPriority, ThreadSchedulePolicy};
+use thread_priority::{ThreadId as NativeThreadId, ThreadPriority};
 
 use super::{progress::ProgressHintReceiver, CompletionStatus, Worker};
 
@@ -88,8 +88,8 @@ struct ThreadSchedulingScope {
     native_id: NativeThreadId,
     saved_priority: ThreadPriority,
 
-    #[cfg(target_os = "linux")]
-    saved_policy: ThreadSchedulePolicy,
+    #[cfg(target_family = "unix")]
+    saved_policy: thread_priority::ThreadSchedulePolicy,
 }
 
 // TODO: Prevent passing of instances to different threads
@@ -97,26 +97,25 @@ struct ThreadSchedulingScope {
 //impl !Send for ThreadSchedulingScope {}
 
 impl ThreadSchedulingScope {
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_family = "windows"))]
     fn enter() -> anyhow::Result<Self> {
         log::debug!("Entering real-time scope");
         let native_id = thread_priority::thread_native_id();
         let thread_id = thread::current().id();
-        let saved_policy = thread_priority::unix::thread_schedule_policy().map_err(|err| {
+        let saved_policy = thread_priority::thread_schedule_policy().map_err(|err| {
             anyhow::anyhow!(
                 "Failed to save the thread scheduling policy of the current process: {:?}",
                 err,
             )
         })?;
-        let saved_priority =
-            thread_priority::unix::get_thread_priority(native_id).map_err(|err| {
-                anyhow::anyhow!(
-                    "Failed to save the priority of thread {:?} ({:?}): {:?}",
-                    thread_id,
-                    native_id,
-                    err,
-                )
-            })?;
+        let saved_priority = thread_priority::get_thread_priority(native_id).map_err(|err| {
+            anyhow::anyhow!(
+                "Failed to save the priority of thread {:?} ({:?}): {:?}",
+                thread_id,
+                native_id,
+                err,
+            )
+        })?;
         let adjusted_priority = ThreadPriority::Max;
         if adjusted_priority != saved_priority {
             log::debug!(
@@ -127,9 +126,9 @@ impl ThreadSchedulingScope {
                 adjusted_priority
             );
         }
-        let adjusted_policy = thread_priority::unix::ThreadSchedulePolicy::Realtime(
+        let adjusted_policy = thread_priority::ThreadSchedulePolicy::Realtime(
             // Non-preemptive scheduling (in contrast to RoundRobin)
-            thread_priority::unix::RealtimeThreadSchedulePolicy::Fifo,
+            thread_priority::RealtimeThreadSchedulePolicy::Fifo,
         );
         if adjusted_policy != saved_policy {
             log::debug!(
@@ -140,7 +139,7 @@ impl ThreadSchedulingScope {
                 adjusted_policy
             );
         }
-        if let Err(err) = thread_priority::unix::set_thread_priority_and_policy(
+        if let Err(err) = thread_priority::set_thread_priority_and_policy(
             native_id,
             adjusted_priority,
             adjusted_policy,
@@ -168,48 +167,11 @@ impl ThreadSchedulingScope {
         })
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn enter() -> anyhow::Result<Self> {
-        log::debug!("Entering real-time scope");
-        let native_id = thread_priority::thread_native_id();
-        let thread_id = thread::current().id();
-        let saved_priority = thread_priority::unix::get_thread_priority().map_err(|err| {
-            anyhow::anyhow!(
-                "Failed to save the priority of thread {:?} ({:?}): {:?}",
-                thread_id,
-                native_id,
-                err,
-            )
-        })?;
-        let adjusted_priority = ThreadPriority::Max;
-        if adjusted_priority != saved_priority {
-            log::debug!(
-                "Adjusting priority of thread {:?} ({:?}): {:?} -> {:?}",
-                thread_id,
-                native_id,
-                saved_priority,
-                adjusted_priority
-            );
-        }
-        thread_priority::set_current_thread_priority(adjusted_priority).map_err(|err| {
-            anyhow::anyhow!(
-                "Failed to adjust priority of thread {:?} ({:?}): {:?}",
-                thread_id,
-                native_id,
-                err
-            )
-        })?;
-        Ok(Self {
-            native_id,
-            saved_priority,
-        })
-    }
-
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_family = "windows")]
     fn maximize_current_thread_priority() -> anyhow::Result<(NativeThreadId, ThreadPriority)> {
         let native_id = thread_priority::thread_native_id();
         let thread_id = thread::current().id();
-        let saved_priority = thread_priority::unix::get_thread_priority().map_err(|err| {
+        let saved_priority = thread_priority::get_thread_priority(native_id).map_err(|err| {
             anyhow::anyhow!(
                 "Failed to save the priority of thread {:?} ({:?}): {:?}",
                 thread_id,
@@ -237,8 +199,9 @@ impl ThreadSchedulingScope {
         })?;
         Ok((native_id, saved_priority))
     }
-    #[cfg(not(target_os = "linux"))]
-    pub fn enter() -> anyhow::Result<Self> {
+
+    #[cfg(target_family = "windows")]
+    fn enter() -> anyhow::Result<Self> {
         log::debug!("Entering real-time scope");
         let (native_id, saved_priority) = Self::maximize_current_thread_priority()?;
         Ok(Self {
@@ -249,11 +212,11 @@ impl ThreadSchedulingScope {
 }
 
 impl Drop for ThreadSchedulingScope {
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_family = "windows"))]
     fn drop(&mut self) {
         log::debug!("Leaving real-time scope");
         assert_eq!(self.native_id, thread_priority::thread_native_id());
-        if let Err(err) = thread_priority::unix::set_thread_priority_and_policy(
+        if let Err(err) = thread_priority::set_thread_priority_and_policy(
             self.native_id,
             self.saved_priority,
             self.saved_policy,
@@ -267,7 +230,7 @@ impl Drop for ThreadSchedulingScope {
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_family = "windows")]
     fn drop(&mut self) {
         log::debug!("Leaving real-time scope");
         assert_eq!(self.native_id, thread_priority::thread_native_id());
