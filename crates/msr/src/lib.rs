@@ -6,11 +6,11 @@
 #![warn(missing_debug_implementations)]
 #![warn(unreachable_pub)]
 #![warn(unsafe_code)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::clone_on_ref_ptr)]
 #![warn(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(not(test), deny(clippy::panic_in_result_fn))]
-#![cfg_attr(not(debug_assertions), deny(clippy::used_underscore_binding))]
+#![warn(clippy::pedantic)]
+// Additional restrictions
+#![warn(clippy::clone_on_ref_ptr)]
+#![warn(clippy::self_named_module_files)]
 
 pub use msr_core as core;
 
