@@ -42,14 +42,14 @@ jobs:
     steps:
       - name: Install build tools for musl libc
         if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: >+
+        run: >-
           sudo apt update &&
           sudo apt -y install
           musl-tools
 
       - name: Install build tools for ARMv7
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        run: >+
+        run: >-
           sudo apt update &&
           sudo apt -y install
           gcc-arm-linux-gnueabihf
