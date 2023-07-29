@@ -9,9 +9,10 @@ on:
   push:
     paths:
       - "**/Cargo.toml"
+  schedule:
+    # Weekly, i.e. on Sunday at 04:42 UTC
+    - cron: "42 4 * * 0"
   workflow_dispatch:
-  #schedule:
-  #  - cron: '0 0 * * *'
 
 jobs:
   run:
