@@ -8,7 +8,7 @@ fmt:
     cargo fmt --all
 
 # Run clippy for various feature combinations: default, no default, all
-check:
+clippy:
     cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
     cargo clippy --locked --workspace --no-deps --no-default-features --all-targets -- -D warnings
     cargo clippy --locked --workspace --no-deps --all-features --all-targets -- -D warnings
@@ -34,7 +34,7 @@ setup:
         cargo-edit \
         cargo-hack
     pip install -U pre-commit
-    pre-commit install --hook-type commit-msg --hook-type pre-commit
+    #pre-commit install --hook-type commit-msg --hook-type pre-commit
 
 # Upgrade (and update) dependencies
 upgrade: setup
