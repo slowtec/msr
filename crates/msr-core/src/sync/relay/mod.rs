@@ -70,6 +70,7 @@ impl<T> Relay<T> {
     ///
     /// Returns the previous value or `None`. If `None` is returned
     /// then a notification has been triggered.
+    #[allow(clippy::missing_panics_doc)]
     pub fn replace_notify_one(&self, value: T) -> Option<T> {
         let mut guard = self.mutex.lock().expect("not poisoned");
         let replaced = guard.replace(value);
@@ -88,6 +89,7 @@ impl<T> Relay<T> {
     ///
     /// Returns the previous value or `None`. If `None` is returned
     /// then a notification has been triggered.
+    #[allow(clippy::missing_panics_doc)]
     pub fn replace_notify_all(&self, value: T) -> Option<T> {
         let mut guard = self.mutex.lock().expect("not poisoned");
         let replaced = guard.replace(value);
@@ -107,6 +109,7 @@ impl<T> Relay<T> {
     /// Resets the internal state on return.
     ///
     /// Returns the previous value or `None`.
+    #[allow(clippy::missing_panics_doc)]
     pub fn take(&self) -> Option<T> {
         let mut guard = self.mutex.lock().expect("not poisoned");
         guard.take()
@@ -117,6 +120,7 @@ impl<T> Relay<T> {
     /// Resets the internal state on return.
     ///
     /// Returns the previous value.
+    #[allow(clippy::missing_panics_doc)]
     pub fn wait(&self) -> T {
         let mut guard = self.mutex.lock().expect("not poisoned");
         // The loop is required to handle spurious wakeups
@@ -161,6 +165,7 @@ impl<T> Relay<T> {
     /// need to be reset.
     ///
     /// Returns the value if available or `None` if the deadline expired.
+    #[allow(clippy::missing_panics_doc)]
     pub fn wait_until(&self, deadline: Instant) -> Option<T> {
         let mut guard = self.mutex.lock().expect("not poisoned");
         // The loop is required to handle spurious wakeups

@@ -62,7 +62,7 @@ jobs:
       # Checkout the repository before the remaining steps that depend on it.
       # All preceding steps are independent of the repository contents.
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate Cargo.lock
         run: cargo generate-lockfile

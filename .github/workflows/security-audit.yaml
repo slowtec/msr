@@ -24,7 +24,7 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Generate Cargo.lock
         run: cargo generate-lockfile

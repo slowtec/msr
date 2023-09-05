@@ -19,10 +19,10 @@ default = []
 plugin = ["msr-plugin"]
 
 [dev-dependencies]
-anyhow = "1.0.72"
+anyhow = "1.0.75"
 env_logger = "0.10.0"
-log = "0.4.19"
-tokio = { version = "1.29.1", features = ["full"] }
+log = "0.4.20"
+tokio = { version = "1.32.0", features = ["full"] }
 
 # Workspace dev-dependencies
 msr-plugin = "=0.3.6"

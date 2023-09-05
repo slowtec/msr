@@ -9,19 +9,19 @@ version.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-anyhow = "1.0.72"
-base64 = "0.21.2"
-log = "0.4.19"
+anyhow = "1.0.75"
+base64 = "0.21.3"
+log = "0.4.20"
 num-derive = "0.4.0"
 num-traits =  "0.2.16"
-thiserror = "1.0.44"
-time = { version = "0.3.23", features = ["local-offset", "macros", "formatting", "parsing"] }
+thiserror = "1.0.48"
+time = { version = "0.3.28", features = ["local-offset", "macros", "formatting", "parsing"] }
 
 csv = { version = "1.2.2", optional = true, default-features = false }
-serde = { version = "1.0.178", optional = true, default-features = false }
-serde_json = { version = "1.0.104", optional = true, default-features = false }
+serde = { version = "1.0.188", optional = true, default-features = false }
+serde_json = { version = "1.0.105", optional = true, default-features = false }
 thread-priority = { version = "0.13.1", optional = true, default-features = false }
-ulid = { version = "1.0.0", optional = true }
+ulid = { version = "1.0.1", optional = true }
 
 [target.'cfg(loom)'.dependencies]
 loom = "0.6.1"
@@ -38,6 +38,6 @@ csv-register-recorder = ["register-recorder", "csv-storage"]
 realtime-worker-thread = ["thread-priority"]
 
 [dev-dependencies]
-serde_json = "1.0.104"
-tempfile = "3.7.0"
+serde_json = "1.0.105"
+tempfile = "3.8.0"
 msr-core = { path = ".", features = ["full"] }
